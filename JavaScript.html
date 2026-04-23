@@ -197,4 +197,29 @@ function submitNotebookLM() {
     .withFailureHandler(err => { hideLoading(); showAlert("エラー: " + err.message); })
     .saveNotebookLM(data);
 }
+
+// -----------------------------------------------------------------
+// Drive Sync処理
+// -----------------------------------------------------------------
+function submitDriveSync() {
+  const btn = document.getElementById('btn-drivesync');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>同期中... (数分かかる場合があります)';
+  showLoading();
+
+  google.script.run
+    .withSuccessHandler(msg => { 
+      hideLoading(); 
+      showAlert(msg); 
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>同期を実行する';
+    })
+    .withFailureHandler(err => { 
+      hideLoading(); 
+      showAlert("エラー: " + err.message); 
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>同期を実行する';
+    })
+    .syncDriveKnowledge();
+}
 </script>

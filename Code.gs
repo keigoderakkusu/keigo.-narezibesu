@@ -4,6 +4,7 @@
 // ==========================================
 
 const SCRIPT_PROP_GEMINI_KEY = 'GEMINI_API_KEY';
+const SCRIPT_PROP_FOLDER_ID = 'KNOWLEDGE_FOLDER_ID';
 
 /**
  * Webアプリへのアクセス時の処理
@@ -36,7 +37,7 @@ function setupDatabase() {
     'notes': ['ID', '登録日時', 'タグ(Obsidianタグ等)', 'メモ内容'],
     'notebooklm': ['ID', 'ノートブック名', '関連製品', '共有URL', 'Enterprise連携フラグ'],
     'qalogs': ['日時', 'ユーザー入力', 'AI回答内容'],
-    'sources': ['ID', 'ファイル名', 'URL', 'タイプ', '連携日時'] // 将来のDrive連携用拡張枠
+    'sources': ['ID', 'ファイル名', 'URL', 'タイプ', '連携日時', 'テキスト内容'] // Drive連携格納用
   };
 
   for (const sheetName in sheetsConfig) {
@@ -156,6 +157,75 @@ function saveNotebookLM(data) {
 }
 
 // ----------------------------------------------------
+// Drive連携機能 (PDF / Docの自動テキスト化とナレッジ格納)
+// ----------------------------------------------------
+
+function syncDriveKnowledge() {
+  const folderId = PropertiesService.getScriptProperties().getProperty(SCRIPT_PROP_FOLDER_ID);
+  if (!folderId) return "連携エラー: スクリプトプロパティに 'KNOWLEDGE_FOLDER_ID' が設定されていません。";
+
+  try {
+    const folder = DriveApp.getFolderById(folderId);
+    const files = folder.getFiles();
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('sources');
+    
+    // 既存のファイルIDリストを取得して重複処理を防ぐ
+    const existingIds = getSheetData('sources').map(row => String(row['ID']));
+    let addedCount = 0;
+
+    while (files.hasNext()) {
+      const file = files.next();
+      const fileId = file.getId();
+      const mimeType = file.getMimeType();
+      
+      // 既に抽出済みかチェック
+      if (existingIds.includes(fileId)) continue;
+
+      let extractedText = "";
+      let typeName = "";
+
+      // ドキュメント別抽出処理
+      if (mimeType === MimeType.GOOGLE_DOCS) {
+        extractedText = DocumentApp.openById(fileId).getBody().getText();
+        typeName = "Google Docs";
+      } else if (mimeType === MimeType.PLAIN_TEXT || mimeType === MimeType.CSV) {
+        extractedText = file.getBlob().getDataAsString();
+        typeName = "Text/CSV";
+      } else if (mimeType === MimeType.PDF || mimeType === MimeType.JPEG || mimeType === MimeType.PNG) {
+        // PDFや画像のOCR処理（Drive API拡張サービスを有効化している前提）
+        try {
+          const tempDoc = Drive.Files.insert({
+            title: file.getName() + " (Temp OCR)",
+            mimeType: MimeType.GOOGLE_DOCS
+          }, file.getBlob(), {ocr: true});
+          extractedText = DocumentApp.openById(tempDoc.id).getBody().getText();
+          Drive.Files.remove(tempDoc.id); // 一時ファイルを削除
+          typeName = "PDF/Image (OCR)";
+        } catch(ocrErr) {
+          extractedText = "※OCR処理エラー。拡張サービス「Drive API」が有効か確認してください。詳細: " + ocrErr.message;
+          typeName = "OCR Failed";
+        }
+      } else {
+        continue; // 音声や非対応フォーマットはスキップ
+      }
+
+      // トークン節約とセル容量の仕様上、テキスト制限 (安全のため最大文字数30,000程度に)
+      if (extractedText.length > 30000) {
+        extractedText = extractedText.substring(0, 30000) + "\n...(以下略)";
+      }
+
+      const row = [fileId, file.getName(), file.getUrl(), typeName, getCurrentTime(), extractedText];
+      sheet.appendRow(row);
+      addedCount++;
+    }
+
+    return `同期完了: 新たに ${addedCount} 件のドキュメントをAIナレッジに変換しました。`;
+  } catch (e) {
+    return "Driveファイル同期中にエラーが発生しました: " + e.message;
+  }
+}
+
+// ----------------------------------------------------
 // AI ナレッジ検索＆新人ロープレ機能 (Gemini API 連携)
 // ----------------------------------------------------
 
@@ -169,6 +239,7 @@ function processAIQuery(query, mode) {
   const products = getSheetData('products', 100); 
   const meetings = getSheetData('meetings', 30);
   const notes = getSheetData('notes', 30);
+  const sources = getSheetData('sources', 30); // 連携済みPDF・ドキュメント
 
   // AIに渡す社内コンテキスト文字列の構築
   let contextText = "【製品マスタ情報】\n";
@@ -179,6 +250,9 @@ function processAIQuery(query, mode) {
   
   contextText += "\n\n【社内ナレッジメモ】\n";
   contextText += notes.map(n => `- タグ[${n['タグ(Obsidianタグ等)']}] 内容: ${n['メモ内容']}`).join("\n");
+
+  contextText += "\n\n【Driveドキュメント（仕様書・BOM・PDF等）】\n";
+  contextText += sources.map(s => `- [ファイル: ${s['ファイル名']}] (${s['タイプ']})\n  内容抜粋:\n${(s['テキスト内容'] || '').substring(0, 10000)}...`).join("\n\n");
 
   // アプリケーションモードに応じたプロンプトの切り替え
   let systemInstruction = "";
