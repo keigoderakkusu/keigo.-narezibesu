@@ -62,7 +62,8 @@ function setupDatabase() {
     'notes': ['ID', '登録日時', 'タグ(Obsidianタグ等)', 'メモ内容'],
     'notebooklm': ['ID', 'ノートブック名', '関連製品', '共有URL', 'Enterprise連携フラグ'],
     'qalogs': ['日時', 'ユーザー入力', 'AI回答内容'],
-    'sources': ['ID', 'ファイル名', 'URL', 'タイプ', '連携日時', 'テキスト内容'] // Drive連携格納用
+    'sources': ['ID', 'ファイル名', 'URL', 'タイプ', '連携日時', 'テキスト内容'],
+    'goals': ['ID', '登録日時', '対象期間', '目標タイトル', '測定指標(KPI)', '進捗(%)', '達成状況・自己評価', '関連成果ID(議事録等)']
   };
 
   for (const sheetName in sheetsConfig) {
@@ -184,6 +185,68 @@ function deleteRowData(sheetName, id) {
     }
   }
   return "エラー: 対象のIDが見つかりません";
+}
+
+// ----------------------------------------------------
+// キャリア目標・人事評価・スキルアップ管理 API
+// ----------------------------------------------------
+
+function getCareerData() {
+  const goals = getSheetData('goals');
+  const meetings = getSheetData('meetings');
+  
+  // 直近1ヶ月の活動実績を集計
+  const now = new Date();
+  const oneMonthAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+  
+  const recentActivities = meetings.filter(m => {
+    const d = new Date(m['登録日時']);
+    return d > oneMonthAgo;
+  });
+
+  return {
+    goals: goals,
+    stats: {
+      recentMeetings: recentActivities.length,
+      knowledgeCreated: getSheetData('notes').length + getSheetData('sources').length
+    }
+  };
+}
+
+function saveGoal(data) {
+  appendToSheet('goals', [
+    generateId(), getCurrentTime(), data.period, data.title, data.kpi, data.progress, data.eval, data.refId
+  ]);
+  return "キャリア目標を登録しました。";
+}
+
+// ----------------------------------------------------
+// 通勤学習用 音声化リクエスト API (n8n連携)
+// ----------------------------------------------------
+
+function requestAudioConversion(title, text) {
+  const webhookUrl = PropertiesService.getScriptProperties().getProperty('AUDIO_GEN_WEBHOOK_URL');
+  if (!webhookUrl) return "エラー: 音声生成用Webhook URLが設定されていません。";
+
+  const payload = {
+    "title": title,
+    "text": text.substring(0, 5000), // 長すぎるとAPI制限にかかるため
+    "userName": Session.getActiveUser().getEmail()
+  };
+
+  const options = {
+    "method": "post",
+    "contentType": "application/json",
+    "payload": JSON.stringify(payload),
+    "muteHttpExceptions": true
+  };
+
+  try {
+    UrlFetchApp.fetch(webhookUrl, options);
+    return "音声生成をリクエストしました。数分後、Driveの通勤学習フォルダを確認してください。";
+  } catch(e) {
+    return "リクエストエラー: " + e.message;
+  }
 }
 
 // ----------------------------------------------------

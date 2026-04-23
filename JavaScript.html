@@ -6,6 +6,8 @@
 // 初回読み込み時のダッシュボードデータ取得
 document.addEventListener('DOMContentLoaded', () => {
   loadDashboardData();
+  loadManagementData();
+  loadCareerData();
 });
 
 // タブ切り替え処理
@@ -357,10 +359,14 @@ function renderManagementTable(headId, bodyId, sheetData, sheetName) {
     th.textContent = h;
     thead.appendChild(th);
   });
+  // 操作列ヘッダー
+  const thAction = document.createElement('th');
+  thAction.textContent = "操作";
+  thead.appendChild(thAction);
   
   sheetData.rows.forEach(row => {
     const tr = document.createElement('tr');
-    const id = row[0]; // 0列目がID
+    const id = row[0]; 
     
     row.forEach((col, index) => {
       const td = document.createElement('td');
@@ -383,8 +389,65 @@ function renderManagementTable(headId, bodyId, sheetData, sheetName) {
       }
       tr.appendChild(td);
     });
+
+    // 操作列の追加
+    const tdAction = document.createElement('td');
+    tdAction.innerHTML = `
+      <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill" onclick="requestAudio('${row[1] || 'ナレッジ'}', \`${(row[sheetData.headers.indexOf('テキスト内容')] || row[sheetData.headers.indexOf('議事録全文')] || '').replace(/`/g, '\\`')}\`)">
+        <i class="bi bi-headphones"></i> 音声化
+      </button>
+    `;
+    tr.appendChild(tdAction);
+
     tbody.appendChild(tr);
   });
+}
+
+function requestAudio(title, text) {
+  if (!text || text.length < 10) {
+    showAlert("音声化するためのテキストが不足しています。");
+    return;
+  }
+  showLoading();
+  google.script.run
+    .withSuccessHandler(msg => {
+      hideLoading();
+      showAlert(msg);
+    })
+    .requestAudioConversion(title, text);
+}
+
+function loadCareerData() {
+  google.script.run
+    .withSuccessHandler(data => {
+      document.getElementById('career-stat-meetings').textContent = data.stats.recentMeetings;
+      document.getElementById('career-stat-knowledge').textContent = data.stats.knowledgeCreated;
+      
+      const container = document.getElementById('goal-list-container');
+      container.innerHTML = "";
+      if (data.goals.length === 0) {
+        container.innerHTML = "<p class='text-muted p-4 text-center'>目標が登録されていません。</p>";
+        return;
+      }
+      
+      data.goals.forEach(g => {
+        const item = document.createElement('div');
+        item.className = "list-group-item p-3 border-0 bg-light rounded-4 mb-3";
+        item.innerHTML = `
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <h6 class="fw-bold mb-0 text-primary">${g['目標タイトル']}</h6>
+            <span class="badge bg-dark rounded-pill">${g['進捗(%)']}%</span>
+          </div>
+          <div class="progress mb-2" style="height: 6px;">
+            <div class="progress-bar bg-primary" style="width: ${g['進捗(%)']}%"></div>
+          </div>
+          <p class="small text-muted mb-1">KPI: ${g['測定指標(KPI)']}</p>
+          <p class="small text-dark mb-0">${g['達成状況・自己評価'] || '(未評価)'}</p>
+        `;
+        container.appendChild(item);
+      });
+    })
+    .getCareerData();
 }
 
 function updateDataInline(sheetName, id, headerName, newValue, tdElement) {
@@ -403,13 +466,37 @@ function updateDataInline(sheetName, id, headerName, newValue, tdElement) {
     .updateRowData(sheetName, id, headerName, newValue);
 }
 
-// 簡易トースト通知用
 function showToast(message) {
   const toast = document.createElement('div');
   toast.className = 'position-fixed bottom-0 end-0 p-3';
-  toast.style.zIndex = "11";
+  toast.style.zIndex = "1055"; // Bootstrap modal is 1050
   toast.innerHTML = `<div class="toast align-items-center text-white bg-success border-0 show" role="alert"><div class="d-flex"><div class="toast-body">${message}</div></div></div>`;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
+}
+
+function showModal(id) {
+  const m = new bootstrap.Modal(document.getElementById(id));
+  m.show();
+}
+
+function submitGoal() {
+  const data = {
+    title: document.getElementById('goal-title').value,
+    period: document.getElementById('goal-period').value,
+    kpi: document.getElementById('goal-kpi').value,
+    progress: document.getElementById('goal-progress').value,
+    eval: document.getElementById('goal-eval').value
+  };
+  showLoading();
+  google.script.run
+    .withSuccessHandler(msg => {
+      hideLoading();
+      bootstrap.Modal.getInstance(document.getElementById('modal-goal')).hide();
+      showAlert(msg);
+      loadCareerData();
+      document.getElementById('form-goal').reset();
+    })
+    .saveGoal(data);
 }
 </script>

@@ -41,6 +41,9 @@
         <li class="nav-item">
           <a class="nav-link" id="nav-analytics" href="#" onclick="showTab('analytics')"><i class="bi bi-magic text-info me-1"></i>業務分析・Chat</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" id="nav-career" href="#" onclick="showTab('career')"><i class="bi bi-award text-danger me-1"></i>キャリア・人事評価</a>
+        </li>
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
             <i class="bi bi-plus-circle me-1"></i>データ登録
@@ -347,6 +350,56 @@
     </div>
   </div>
 
+  <!-- タブ: キャリア・人事評価 (New) -->
+  <div id="tab-career" class="tab-content d-none">
+    <div class="row g-4 mb-4">
+      <div class="col-md-8">
+        <div class="card border-0 shadow-sm rounded-4">
+          <div class="card-header bg-gradient-brand text-white pt-4 pb-4 px-4 border-bottom-0 rounded-top-4">
+            <h3 class="fw-bold mb-1"><i class="bi bi-award me-2"></i>キャリア目標 & 成果エビデンス</h3>
+            <p class="mb-0 opacity-75 small">目標の進捗を記録し、人事評価でそのまま使える実績リストを作成します。</p>
+          </div>
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold mb-0">現在の目標リスト</h5>
+              <button class="btn btn-sm btn-dark rounded-pill" onclick="showModal('modal-goal')"><i class="bi bi-plus me-1"></i>目標を追加</button>
+            </div>
+            <div id="goal-list-container" class="list-group list-group-flush">
+              <!-- JSで動的生成 -->
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+          <div class="card-body p-4">
+            <h6 class="fw-bold text-muted mb-3"><i class="bi bi-lightning-auto text-warning me-2"></i>直近1ヶ月の実績エビデンス</h6>
+            <div class="d-flex justify-content-between mb-2">
+              <span>商談実施数:</span>
+              <span class="fw-bold text-primary" id="career-stat-meetings">0</span>
+            </div>
+            <div class="d-flex justify-content-between">
+              <span>新規ナレッジ作成数:</span>
+              <span class="fw-bold text-success" id="career-stat-knowledge">0</span>
+            </div>
+            <hr>
+            <p class="small text-muted">※これらは自動集計され、人事考課の際の強力な根拠になります。</p>
+          </div>
+        </div>
+        
+        <div class="card border-0 shadow-sm rounded-4 bg-light">
+          <div class="card-body p-4">
+            <h6 class="fw-bold mb-3"><i class="bi bi-headphones text-danger me-2"></i>通勤学習・音声化予約</h6>
+            <p class="small text-muted mb-3">書類や議事録を「聴く」教材に変換します。「データ管理」タブから対象を選んで音声リクエストをしてください。</p>
+            <div class="text-center">
+               <i class="bi bi-music-note-beamed text-muted opacity-25" style="font-size: 3rem;"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- タブ: NotebookLM登録 -->
   <div id="tab-notebooklm" class="tab-content d-none">
     <div class="card border-0 shadow-sm rounded-4">
@@ -423,6 +476,43 @@
             <!-- JSで動的生成 -->
           </tbody>
         </table>
+      </div>
+    </div>
+  <!-- Modal: 目標追加 -->
+  <div class="modal fade" id="modal-goal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content rounded-4 border-0 shadow">
+        <div class="modal-header bg-dark text-white rounded-top-4">
+          <h5 class="modal-title fw-bold">キャリア目標の新規登録</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <form id="form-goal" onsubmit="event.preventDefault(); submitGoal();">
+            <div class="mb-3">
+              <label class="form-label fw-bold">目標タイトル</label>
+              <input type="text" id="goal-title" class="form-control" required placeholder="部品知識100件マスター">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">対象期間</label>
+              <input type="text" id="goal-period" class="form-control" placeholder="2024年度 上期">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">測定指標 (KPI)</label>
+              <input type="text" id="goal-kpi" class="form-control" placeholder="〇〇のナレッジをXX件作成">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">進捗 (%)</label>
+              <input type="number" id="goal-progress" class="form-control" value="0" min="0" max="100">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">自己評価・エビデンス</label>
+              <textarea id="goal-eval" class="form-control" rows="3" placeholder="人事考課でアピールしたい内容"></textarea>
+            </div>
+            <div class="text-end mt-4">
+              <button type="submit" class="btn btn-primary px-4 fw-bold rounded-pill">保存する</button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   </div>

@@ -21,7 +21,8 @@
 2. ページ下部の「スクリプトプロパティ」で以下を追加します。
    - `GEMINI_API_KEY`: ご自身のGemini APIキー
    - `KNOWLEDGE_FOLDER_ID`: 先ほどコピーしたGoogle DriveのフォルダID
-   - `CHAT_WEBHOOK_URL` (オプション): Google ChatのWebhook URL（業務分析＆チャット通知用）
+   - `CHAT_WEBHOOK_URL` (オプション): Google ChatのWebhook URL
+   - `AUDIO_GEN_WEBHOOK_URL` (オプション): n8nの音声生成用Webhook URL
 
 ### 4. 拡張機能「Drive API」の有効化 (OCR用)
 1. GASエディタ左側の `サービス (+) ` ボタンをクリックします。
