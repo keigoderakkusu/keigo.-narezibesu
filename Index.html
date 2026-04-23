@@ -11,6 +11,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- CSS -->
   <?!= include('CSS'); ?>
 </head>
@@ -29,6 +31,9 @@
       <ul class="navbar-nav ms-auto gap-2">
         <li class="nav-item">
           <a class="nav-link active" id="nav-dashboard" href="#" onclick="showTab('dashboard')"><i class="bi bi-grid-1x2 me-1"></i>ダッシュボード</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="nav-management" href="#" onclick="showTab('management')"><i class="bi bi-table text-success me-1"></i>データ管理(編集・出力)</a>
         </li>
         <li class="nav-item">
           <a class="nav-link" id="nav-ai" href="#" onclick="showTab('ai')"><i class="bi bi-robot text-warning me-1"></i>AI検索・ロープレ</a>
@@ -94,6 +99,28 @@
         <div class="stat-card p-4 rounded-4 shadow-sm border-0 bg-white">
           <h6 class="text-muted fw-bold">管理ノートブック</h6>
           <h2 class="display-6 fw-bold mb-0 pt-0 text-dark" id="stat-notebooks">0</h2>
+        </div>
+      </div>
+    </div>
+    
+    <!-- グラフ・分析エリア -->
+    <div class="row g-4 mb-5">
+      <div class="col-md-6">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+          <div class="card-body p-4">
+            <h6 class="fw-bold text-muted mb-4"><i class="bi bi-graph-up text-primary me-2"></i>商談議事録の登録推移 (直近)</h6>
+            <canvas id="chart-meetings"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+          <div class="card-body p-4">
+            <h6 class="fw-bold text-muted mb-4"><i class="bi bi-pie-chart-fill text-warning me-2"></i>製品ステータス内訳</h6>
+            <div style="max-height: 250px; display: flex; justify-content: center;">
+              <canvas id="chart-products"></canvas>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -347,6 +374,55 @@
             </div>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- タブ: データ・一括管理 (SaaS機能) -->
+  <div id="tab-management" class="tab-content d-none">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3 class="fw-bold text-dark"><i class="bi bi-table text-success me-2"></i>データ管理コンソール</h3>
+      <div class="d-print-none">
+        <button class="btn btn-outline-secondary fw-bold rounded-pill shadow-sm me-2" onclick="loadManagementData();">
+          <i class="bi bi-arrow-clockwise me-1"></i>データ再読込
+        </button>
+        <button class="btn btn-outline-primary fw-bold rounded-pill shadow-sm" onclick="window.print();">
+          <i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF / レポート印刷
+        </button>
+      </div>
+    </div>
+    
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+      <div class="card-header bg-white pt-4 pb-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+        <h5 class="fw-bold mb-0"><i class="bi bi-box text-primary me-2"></i>製品マスタ (Products)</h5>
+        <button class="btn btn-sm btn-dark d-print-none" onclick="exportCSV('table-products-head', 'table-products-body', 'products.csv')"><i class="bi bi-download me-1"></i>CSVダウンロード</button>
+      </div>
+      <div class="card-body p-0 table-responsive" style="max-height: 400px;">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light sticky-top">
+            <tr id="table-products-head"></tr>
+          </thead>
+          <tbody id="table-products-body">
+            <!-- JSで動的生成 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+      <div class="card-header bg-white pt-4 pb-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+        <h5 class="fw-bold mb-0"><i class="bi bi-file-earmark-text text-primary me-2"></i>商談議事録 (Meetings)</h5>
+        <button class="btn btn-sm btn-dark d-print-none" onclick="exportCSV('table-meetings-head', 'table-meetings-body', 'meetings.csv')"><i class="bi bi-download me-1"></i>CSVダウンロード</button>
+      </div>
+      <div class="card-body p-0 table-responsive" style="max-height: 400px;">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light sticky-top">
+            <tr id="table-meetings-head"></tr>
+          </thead>
+          <tbody id="table-meetings-body">
+            <!-- JSで動的生成 -->
+          </tbody>
+        </table>
       </div>
     </div>
   </div>

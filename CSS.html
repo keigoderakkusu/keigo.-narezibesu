@@ -63,6 +63,38 @@ body {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
 }
 
+/* 印刷・PDF出力用スタイル */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  /* メニューやボタンなど不要な要素を非表示 */
+  .navbar, .btn, .d-print-none, .alert {
+    display: none !important;
+  }
+  .card, .glass-card {
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+  .card-header {
+    background: #f8f9fa !important;
+    color: #000 !important;
+    border-bottom: 2px solid #000 !important;
+  }
+  .container {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  /* テーブルの改頁制御 */
+  table { page-break-inside:auto }
+  tr    { page-break-inside:avoid; page-break-after:auto }
+  thead { display:table-header-group }
+}
+
 /* AI回答エリアの装飾 */
 .response-text p {
   margin-bottom: 0.8rem;

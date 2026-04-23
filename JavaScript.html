@@ -253,4 +253,163 @@ function submitAnalytics() {
     })
     .analyzeWorkspaceAndPushChat();
 }
+// -----------------------------------------------------------------
+// データ管理・インライン編集・出力・グラフ機能 (SaaS機能)
+// -----------------------------------------------------------------
+
+function exportCSV(headId, bodyId, filename) {
+  let csv = [];
+  const thead = document.getElementById(headId);
+  if (thead.children.length > 0) {
+    const row = Array.from(thead.children[0].children).map(th => `"${th.innerText.replace(/"/g, '""')}"`);
+    csv.push(row.join(','));
+  }
+  const tbody = document.getElementById(bodyId);
+  for (let i = 0; i < tbody.children.length; i++) {
+    const row = Array.from(tbody.children[i].children).map(td => `"${td.innerText.replace(/"/g, '""')}"`);
+    csv.push(row.join(','));
+  }
+  const blob = new Blob(["\uFEFF" + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+let meetingChartInstance = null;
+let productChartInstance = null;
+
+function renderCharts(allData) {
+  // 1. 商談議事録推移 
+  const meetings = allData.meetings.rows;
+  let dateCounts = {};
+  meetings.forEach(r => {
+    let dStr = r[1] ? String(r[1]).split(' ')[0] : '不明'; // 登録日時
+    dateCounts[dStr] = (dateCounts[dStr] || 0) + 1;
+  });
+  
+  const labelsM = Object.keys(dateCounts).slice(-10); // 直近10期
+  const dataM = labelsM.map(k => dateCounts[k]);
+
+  if (meetingChartInstance) meetingChartInstance.destroy();
+  meetingChartInstance = new Chart(document.getElementById('chart-meetings'), {
+    type: 'line',
+    data: {
+      labels: labelsM,
+      datasets: [{
+        label: '商談件数',
+        data: dataM,
+        borderColor: '#4361ee',
+        backgroundColor: 'rgba(67, 97, 238, 0.1)',
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+
+  // 2. 製品ステータス割合
+  const products = allData.products.rows;
+  let statusCounts = {};
+  products.forEach(r => {
+    let st = r[3] || '未設定'; // ステータス列
+    statusCounts[st] = (statusCounts[st] || 0) + 1;
+  });
+  
+  if (productChartInstance) productChartInstance.destroy();
+  productChartInstance = new Chart(document.getElementById('chart-products'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(statusCounts),
+      datasets: [{
+        data: Object.values(statusCounts),
+        backgroundColor: ['#4cc9f0', '#f72585', '#3f37c9', '#ffd166', '#ef476f']
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '60%' }
+  });
+}
+
+function loadManagementData() {
+  google.script.run
+    .withSuccessHandler(data => {
+      renderManagementTable('table-products-head', 'table-products-body', data.products, 'products');
+      renderManagementTable('table-meetings-head', 'table-meetings-body', data.meetings, 'meetings');
+      renderCharts(data);
+    })
+    .getAllDataForTables();
+}
+
+function renderManagementTable(headId, bodyId, sheetData, sheetName) {
+  const thead = document.getElementById(headId);
+  const tbody = document.getElementById(bodyId);
+  thead.innerHTML = "";
+  tbody.innerHTML = "";
+  
+  if (!sheetData || sheetData.headers.length === 0) return;
+  
+  sheetData.headers.forEach(h => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    thead.appendChild(th);
+  });
+  
+  sheetData.rows.forEach(row => {
+    const tr = document.createElement('tr');
+    const id = row[0]; // 0列目がID
+    
+    row.forEach((col, index) => {
+      const td = document.createElement('td');
+      td.textContent = col;
+      if (index !== 0) {
+        td.contentEditable = "true";
+        td.style.cursor = "text";
+        td.onblur = function() {
+          if (td.dataset.original !== td.innerText) {
+            updateDataInline(sheetName, id, sheetData.headers[index], td.innerText, td);
+          }
+        };
+        td.onfocus = function() {
+          td.dataset.original = td.innerText;
+          td.style.backgroundColor = "#e9ecef";
+        };
+      } else {
+        td.classList.add('text-muted');
+        td.style.fontSize = "0.7em";
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+function updateDataInline(sheetName, id, headerName, newValue, tdElement) {
+  tdElement.style.backgroundColor = '#fff3cd'; 
+  google.script.run
+    .withSuccessHandler(res => {
+      tdElement.style.backgroundColor = 'transparent';
+      showToast("更新: " + res);
+      // 再読込してグラフ等も同期させる
+      loadManagementData();
+    })
+    .withFailureHandler(err => {
+      tdElement.style.backgroundColor = '#f8d7da';
+      showAlert("更新失敗: " + err.message);
+    })
+    .updateRowData(sheetName, id, headerName, newValue);
+}
+
+// 簡易トースト通知用
+function showToast(message) {
+  const toast = document.createElement('div');
+  toast.className = 'position-fixed bottom-0 end-0 p-3';
+  toast.style.zIndex = "11";
+  toast.innerHTML = `<div class="toast align-items-center text-white bg-success border-0 show" role="alert"><div class="d-flex"><div class="toast-body">${message}</div></div></div>`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
 </script>

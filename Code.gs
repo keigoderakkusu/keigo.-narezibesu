@@ -129,6 +129,64 @@ function getSheetData(sheetName, limit = 0) {
 }
 
 // ----------------------------------------------------
+// インライン編集・データ一括取得 API (SaaS拡張)
+// ----------------------------------------------------
+
+function getAllDataForTables() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const getSheetAll = (name) => {
+    const s = ss.getSheetByName(name);
+    if (!s) return { headers: [], rows: [] };
+    const data = s.getDataRange().getValues();
+    if (data.length <= 1) return { name: name, headers: data[0] || [], rows: [] };
+    // JSONに変換しやすいように文字列化しておく
+    return { name: name, headers: data[0], rows: data.slice(1).map(r => r.map(c => String(c))) };
+  };
+
+  return {
+    products: getSheetAll('products'),
+    meetings: getSheetAll('meetings'),
+    notes: getSheetAll('notes')
+  };
+}
+
+function updateRowData(sheetName, id, headerName, newValue) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return "エラー: シートが存在しません";
+  
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return "エラー: データがありません";
+  
+  const headers = data[0];
+  const colIndex = headers.indexOf(headerName);
+  if (colIndex === -1) return "エラー: 該当する列が見つかりません";
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      sheet.getRange(i + 1, colIndex + 1).setValue(newValue);
+      return "更新しました";
+    }
+  }
+  return "エラー: 対象のIDが見つかりません";
+}
+
+function deleteRowData(sheetName, id) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return "エラー: シートが存在しません";
+  
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      sheet.deleteRow(i + 1);
+      return "削除しました";
+    }
+  }
+  return "エラー: 対象のIDが見つかりません";
+}
+
+// ----------------------------------------------------
 // フロントエンド用 データ取得系API
 // ----------------------------------------------------
 
