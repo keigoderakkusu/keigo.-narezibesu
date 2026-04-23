@@ -19,6 +19,30 @@ function doGet(e) {
 }
 
 /**
+ * スマホ連携・n8nからの外部WebHookリクエスト受け口 (API機能)
+ */
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const action = data.action;
+
+    if (action === 'saveMeeting') {
+      // payload = { client, related, summary, fulltext }
+      const result = saveMeeting(data.payload);
+      return ContentService.createTextOutput(JSON.stringify({status: 'success', message: result})).setMimeType(ContentService.MimeType.JSON);
+    } else if (action === 'processQuery') {
+      // payload = { query, mode }
+      const result = processAIQuery(data.payload.query, data.payload.mode || 'clone');
+      return ContentService.createTextOutput(JSON.stringify({status: 'success', response: result})).setMimeType(ContentService.MimeType.JSON);
+    } else {
+      return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '不明なアクション: ' + action})).setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({status: 'error', message: err.message})).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
  * 別ファイル(CSS/JavaScript)を動的に読み込むための関数
  */
 function include(filename) {
