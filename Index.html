@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Sales Knowledge Hub</title>
+  <!-- Bootstrap 5 CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- CSS -->
+  <?!= include('CSS'); ?>
+</head>
+<body class="bg-gray-100">
+
+<!-- グローバルナビゲーション -->
+<nav class="navbar navbar-expand-lg navbar-dark brand-navbar shadow-sm sticky-top">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold" href="#" onclick="showTab('dashboard')">
+      <i class="bi bi-layers-half text-accent me-2"></i>Sales Knowledge Hub
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto gap-2">
+        <li class="nav-item">
+          <a class="nav-link active" id="nav-dashboard" href="#" onclick="showTab('dashboard')"><i class="bi bi-grid-1x2 me-1"></i>ダッシュボード</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="nav-ai" href="#" onclick="showTab('ai')"><i class="bi bi-robot text-warning me-1"></i>AI検索・ロープレ</a>
+        </li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+            <i class="bi bi-plus-circle me-1"></i>データ登録
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end border-0 shadow-sm">
+            <li><a class="dropdown-item" href="#" onclick="showTab('product')"><i class="bi bi-box me-2"></i>製品マスタ登録</a></li>
+            <li><a class="dropdown-item" href="#" onclick="showTab('meeting')"><i class="bi bi-file-earmark-text me-2"></i>議事録登録</a></li>
+            <li><a class="dropdown-item" href="#" onclick="showTab('note')"><i class="bi bi-journal-text me-2"></i>メモ（Obsidian等）登録</a></li>
+          </ul>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="nav-notebooklm" href="#" onclick="showTab('notebooklm')"><i class="bi bi-book me-1"></i>NotebookLM台帳</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container main-container mt-4 mb-5 pb-5">
+  
+  <!-- 通知領域 -->
+  <div id="loader" class="glass-alert mb-3 d-none">
+    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+    <span class="fw-bold">システム処理中...</span>
+  </div>
+  <div id="alert-box" class="alert alert-success d-none alert-dismissible fade show shadow-sm border-0" role="alert">
+    <span id="alert-message"></span>
+    <button type="button" class="btn-close" onclick="closeAlert()"></button>
+  </div>
+
+  <!-- タブ: ダッシュボード -->
+  <div id="tab-dashboard" class="tab-content active-tab">
+    <h3 class="mb-4 fw-bold text-dark"><i class="bi bi-grid-1x2 text-primary me-2"></i>全体ダッシュボード</h3>
+    <div class="row g-4 mb-5">
+      <div class="col-md-3">
+        <div class="stat-card p-4 rounded-4 shadow-sm border-0 bg-white">
+          <h6 class="text-muted fw-bold">製品マスタ数</h6>
+          <h2 class="display-6 fw-bold mb-0 text-dark" id="stat-products">0</h2>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card p-4 rounded-4 shadow-sm border-0 bg-white">
+          <h6 class="text-muted fw-bold">蓄積議事録</h6>
+          <h2 class="display-6 fw-bold mb-0 text-dark" id="stat-meetings">0</h2>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card p-4 rounded-4 shadow-sm border-0 bg-white">
+          <h6 class="text-muted fw-bold">ナレッジメモ</h6>
+          <h2 class="display-6 fw-bold mb-0 text-dark" id="stat-notes">0</h2>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card p-4 rounded-4 shadow-sm border-0 bg-white">
+          <h6 class="text-muted fw-bold">管理ノートブック</h6>
+          <h2 class="display-6 fw-bold mb-0 pt-0 text-dark" id="stat-notebooks">0</h2>
+        </div>
+      </div>
+    </div>
+    
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card border-0 shadow-sm rounded-4">
+          <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+            <h5 class="fw-bold"><i class="bi bi-journal-bookmark-fill text-primary me-2"></i>連携済み NotebookLM 一覧</h5>
+            <p class="text-muted small">※Enterprise連携未実装の場合、各URLへのアクセスは個人のGoogle権限に依存します。</p>
+          </div>
+          <div class="card-body p-4">
+            <ul id="notebooklm-list" class="list-group list-group-flush">
+              <!-- JSで動的にリスト生成 -->
+              <li class="list-group-item text-muted">データを読み込んでいます...</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- タブ: AI検索 / ロープレ -->
+  <div id="tab-ai" class="tab-content d-none">
+    <div class="card border-0 shadow-lg rounded-4 overflow-hidden mb-4 glass-card">
+      <div class="card-header bg-gradient-brand text-white p-4">
+        <h3 class="mb-0 fw-bold"><i class="bi bi-robot me-2"></i>Gemini 営業ナレッジ検索 ＆ ロープレ</h3>
+        <p class="mb-0 mt-2 opacity-75 small">社内の製品・議事録・メモを横断的に検索したり、顧客になりきったAIと商談シミュレーションができます。</p>
+      </div>
+      <div class="card-body p-4 p-md-5 bg-white">
+        
+        <div class="mb-4">
+           <label class="form-label fw-bold">動作モードを選択</label><br>
+           <div class="btn-group w-100 shadow-sm" role="group">
+             <input type="radio" class="btn-check" name="aiMode" id="modeSearch" value="search" autocomplete="off" checked>
+             <label class="btn btn-outline-primary fw-bold" for="modeSearch"><i class="bi bi-search me-2"></i>社内ナレッジ検索</label>
+
+             <input type="radio" class="btn-check" name="aiMode" id="modeRoleplay" value="roleplay" autocomplete="off">
+             <label class="btn btn-outline-warning fw-bold text-dark border-start-0" for="modeRoleplay"><i class="bi bi-person-video me-2"></i>顧客ロープレモード</label>
+           </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-bold">質問・発言内容</label>
+          <textarea id="ai-query" class="form-control form-control-lg bg-light" rows="4" placeholder="例: XB-2200Aが廃番になった理由は？ / （ロープレ）その製品、ウチの既存設備にそのまま組み込めるの？値段も高いよね。"></textarea>
+        </div>
+        
+        <div class="d-grid">
+          <button onclick="submitAIQuery()" class="btn btn-primary btn-lg fw-bold shadow-sm rounded-3">
+            <i class="bi bi-send-fill me-2"></i>AIに送信する
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AIの回答表示領域 -->
+    <div id="ai-response-container" class="card border-0 shadow-sm rounded-4 d-none">
+      <div class="card-header bg-white pt-3 pb-0 border-bottom-0">
+        <h5 class="fw-bold text-primary"><i class="bi bi-chat-left-dots-fill me-2"></i>AIからの回答</h5>
+      </div>
+      <div class="card-body p-4">
+        <div id="ai-response" class="response-text" style="white-space: pre-wrap; line-height: 1.8;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- タブ: 製品登録 -->
+  <div id="tab-product" class="tab-content d-none">
+    <div class="card border-0 shadow-sm rounded-4">
+      <div class="card-header bg-white pt-4 pb-0 px-4 border-bottom-0">
+        <h3 class="fw-bold"><i class="bi bi-box text-primary me-2"></i>製品マスタ登録</h3>
+        <p class="text-muted small">製品の仕様や改廃の背景を登録することで、AIが正確な提案を行えるようになります。</p>
+      </div>
+      <div class="card-body p-4">
+        <form id="form-product" onsubmit="event.preventDefault(); submitProduct();">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label fw-bold">製品名・型番 <span class="text-danger">*</span></label>
+              <input type="text" id="prd-name" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">販売価格目安</label>
+              <input type="text" id="prd-price" class="form-control" placeholder="例: 150,000円〜">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ステータス</label>
+              <select id="prd-status" class="form-select">
+                <option value="現行品">現行品 (Active)</option>
+                <option value="廃番予定">廃番予定 (Phasing Out)</option>
+                <option value="廃番">廃番 (Obsolete)</option>
+                <option value="新製品">新製品 (New)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">後継機種</label>
+              <input type="text" id="prd-successor" class="form-control" placeholder="廃番の場合は代替機種を入力">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">改廃理由（なぜこの製品を作ったか・やめたか）</label>
+              <textarea id="prd-reason" class="form-control" rows="2" placeholder="例: 部品調達難のため。機能拡張を行った後継機へ切り替え。"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">競合優位性（他社製品に勝てるポイント）</label>
+              <textarea id="prd-advantage" class="form-control" rows="3" placeholder="耐久性が従来比1.5倍。〇〇基板との親和性が高い。"></textarea>
+            </div>
+            <div class="col-12 mt-4 text-end">
+              <button type="submit" class="btn btn-dark px-4 fw-bold rounded-pill"><i class="bi bi-save me-2"></i>データベースに登録</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- タブ: 議事録登録 -->
+  <div id="tab-meeting" class="tab-content d-none">
+    <div class="card border-0 shadow-sm rounded-4">
+      <div class="card-header bg-white pt-4 pb-0 px-4 border-bottom-0">
+        <h3 class="fw-bold"><i class="bi bi-file-earmark-text text-primary me-2"></i>商談議事録 登録</h3>
+        <p class="text-muted small">商談内容を集約します。このデータによりAIは顧客の過去の関心事や断り文句を学習します。</p>
+      </div>
+      <div class="card-body p-4">
+        <form id="form-meeting" onsubmit="event.preventDefault(); submitMeeting();">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">顧客名・社名 <span class="text-danger">*</span></label>
+              <input type="text" id="mtg-client" class="form-control" required placeholder="株式会社〇〇">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">関連する基板・機種</label>
+              <input type="text" id="mtg-related" class="form-control" placeholder="対象製品タグ">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">内容サマリ (AIが最も重視する1行要約) <span class="text-danger">*</span></label>
+              <input type="text" id="mtg-summary" class="form-control" required placeholder="価格ネックで一旦保留だが、耐久性には興味あり">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">議事録全文 (手動入力またはシステムからのコピペ)</label>
+              <textarea id="mtg-fulltext" class="form-control" rows="6" placeholder="※ここにテキストを貼り付け"></textarea>
+            </div>
+            <div class="col-12 mt-4 text-end">
+              <button type="submit" class="btn btn-dark px-4 fw-bold rounded-pill"><i class="bi bi-save me-2"></i>データベースに登録</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- タブ: メモ(Obsidian)登録 -->
+  <div id="tab-note" class="tab-content d-none">
+    <div class="card border-0 shadow-sm rounded-4">
+      <div class="card-header bg-white pt-4 pb-0 px-4 border-bottom-0">
+        <h3 class="fw-bold"><i class="bi bi-journal-text text-primary me-2"></i>社内メモ / Obsidian形式インポート</h3>
+        <p class="text-muted small">Google KeepやローカルのObsidian等で書かれたMarkdownメモ等を手動集約する画面です。</p>
+      </div>
+      <div class="card-body p-4">
+        <form id="form-note" onsubmit="event.preventDefault(); submitNote();">
+          <div class="mb-3">
+            <label class="form-label fw-bold">検索タグ (ハッシュタグ等) <span class="text-danger">*</span></label>
+            <input type="text" id="nt-tags" class="form-control" required placeholder="#ナレッジ #営業トーク #競合情報">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">メモ本文 (Markdown形式可)</label>
+            <textarea id="nt-content" class="form-control font-monospace" rows="10" placeholder="# 競合の最新動向\n\nA社がリリースした新基板は..."></textarea>
+          </div>
+          <div class="text-end">
+            <button type="submit" class="btn btn-dark px-4 fw-bold rounded-pill"><i class="bi bi-save me-2"></i>データベースに登録</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- タブ: NotebookLM登録 -->
+  <div id="tab-notebooklm" class="tab-content d-none">
+    <div class="card border-0 shadow-sm rounded-4">
+      <div class="card-header bg-white pt-4 pb-0 px-4 border-bottom-0">
+        <h3 class="fw-bold"><i class="bi bi-book-half text-primary me-2"></i>NotebookLM 管理台帳</h3>
+        <p class="text-muted small">NotebookLM (Enterprise未契約環境) のノートリンクを集約・管理し、散逸を防ぐための台帳です。</p>
+      </div>
+      <div class="card-body p-4">
+        <form id="form-notebooklm" onsubmit="event.preventDefault(); submitNotebookLM();">
+          <div class="row g-3">
+             <div class="col-md-6">
+              <label class="form-label fw-bold">ノートブック名 <span class="text-danger">*</span></label>
+              <input type="text" id="nlm-name" class="form-control" required placeholder="営業マニュアル一式">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">関連分野</label>
+              <input type="text" id="nlm-related" class="form-control" placeholder="新人教育用">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">共有URL (NotebookLMのリンク) <span class="text-danger">*</span></label>
+              <input type="url" id="nlm-url" class="form-control" required placeholder="https://notebooklm.google.com/notebook/...">
+            </div>
+            <div class="col-12 mt-4 text-end">
+              <button type="submit" class="btn btn-dark px-4 fw-bold rounded-pill"><i class="bi bi-save me-2"></i>台帳へ追加</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Bootstrap JS & Custom JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?!= include('JavaScript'); ?>
+</body>
+</html>

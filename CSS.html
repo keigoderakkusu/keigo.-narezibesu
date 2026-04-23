@@ -1,0 +1,150 @@
+<style>
+/* ==========================================
+   CSS.html
+   モダンUI・洗練された企業向けデザインシステム
+   ========================================== */
+
+:root {
+  --font-base: 'Inter', 'Noto Sans JP', sans-serif;
+  --bg-color: #f4f7f6;
+  --brand-color: #0f172a;       /* スレートダーク */
+  --accent-color: #3b82f6;      /* ブルー */
+  --card-bg: rgba(255, 255, 255, 0.95);
+}
+
+body {
+  font-family: var(--font-base);
+  background-color: var(--bg-color);
+  color: #334155;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ナビゲーションバーのスタイル */
+.brand-navbar {
+  background-color: var(--brand-color) !important;
+  border-bottom: 3px solid var(--accent-color);
+}
+.brand-navbar .nav-link {
+  font-weight: 500;
+  color: #cbd5e1 !important;
+  padding: 0.8rem 1rem;
+  transition: all 0.3s ease;
+}
+.brand-navbar .nav-link:hover,
+.brand-navbar .nav-link.active {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+.text-accent {
+  color: #60a5fa !important;
+}
+
+/* メインコンテナとカード */
+.main-container {
+  max-width: 1200px;
+}
+.glass-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.bg-gradient-brand {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+/* ダッシュボードの統計カードのアニメーション */
+.stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid #e2e8f0 !important;
+}
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* AI回答エリアの装飾 */
+.response-text p {
+  margin-bottom: 0.8rem;
+}
+.response-text strong {
+  background: linear-gradient(transparent 60%, rgba(59, 130, 246, 0.2) 60%);
+}
+
+/* フォーム要素 */
+.form-control, .form-select {
+  border: 1px solid #cbd5e1;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.form-control:focus, .form-select:focus {
+  background-color: #ffffff;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 0.25rem rgba(59, 130, 246, 0.25);
+}
+
+/* ボタン */
+.btn {
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.btn-primary {
+  background-color: var(--accent-color);
+  border: none;
+}
+.btn-primary:hover {
+  background-color: #2563eb;
+  transform: scale(1.02);
+}
+.btn-dark {
+  background-color: var(--brand-color);
+}
+.btn-dark:hover {
+  background-color: #1e293b;
+  transform: scale(1.02);
+}
+.btn-check:checked + .btn-outline-primary {
+  background-color: var(--accent-color);
+  color: white;
+}
+.btn-check:checked + .btn-outline-warning {
+  background-color: #fbbf24;
+  color: #000;
+  border-color: #fbbf24;
+}
+
+/* ローディング・アラート領域 */
+.glass-alert {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  padding: 10px 20px;
+  border-radius: 30px;
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1050;
+}
+#alert-box {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1050;
+  min-width: 300px;
+  border-left: 5px solid #10b981 !important;
+}
+
+/* タブアニメーション */
+.tab-content {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>

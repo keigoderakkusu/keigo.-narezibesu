@@ -1,0 +1,200 @@
+<script>
+/**
+ * 画面UI・非同期処理コントローラー
+ */
+
+// 初回読み込み時のダッシュボードデータ取得
+document.addEventListener('DOMContentLoaded', () => {
+  loadDashboardData();
+});
+
+// タブ切り替え処理
+function showTab(tabId) {
+  // すべてのタブコンテンツを非表示
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.classList.add('d-none');
+    el.classList.remove('active-tab');
+  });
+  // ナビゲーションのActive解除
+  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+
+  // 指定のタブを表示
+  const target = document.getElementById('tab-' + tabId);
+  if (target) {
+    target.classList.remove('d-none');
+    target.classList.add('active-tab');
+  }
+  
+  // ナビゲーションをActive化
+  const navItem = document.getElementById('nav-' + tabId);
+  if (navItem) navItem.classList.add('active');
+
+  // ダッシュボードを開いた場合は最新データをフェッチ
+  if (tabId === 'dashboard') loadDashboardData();
+}
+
+// UIユーティリティ (ローディング・通知)
+function showLoading() {
+  document.getElementById('loader').classList.remove('d-none');
+}
+
+function hideLoading() {
+  document.getElementById('loader').classList.add('d-none');
+}
+
+function showAlert(msg) {
+  const alertBox = document.getElementById('alert-box');
+  document.getElementById('alert-message').innerText = msg;
+  alertBox.classList.remove('d-none');
+  setTimeout(() => closeAlert(), 5000); // 5秒後に自動非表示
+}
+
+function closeAlert() {
+  document.getElementById('alert-box').classList.add('d-none');
+}
+
+// -----------------------------------------------------------------
+// データ取得系処理
+// -----------------------------------------------------------------
+function loadDashboardData() {
+  showLoading();
+  google.script.run
+    .withSuccessHandler(data => {
+      hideLoading();
+      // 統計カウンター更新
+      document.getElementById('stat-products').innerText = data.productsCount;
+      document.getElementById('stat-meetings').innerText = data.meetingsCount;
+      document.getElementById('stat-notes').innerText = data.notesCount;
+      document.getElementById('stat-notebooks').innerText = data.notebookLMs.length;
+
+      // NotebookLMリスト生成
+      const listEl = document.getElementById('notebooklm-list');
+      listEl.innerHTML = '';
+      if(data.notebookLMs.length === 0) {
+        listEl.innerHTML = '<li class="list-group-item text-muted">台帳に登録されたノートブックはありません。</li>';
+      } else {
+        data.notebookLMs.forEach(n => {
+          const li = document.createElement('li');
+          li.className = 'list-group-item d-flex justify-content-between align-items-center py-3';
+          li.innerHTML = `
+            <div>
+              <h6 class="mb-1 fw-bold">${n['ノートブック名']}</h6>
+              <span class="badge bg-light text-dark border">${n['関連製品']}</span>
+              <span class="badge bg-success ms-1">${n['Enterprise連携フラグ']}</span>
+            </div>
+            <a href="${n['共有URL']}" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill px-3">開く <i class="bi bi-box-arrow-up-right ms-1"></i></a>
+          `;
+          listEl.appendChild(li);
+        });
+      }
+    })
+    .withFailureHandler(err => {
+      hideLoading();
+      showAlert("ダッシュボードのデータ取得に失敗しました: " + err.message);
+    })
+    .getDashboardData();
+}
+
+// -----------------------------------------------------------------
+// AI呼び出し処理
+// -----------------------------------------------------------------
+function submitAIQuery() {
+  const query = document.getElementById('ai-query').value.trim();
+  if(!query) {
+    alert("質問内容を入力してください。");
+    return;
+  }
+  
+  const mode = document.querySelector('input[name="aiMode"]:checked').value;
+  const resContainer = document.getElementById('ai-response-container');
+  const resDiv = document.getElementById('ai-response');
+  
+  // UI状態更新
+  resContainer.classList.remove('d-none');
+  resDiv.innerHTML = '<div class="spinner-border text-primary spinner-border-sm me-2" role="status"></div><span class="text-muted">社内データを分析して回答を生成しています...</span>';
+  
+  showLoading();
+  google.script.run
+    .withSuccessHandler(response => {
+      hideLoading();
+      // 簡単なマークダウンタグをHTMLにパースして表示
+      resDiv.innerHTML = parseMarkdownToHTML(response);
+    })
+    .withFailureHandler(err => {
+      hideLoading();
+      resDiv.innerHTML = `<span class="text-danger fw-bold">エラーが発生しました: ${err.message}</span>`;
+    })
+    .processAIQuery(query, mode);
+}
+
+// 簡易Markdownパーサー (マークダウンの装飾を見やすくする)
+function parseMarkdownToHTML(text) {
+  if(!text) return "";
+  let html = text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')       // ボールド
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')                    // イタリック
+    .replace(/\n\n/g, '</p><p>')                             // 段落
+    .replace(/\n- (.*)/g, '<br>&bull; $1')                   // リスト簡略化
+    .replace(/\n\d+\. (.*)/g, '<br>&raquo; $1')              // 番号付きリスト
+    .replace(/\n/g, '<br>');                                 // 改行
+  return `<p>${html}</p>`;
+}
+
+// -----------------------------------------------------------------
+// データ登録系処理
+// -----------------------------------------------------------------
+function submitProduct() {
+  const data = {
+    name: document.getElementById('prd-name').value,
+    price: document.getElementById('prd-price').value,
+    status: document.getElementById('prd-status').value,
+    successor: document.getElementById('prd-successor').value,
+    reason: document.getElementById('prd-reason').value,
+    advantage: document.getElementById('prd-advantage').value
+  };
+  showLoading();
+  google.script.run
+    .withSuccessHandler(msg => { hideLoading(); showAlert(msg); document.getElementById('form-product').reset(); })
+    .withFailureHandler(err => { hideLoading(); showAlert("エラー: " + err.message); })
+    .saveProduct(data);
+}
+
+function submitMeeting() {
+  const data = {
+    client: document.getElementById('mtg-client').value,
+    related: document.getElementById('mtg-related').value,
+    summary: document.getElementById('mtg-summary').value,
+    fulltext: document.getElementById('mtg-fulltext').value
+  };
+  showLoading();
+  google.script.run
+    .withSuccessHandler(msg => { hideLoading(); showAlert(msg); document.getElementById('form-meeting').reset(); })
+    .withFailureHandler(err => { hideLoading(); showAlert("エラー: " + err.message); })
+    .saveMeeting(data);
+}
+
+function submitNote() {
+  const data = {
+    tags: document.getElementById('nt-tags').value,
+    content: document.getElementById('nt-content').value
+  };
+  showLoading();
+  google.script.run
+    .withSuccessHandler(msg => { hideLoading(); showAlert(msg); document.getElementById('form-note').reset(); })
+    .withFailureHandler(err => { hideLoading(); showAlert("エラー: " + err.message); })
+    .saveNote(data);
+}
+
+function submitNotebookLM() {
+  const data = {
+    name: document.getElementById('nlm-name').value,
+    related: document.getElementById('nlm-related').value,
+    url: document.getElementById('nlm-url').value
+  };
+  showLoading();
+  google.script.run
+    .withSuccessHandler(msg => { hideLoading(); showAlert(msg); document.getElementById('form-notebooklm').reset(); })
+    .withFailureHandler(err => { hideLoading(); showAlert("エラー: " + err.message); })
+    .saveNotebookLM(data);
+}
+</script>
