@@ -5,6 +5,7 @@
 
 const SCRIPT_PROP_GEMINI_KEY = 'GEMINI_API_KEY';
 const SCRIPT_PROP_FOLDER_ID = 'KNOWLEDGE_FOLDER_ID';
+const SCRIPT_PROP_CHAT_WEBHOOK = 'CHAT_WEBHOOK_URL';
 
 /**
  * Webアプリへのアクセス時の処理
@@ -226,6 +227,69 @@ function syncDriveKnowledge() {
 }
 
 // ----------------------------------------------------
+// Google Workspace フル連動: カレンダー＆メール分析とChat発信
+// ----------------------------------------------------
+function analyzeWorkspaceAndPushChat() {
+  const apiKey = PropertiesService.getScriptProperties().getProperty(SCRIPT_PROP_GEMINI_KEY);
+  if (!apiKey) return "設定エラー: Gemini APIキーがありません。";
+  
+  try {
+    // 1. カレンダーの取得 (過去30日〜未来7日)
+    const now = new Date();
+    const past = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+    const future = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
+    const events = CalendarApp.getDefaultCalendar().getEvents(past, future);
+    
+    let calendarContext = "【カレンダー予定 (過去30日〜未来7日)】\n";
+    events.forEach(e => {
+      calendarContext += `- ${Utilities.formatDate(e.getStartTime(), "JST", "MM/dd")} : ${e.getTitle()}\n`;
+    });
+
+    // 2. メール(Gmail)の取得 (送信済みと受信トレイの直近30スレッド)
+    const threads = GmailApp.search('in:sent OR label:inbox', 0, 30);
+    let mailContext = "【最近のメールやり取り要約】\n";
+    threads.forEach(t => {
+      const msg = t.getMessages()[0]; // スレッドの最新メール
+      mailContext += `- 件名: ${msg.getSubject()} (日付: ${Utilities.formatDate(msg.getDate(), "JST", "MM/dd")})\n`;
+      // 本文は最初の200文字だけ抽出 (プライバシーとトークン節約)
+      let bodySnippet = msg.getPlainBody().substring(0, 200).replace(/\n/g, ' ');
+      mailContext += `  内容: ${bodySnippet}...\n`;
+    });
+
+    // 3. Geminiアナライザーへ送信
+    const prompt = `あなたは社長/営業マンの非常に優秀な「エグゼクティブ・アシスタントAI」です。\n以下の【直近のスケジュール】と【最近のメール】を分析し、以下の3点を簡潔に（マークダウン形式で）レポートしてください。\n1. ユーザーが最近どんな業務に注力し、何を学んだか（傾向分析）\n2. 顧客（または社内）とどのような情報交換が行われているかのトレンド\n3. 今後の予定を踏まえた、明日以降の「推奨されるネクストアクション（タスク）」\n\n${calendarContext}\n\n${mailContext}`;
+    
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const payload = {
+      "contents": [{"parts": [{"text": prompt}]}]
+    };
+    const options = {
+      "method": "post", "contentType": "application/json", "payload": JSON.stringify(payload)
+    };
+    
+    const response = UrlFetchApp.fetch(url, options);
+    const json = JSON.parse(response.getContentText());
+    const analysisReport = json.candidates[0].content.parts[0].text;
+
+    // 4. (任意) Google Chat に送信
+    const webhookUrl = PropertiesService.getScriptProperties().getProperty(SCRIPT_PROP_CHAT_WEBHOOK);
+    if (webhookUrl) {
+      const chatPayload = {
+        "text": "📊 *自動業務分析レポート*\n===================\n\n" + analysisReport
+      };
+      UrlFetchApp.fetch(webhookUrl, {
+        "method": "post", "contentType": "application/json", "payload": JSON.stringify(chatPayload), "muteHttpExceptions": true
+      });
+    }
+
+    return analysisReport;
+
+  } catch(e) {
+    return "分析中にエラーが発生しました。スクリプト実行者がGmail/Calendarの権限を許可しているか確認してください。詳細: " + e.message;
+  }
+}
+
+// ----------------------------------------------------
 // AI ナレッジ検索＆新人ロープレ機能 (Gemini API 連携)
 // ----------------------------------------------------
 
@@ -258,6 +322,8 @@ function processAIQuery(query, mode) {
   let systemInstruction = "";
   if (mode === 'roleplay') {
     systemInstruction = `あなたは製造業企業の厳格な「顧客（購買部長や技術責任者）」です。提供された当社の【製品マスタ情報】や【最新の商談議事録】の背景情報を踏まえつつ、新人営業担当者の提案や質問に対して、あえて鋭い指摘、価格交渉、または代替品の性能に対する現実的な懸念を投げかけてください。応答は対話（ロープレ会話）形式とし、簡潔でリアリティのある口調にしてください。`;
+  } else if (mode === 'clone') {
+    systemInstruction = `あなたは私の「完全なデジタルクローンAI」です。提供された当社の【製品マスタ情報】、【商談議事録】、【ナレッジメモ】、【Driveドキュメント】の全てをあなた自身の過去の経験・記憶として扱い、私の思考プロセスや言葉遣い、営業のノウハウを完全に模倣して返答してください。顧客対応のドラフト作成や、戦略の壁打ち相手として最適かつ実践的なアクションを提示してください。\n\n【あなたの記憶データ】\n${contextText}`;
   } else {
     systemInstruction = `あなたは組織の知を統合した優秀な「セールス・イネーブルメントAI」です。ユーザーからの質問に対し、以下の【社内データ】のみを情報源として、最も適切で根拠に基づいた回答を作成してください。社内で解決すべき方針が見える場合はアドバイスも添えてください。ただし、提供された社内データに該当する情報が全くない場合は、推測で語らず「社内データベースには該当情報が見つかりません」と正直に回答してください。\n\n${contextText}`;
   }

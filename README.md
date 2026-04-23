@@ -18,9 +18,10 @@
 
 ### 3. スクリプトプロパティ（APIキー・フォルダID）の設定
 1. GASエディタの歯車マーク（プロジェクトの設定）を開きます。
-2. ページ下部の「スクリプトプロパティ」で以下2つを追加します。
+2. ページ下部の「スクリプトプロパティ」で以下を追加します。
    - `GEMINI_API_KEY`: ご自身のGemini APIキー
    - `KNOWLEDGE_FOLDER_ID`: 先ほどコピーしたGoogle DriveのフォルダID
+   - `CHAT_WEBHOOK_URL` (オプション): Google ChatのWebhook URL（業務分析＆チャット通知用）
 
 ### 4. 拡張機能「Drive API」の有効化 (OCR用)
 1. GASエディタ左側の `サービス (+) ` ボタンをクリックします。

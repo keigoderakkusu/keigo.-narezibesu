@@ -222,4 +222,35 @@ function submitDriveSync() {
     })
     .syncDriveKnowledge();
 }
+
+// -----------------------------------------------------------------
+// 分析・Chat発信処理
+// -----------------------------------------------------------------
+function submitAnalytics() {
+  const btn = document.getElementById('btn-analytics');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>分析中... (数分かかります)';
+  showLoading();
+
+  const resContainer = document.getElementById('analytics-result-container');
+  const resDiv = document.getElementById('analytics-result');
+  resContainer.classList.remove('d-none');
+  resDiv.innerHTML = '<div class="spinner-border text-info spinner-border-sm me-2" role="status"></div><span class="text-muted">Gmailとカレンダーを解析しています...</span>';
+
+  google.script.run
+    .withSuccessHandler(response => { 
+      hideLoading(); 
+      resDiv.innerHTML = parseMarkdownToHTML(response);
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-lightning-charge-fill me-2"></i>分析を再実行する';
+      showAlert("自動分析が完了しました。設定があればChatにも送信されています。");
+    })
+    .withFailureHandler(err => { 
+      hideLoading(); 
+      resDiv.innerHTML = `<span class="text-danger fw-bold">エラーが発生しました: ${err.message}</span>`;
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-lightning-charge-fill me-2"></i>分析を実行する';
+    })
+    .analyzeWorkspaceAndPushChat();
+}
 </script>

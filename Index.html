@@ -33,6 +33,9 @@
         <li class="nav-item">
           <a class="nav-link" id="nav-ai" href="#" onclick="showTab('ai')"><i class="bi bi-robot text-warning me-1"></i>AI検索・ロープレ</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" id="nav-analytics" href="#" onclick="showTab('analytics')"><i class="bi bi-magic text-info me-1"></i>業務分析・Chat</a>
+        </li>
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
             <i class="bi bi-plus-circle me-1"></i>データ登録
@@ -129,7 +132,10 @@
              <label class="btn btn-outline-primary fw-bold" for="modeSearch"><i class="bi bi-search me-2"></i>社内ナレッジ検索</label>
 
              <input type="radio" class="btn-check" name="aiMode" id="modeRoleplay" value="roleplay" autocomplete="off">
-             <label class="btn btn-outline-warning fw-bold text-dark border-start-0" for="modeRoleplay"><i class="bi bi-person-video me-2"></i>顧客ロープレモード</label>
+             <label class="btn btn-outline-warning fw-bold text-dark border-start-0" for="modeRoleplay"><i class="bi bi-person-video me-2"></i>顧客ロープレ</label>
+
+             <input type="radio" class="btn-check" name="aiMode" id="modeClone" value="clone" autocomplete="off">
+             <label class="btn btn-outline-danger fw-bold border-start-0" for="modeClone"><i class="bi bi-person-lines-fill me-2"></i>クローンAI</label>
            </div>
         </div>
 
@@ -284,6 +290,31 @@
           <button onclick="submitDriveSync()" id="btn-drivesync" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold shadow-sm">
             <i class="bi bi-arrow-repeat me-2"></i>同期を実行する
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- タブ: 業務分析・Chat -->
+  <div id="tab-analytics" class="tab-content d-none">
+    <div class="card border-0 shadow-sm rounded-4">
+      <div class="card-header bg-gradient-brand text-white pt-4 pb-4 px-4 border-bottom-0 rounded-top-4">
+        <h3 class="fw-bold mb-1"><i class="bi bi-magic me-2"></i>Google Workspace 自動業務分析 & Chat通知</h3>
+        <p class="mb-0 opacity-75 small">あなたのGmailとGoogleカレンダーの履歴から、学習傾向と今後のタスクをAIが自動分析します。</p>
+      </div>
+      <div class="card-body p-4 p-md-5">
+        <div class="text-center py-4">
+          <i class="bi bi-envelope-paper text-info mb-3" style="font-size: 4rem;"></i>
+          <h5 class="fw-bold">最新のメール・予定を分析する</h5>
+          <p class="text-muted small mb-4">このボタンを押すと、GASが自動であなたのGmailとカレンダー情報をGeminiに送信しレポートを作成します。<br>※プロパティに webhook URL があれば、同時にGoogle Chatへ発信されます。</p>
+          <button onclick="submitAnalytics()" id="btn-analytics" class="btn btn-info text-white btn-lg rounded-pill px-5 fw-bold shadow-sm">
+            <i class="bi bi-lightning-charge-fill me-2"></i>分析を実行する
+          </button>
+        </div>
+        
+        <div id="analytics-result-container" class="mt-4 d-none">
+          <h5 class="fw-bold text-primary border-bottom pb-2"><i class="bi bi-file-earmark-bar-graph text-primary me-2"></i>分析レポート結果</h5>
+          <div id="analytics-result" class="p-4 bg-light rounded-3 shadow-sm mt-3" style="white-space: pre-wrap; line-height: 1.8;"></div>
         </div>
       </div>
     </div>
