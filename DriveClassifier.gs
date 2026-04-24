@@ -1,66 +1,52 @@
 // ==========================================
-// DriveClassifier.gs
-// Drive自動分類・階層管理システム
-// 既存のCode.gsに追記して使用
-// ==========================================
-
-// ==========================================
-// 【DB拡張】初回セットアップに追加するシート定義
-// setupDatabase() の sheetsConfig に以下を追加してください:
-//
-// 'models': ['機種ID', '機種名', 'Drive フォルダID', 'Drive URL', '登録日時', '備考'],
-// 'boards': ['基板ID', '親機種ID', '基板名', 'DriveフォルダID', 'Drive URL', '登録日時'],
-// 'parts': ['部品ID', '親基板ID', '部品名', '型番', '単価', 'DriveファイルID', 'Drive URL', '登録日時'],
-// 'quotes': ['見積ID', '親機種ID', '見積番号', '顧客名', 'DriveファイルID', 'Drive URL', 'ステータス', '登録日時'],
-// 'doc_hierarchy': ['ドキュメントID', '親ID', '親種別(model/board)', '種別', 'ファイル名', 'DriveファイルID', 'Drive URL', '登録日時'],
+// DriveClassifier.gs  (完全版)
+// 画像フォルダ構成①②両対応
 // ==========================================
 
 const CLASSIFIER_RULES = {
-  // ファイル名パターン → 種別の自動判定ルール
-  model_spec:   { patterns: ['製品仕様', '機種仕様', 'spec', '仕様書'], label: '機種製品仕様書',   icon: '📋' },
-  board_design: { patterns: ['基板設計', '回路設計', '基板仕様', 'schematic', 'PCB'], label: '基板設計仕様書', icon: '🔧' },
-  bom:          { patterns: ['BOM', '構成表', 'bill_of_material', '部品表', 'parts_list'], label: '構成表(BOM)', icon: '📦' },
-  quote:        { patterns: ['見積', 'quote', 'QUOTE', '見積書', 'estimate'], label: '見積書', icon: '💴' },
-  drawing:      { patterns: ['図面', 'drawing', 'DWG', 'CAD', '外形図'], label: '図面', icon: '📐' },
-  manual:       { patterns: ['マニュアル', 'manual', '操作説明', '取扱説明'], label: 'マニュアル', icon: '📖' },
-  test:         { patterns: ['試験', 'テスト', 'test', '検査', '評価'], label: '試験・検査書', icon: '🧪' },
+  model_spec:   { patterns: ['製品仕様', '機種仕様', 'spec', '仕様書'],                       label: '機種製品仕様書', icon: '📋' },
+  board_design: { patterns: ['基板設計', '回路設計', '基板仕様', 'schematic', 'PCB'],          label: '基板設計仕様書', icon: '🔧' },
+  bom:          { patterns: ['BOM', '構成表', 'bill_of_material', '部品表', 'parts_list'],     label: '構成表(BOM)',   icon: '📦' },
+  quote:        { patterns: ['見積', 'quote', 'QUOTE', '見積書', 'estimate'],                  label: '見積書',        icon: '💴' },
+  drawing:      { patterns: ['図面', 'drawing', 'DWG', 'CAD', '外形図'],                      label: '図面',          icon: '📐' },
+  manual:       { patterns: ['マニュアル', 'manual', '操作説明', '取扱説明'],                  label: 'マニュアル',    icon: '📖' },
+  test:         { patterns: ['試験', 'テスト', 'test', '検査', '評価'],                        label: '試験・検査書',  icon: '🧪' },
 };
 
 // ==========================================
-// メイン: Driveフォルダを自動スキャン＆分類
+// メイン: フォルダタイプ自動判定＆スキャン
 // ==========================================
 
 /**
- * Drive上の指定フォルダを再帰スキャンし、
- * ファイル名から種別を自動判定してスプレッドシートに転記する
- * @param {string} rootFolderId - スキャンするDriveフォルダのID
- * @param {string} modelName    - 紐付ける機種名 (UI側から受け取る)
+ * @param {string} rootFolderId - ルートフォルダID
+ * @param {number} folderType   - 1: 見積書→会社→月  / 2: 会社→見積書→月
  */
-function scanAndClassifyDriveFolder(rootFolderId, modelName) {
+function scanAndClassifyDriveFolder(rootFolderId, folderType) {
   if (!rootFolderId) return { status: 'error', message: 'フォルダIDが未入力です。' };
-  
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ensureClassifierSheets(ss);
 
   try {
-    const folder = DriveApp.getFolderById(rootFolderId);
+    const rootFolder = DriveApp.getFolderById(rootFolderId);
+    const results    = { classified: [], unclassified: [], companies: [] };
 
-    // 1. 機種レコードを生成 or 取得
-    const modelId = getOrCreateModel(ss, modelName || folder.getName(), rootFolderId, folder.getUrl());
+    if (String(folderType) === '2') {
+      // ===== 構成② 会社フォルダ が直下にある =====
+      // ルート直下: [本社], [○○支社], ...
+      scanType2(ss, rootFolder, results);
+    } else {
+      // ===== 構成① 見積書(ルート) → 会社 → 月 =====
+      scanType1(ss, rootFolder, results);
+    }
 
-    // 2. フォルダ内を再帰スキャン
-    const results = { classified: [], unclassified: [] };
-    scanFolderRecursive(ss, folder, modelId, null, results);
-
-    // 3. 結果サマリーを返す
     return {
       status: 'success',
-      modelId: modelId,
-      modelName: modelName || folder.getName(),
-      classified: results.classified.length,
-      unclassified: results.unclassified.length,
-      details: results.classified,
+      classified:       results.classified.length,
+      unclassified:     results.unclassified.length,
+      details:          results.classified,
       unclassifiedFiles: results.unclassified,
+      companies:        results.companies,
       message: `✅ 分類完了: ${results.classified.length}件 自動分類 / ${results.unclassified.length}件 未分類`
     };
   } catch(e) {
@@ -68,175 +54,220 @@ function scanAndClassifyDriveFolder(rootFolderId, modelName) {
   }
 }
 
-/**
- * フォルダを再帰的にスキャンし、ファイルを分類する
- */
-function scanFolderRecursive(ss, folder, modelId, parentBoardId, results) {
-  const files = folder.getFiles();
-  
-  while (files.hasNext()) {
-    const file = files.next();
-    const fileName = file.getName();
-    const fileId   = file.getId();
-    const fileUrl  = file.getUrl();
-    const mimeType = file.getMimeType();
+// --------------------------------------------------
+// 構成①: [見積書ルート] → [会社] → [年月] → ファイル
+// --------------------------------------------------
+function scanType1(ss, rootFolder, results) {
+  const companyFolders = rootFolder.getFolders();
 
-    // ファイル種別を自動判定
-    const classification = classifyFile(fileName, mimeType);
+  while (companyFolders.hasNext()) {
+    const companyFolder = companyFolders.next();
+    const companyName   = companyFolder.getName();
+
+    // 会社レコード作成
+    const companyId = getOrCreateCompany(ss, companyName, companyFolder.getId(), companyFolder.getUrl(), 'type1');
+    results.companies.push(companyName);
+
+    // 月別フォルダを処理
+    const monthFolders = companyFolder.getFolders();
+    while (monthFolders.hasNext()) {
+      const monthFolder = monthFolders.next();
+      const yearMonth   = extractYearMonth(monthFolder.getName());
+      processMonthFolder(ss, monthFolder, companyId, companyName, yearMonth, results);
+    }
+
+    // 会社フォルダ直下のファイルも処理
+    processFilesInFolder(ss, companyFolder, companyId, companyName, '', results);
+  }
+}
+
+// --------------------------------------------------
+// 構成②: [会社] → [見積書] → [年月] → ファイル
+// --------------------------------------------------
+function scanType2(ss, rootFolder, results) {
+  const companyFolders = rootFolder.getFolders();
+
+  while (companyFolders.hasNext()) {
+    const companyFolder = companyFolders.next();
+    const companyName   = companyFolder.getName();
+
+    const companyId = getOrCreateCompany(ss, companyName, companyFolder.getId(), companyFolder.getUrl(), 'type2');
+    results.companies.push(companyName);
+
+    // 会社フォルダ直下のサブフォルダを走査（見積書、その他）
+    const subFolders = companyFolder.getFolders();
+    while (subFolders.hasNext()) {
+      const sub     = subFolders.next();
+      const subName = sub.getName();
+
+      if (isQuoteFolder(subName)) {
+        // 見積書フォルダ → 月別を処理
+        const monthFolders = sub.getFolders();
+        while (monthFolders.hasNext()) {
+          const monthFolder = monthFolders.next();
+          const yearMonth   = extractYearMonth(monthFolder.getName());
+          processMonthFolder(ss, monthFolder, companyId, companyName, yearMonth, results);
+        }
+        // 見積書フォルダ直下ファイル
+        processFilesInFolder(ss, sub, companyId, companyName, '', results);
+      } else {
+        // 見積書以外のサブフォルダ（機種フォルダ等）
+        processFilesInFolder(ss, sub, companyId, companyName, subName, results);
+      }
+    }
+
+    // 会社直下ファイル
+    processFilesInFolder(ss, companyFolder, companyId, companyName, '', results);
+  }
+}
+
+// --------------------------------------------------
+// 月別フォルダ内のファイルを処理
+// --------------------------------------------------
+function processMonthFolder(ss, monthFolder, companyId, companyName, yearMonth, results) {
+  const files = monthFolder.getFiles();
+  while (files.hasNext()) {
+    const file           = files.next();
+    const classification = classifyFile(file.getName(), file.getMimeType());
 
     if (classification) {
-      // 判定できた場合: 種別ごとにシートへ転記
-      saveClassifiedFile(ss, file, classification, modelId, parentBoardId);
-      results.classified.push({ name: fileName, type: classification.label, icon: classification.icon });
+      saveClassifiedDoc(ss, file, classification, companyId, companyName, yearMonth);
+      results.classified.push({
+        name:    file.getName(),
+        type:    classification.label,
+        icon:    classification.icon,
+        company: companyName,
+        month:   yearMonth
+      });
     } else {
-      // 判定できなかった場合: 未分類リストへ
-      saveUnclassifiedFile(ss, file, modelId);
-      results.unclassified.push({ name: fileName, url: fileUrl });
+      saveUnclassifiedDoc(ss, file, companyId);
+      results.unclassified.push({ name: file.getName(), url: file.getUrl() });
     }
   }
+}
 
-  // サブフォルダも再帰処理
-  const subFolders = folder.getFolders();
-  while (subFolders.hasNext()) {
-    const sub = subFolders.next();
-    const subName = sub.getName();
-    
-    // フォルダ名から「基板」サブフォルダか判定
-    let newParentBoardId = parentBoardId;
-    if (isBoardFolder(subName)) {
-      newParentBoardId = getOrCreateBoard(ss, subName, modelId, sub.getId(), sub.getUrl());
+// --------------------------------------------------
+// フォルダ直下ファイルを処理（月別以外）
+// --------------------------------------------------
+function processFilesInFolder(ss, folder, companyId, companyName, context, results) {
+  const files = folder.getFiles();
+  while (files.hasNext()) {
+    const file           = files.next();
+    const classification = classifyFile(file.getName(), file.getMimeType());
+
+    if (classification) {
+      saveClassifiedDoc(ss, file, classification, companyId, companyName, context);
+      results.classified.push({
+        name:    file.getName(),
+        type:    classification.label,
+        icon:    classification.icon,
+        company: companyName,
+        month:   context
+      });
+    } else {
+      saveUnclassifiedDoc(ss, file, companyId);
+      results.unclassified.push({ name: file.getName(), url: file.getUrl() });
     }
-    
-    scanFolderRecursive(ss, sub, modelId, newParentBoardId, results);
   }
 }
 
 // ==========================================
 // 自動分類ロジック
 // ==========================================
-
-/**
- * ファイル名・MIMEタイプからドキュメント種別を判定する
- */
 function classifyFile(fileName, mimeType) {
   const lowerName = fileName.toLowerCase().replace(/[-_\s]/g, '');
-
   for (const [key, rule] of Object.entries(CLASSIFIER_RULES)) {
     for (const pattern of rule.patterns) {
       if (lowerName.includes(pattern.toLowerCase().replace(/[-_\s]/g, ''))) {
-        return { key: key, label: rule.label, icon: rule.icon };
+        return { key, label: rule.label, icon: rule.icon };
       }
     }
   }
-
-  // MIMEタイプでの補助判定
-  if (mimeType === MimeType.GOOGLE_SHEETS || fileName.match(/\.xlsx?$/i)) {
-    return CLASSIFIER_RULES.bom; // スプレッドシートはデフォルトでBOM扱い
+  if (mimeType === MimeType.GOOGLE_SHEETS || /\.xlsx?$/i.test(fileName)) {
+    return CLASSIFIER_RULES.bom;
   }
-  
-  return null; // 判定不能
+  return null;
 }
 
-/**
- * フォルダ名が「基板」関連かどうか判定
- */
-function isBoardFolder(folderName) {
-  const keywords = ['基板', 'board', 'PCB', 'substrate', 'ボード'];
-  return keywords.some(k => folderName.toLowerCase().includes(k.toLowerCase()));
+function isQuoteFolder(name) {
+  return ['見積', 'quote', '見積書'].some(k => name.toLowerCase().includes(k.toLowerCase()));
+}
+
+// 「2025年01月」「2025-01」「202501」などから "2025年01月" 形式に正規化
+function extractYearMonth(folderName) {
+  const m =
+    folderName.match(/(\d{4})[年\-\/](\d{1,2})[月]?/) ||
+    folderName.match(/(\d{4})(\d{2})/);
+  if (m) return `${m[1]}年${String(m[2]).padStart(2,'0')}月`;
+  return folderName; // 判定できない場合そのまま
 }
 
 // ==========================================
-// シートへの書き込み処理
+// スプレッドシートへの書き込み
 // ==========================================
-
-function getOrCreateModel(ss, modelName, folderId, folderUrl) {
-  const sheet = ss.getSheetByName('models');
-  const data = sheet.getDataRange().getValues();
-  
-  // 既存の機種IDを検索 (フォルダIDで一意判定)
+function getOrCreateCompany(ss, name, folderId, folderUrl, type) {
+  const sheet = ss.getSheetByName('companies');
+  const data  = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (data[i][2] === folderId) return data[i][0];
   }
-  
-  // 新規作成
-  const newId = generateId();
-  sheet.appendRow([newId, modelName, folderId, folderUrl, getCurrentTime(), '']);
-  return newId;
+  const id = generateId();
+  sheet.appendRow([id, name, folderId, folderUrl, type, getCurrentTime()]);
+  return id;
 }
 
-function getOrCreateBoard(ss, boardName, modelId, folderId, folderUrl) {
-  const sheet = ss.getSheetByName('boards');
-  const data = sheet.getDataRange().getValues();
-  
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][3] === folderId) return data[i][0];
-  }
-  
-  const newId = generateId();
-  sheet.appendRow([newId, modelId, boardName, folderId, folderUrl, getCurrentTime()]);
-  return newId;
-}
-
-function saveClassifiedFile(ss, file, classification, modelId, boardId) {
+function saveClassifiedDoc(ss, file, classification, companyId, companyName, yearMonth) {
   const sheet = ss.getSheetByName('doc_hierarchy');
-  
-  // 重複チェック (DriveファイルIDで判定)
-  const data = sheet.getDataRange().getValues();
+  const data  = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    if (data[i][5] === file.getId()) return; // 既登録ならスキップ
+    if (data[i][6] === file.getId()) return; // 重複スキップ
   }
-
-  // 見積書の場合は quotesシートにも転記
+  // 見積書は quotesシートにも転記
   if (classification.key === 'quote') {
-    saveToQuoteSheet(ss, file, modelId);
+    saveToQuoteSheet(ss, file, companyId, companyName, yearMonth);
   }
-
   sheet.appendRow([
-    generateId(),
-    boardId || modelId,
-    boardId ? 'board' : 'model',
-    classification.label,
-    file.getName(),
-    file.getId(),
-    file.getUrl(),
-    getCurrentTime()
+    generateId(), companyId, companyName, yearMonth,
+    classification.label, file.getName(),
+    file.getId(), file.getUrl(), getCurrentTime()
   ]);
 }
 
-function saveToQuoteSheet(ss, file, modelId) {
-  const sheet = ss.getSheetByName('quotes');
-  const data = sheet.getDataRange().getValues();
+function saveUnclassifiedDoc(ss, file, companyId) {
+  const sheet = ss.getSheetByName('doc_hierarchy');
+  const data  = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    if (data[i][4] === file.getId()) return;
+    if (data[i][6] === file.getId()) return;
   }
-  // 見積番号をファイル名から抽出 (例: "見積書_QUOTE-202.pdf" → "QUOTE-202")
-  const quoteNumMatch = file.getName().match(/([A-Z]+-?\d+)/);
-  const quoteNum = quoteNumMatch ? quoteNumMatch[1] : file.getName();
-  sheet.appendRow([generateId(), modelId, quoteNum, '', file.getId(), file.getUrl(), '未確認', getCurrentTime()]);
+  sheet.appendRow([
+    generateId(), companyId, '', '', '【未分類】',
+    file.getName(), file.getId(), file.getUrl(), getCurrentTime()
+  ]);
 }
 
-function saveUnclassifiedFile(ss, file, modelId) {
-  const sheet = ss.getSheetByName('doc_hierarchy');
-  const data = sheet.getDataRange().getValues();
+function saveToQuoteSheet(ss, file, companyId, companyName, yearMonth) {
+  const sheet = ss.getSheetByName('quotes');
+  const data  = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (data[i][5] === file.getId()) return;
   }
-  sheet.appendRow([generateId(), modelId, 'model', '【未分類】', file.getName(), file.getId(), file.getUrl(), getCurrentTime()]);
+  const m        = file.getName().match(/([A-Z]+-?\d+)/);
+  const quoteNum = m ? m[1] : file.getName().replace(/\.\w+$/, '');
+  sheet.appendRow([
+    generateId(), companyId, companyName, quoteNum,
+    yearMonth, file.getId(), file.getUrl(), '未確認', getCurrentTime()
+  ]);
 }
 
 // ==========================================
-// シートの自動生成（初回セットアップ補完）
+// シート自動生成
 // ==========================================
-
 function ensureClassifierSheets(ss) {
   const required = {
-    'models':        ['機種ID', '機種名', 'DriveフォルダID', 'Drive URL', '登録日時', '備考'],
-    'boards':        ['基板ID', '親機種ID', '基板名', 'DriveフォルダID', 'Drive URL', '登録日時'],
-    'parts':         ['部品ID', '親基板ID', '部品名', '型番', '単価', 'DriveファイルID', 'Drive URL', '登録日時'],
-    'quotes':        ['見積ID', '親機種ID', '見積番号', '顧客名', 'DriveファイルID', 'Drive URL', 'ステータス', '登録日時'],
-    'doc_hierarchy': ['ドキュメントID', '親ID', '親種別', 'ファイル種別', 'ファイル名', 'DriveファイルID', 'Drive URL', '登録日時'],
+    'companies':     ['会社ID', '会社名', 'DriveフォルダID', 'Drive URL', '構成タイプ', '登録日時'],
+    'quotes':        ['見積ID', '親会社ID', '会社名', '見積番号', '年月', 'DriveファイルID', 'Drive URL', 'ステータス', '登録日時'],
+    'doc_hierarchy': ['ドキュメントID', '親会社ID', '会社名', '年月', 'ファイル種別', 'ファイル名', 'DriveファイルID', 'Drive URL', '登録日時'],
   };
-
   for (const [name, headers] of Object.entries(required)) {
     let sheet = ss.getSheetByName(name);
     if (!sheet) {
@@ -256,53 +287,47 @@ function ensureClassifierSheets(ss) {
 // ==========================================
 
 /**
- * 機種ツリー全体を返す（UI側でツリー表示に使用）
+ * 会社別・月別ツリーデータを返す
  */
 function getModelTree() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ensureClassifierSheets(ss);
 
-  const models   = getSheetData('models');
-  const boards   = getSheetData('boards');
-  const docs     = getSheetData('doc_hierarchy');
-  const quotes   = getSheetData('quotes');
+  const companies = getSheetData('companies');
+  const docs      = getSheetData('doc_hierarchy');
+  const quotes    = getSheetData('quotes');
 
-  return models.map(model => {
-    const modelBoards = boards.filter(b => b['親機種ID'] === model['機種ID']);
-    const modelDocs   = docs.filter(d => d['親ID'] === model['機種ID'] && d['親種別'] === 'model');
-    const modelQuotes = quotes.filter(q => q['親機種ID'] === model['機種ID']);
+  return companies.map(company => {
+    const cId       = company['会社ID'];
+    const compDocs  = docs.filter(d => d['親会社ID'] === cId);
+    const compQuotes = quotes.filter(q => q['親会社ID'] === cId);
+
+    // 年月ごとにグループ化
+    const monthMap = {};
+    compDocs.forEach(d => {
+      const ym = d['年月'] || '（月不明）';
+      if (!monthMap[ym]) monthMap[ym] = [];
+      monthMap[ym].push(d);
+    });
 
     return {
-      id:      model['機種ID'],
-      name:    model['機種名'],
-      url:     model['Drive URL'],
-      folderId: model['DriveフォルダID'],
-      docs:    modelDocs,
-      quotes:  modelQuotes,
-      boards:  modelBoards.map(board => {
-        const boardDocs = docs.filter(d => d['親ID'] === board['基板ID'] && d['親種別'] === 'board');
-        return {
-          id:   board['基板ID'],
-          name: board['基板名'],
-          url:  board['Drive URL'],
-          docs: boardDocs
-        };
-      })
+      id:      cId,
+      name:    company['会社名'],
+      url:     company['Drive URL'],
+      type:    company['構成タイプ'],
+      months:  Object.entries(monthMap)
+                 .sort((a, b) => b[0].localeCompare(a[0])) // 新しい月順
+                 .map(([ym, files]) => ({ yearMonth: ym, files })),
+      quotes:  compQuotes,
+      totalDocs: compDocs.length
     };
   });
 }
 
-/**
- * 手動で種別を再分類する（未分類ファイルの修正用）
- */
 function reclassifyDocument(docId, newType) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
   return updateRowData('doc_hierarchy', docId, 'ファイル種別', newType);
 }
 
-/**
- * DriveフォルダIDの検証（UI入力値チェック用）
- */
 function validateDriveFolderId(folderId) {
   try {
     const folder = DriveApp.getFolderById(folderId);

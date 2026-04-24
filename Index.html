@@ -3,846 +3,476 @@
 <head>
   <meta charset="UTF-8">
   <title>Sales Knowledge Hub</title>
-  <!-- Bootstrap 5 CDN -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Bootstrap Icons CDN -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-  <!-- Fonts -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-  <!-- Chart.js -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- CSS -->
   <?!= include('CSS'); ?>
 </head>
-<body class="bg-gray-100">
+<body>
 
-<!-- グローバルナビゲーション -->
-<nav class="navbar navbar-expand-lg navbar-dark brand-navbar shadow-sm sticky-top">
-  <div class="container-fluid px-4">
-    <a class="navbar-brand fw-bold" href="#" onclick="showTab('dashboard')">
-      <i class="bi bi-layers-half text-accent me-2"></i>Sales Knowledge Hub
-    </a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-      <span class="navbar-toggler-icon"></span>
+<!-- ===== SIDEBAR ===== -->
+<aside id="sidebar">
+  <div class="sidebar-header">
+    <div class="workspace-avatar">S</div>
+    <div class="workspace-info">
+      <div class="workspace-name">Sales Hub</div>
+      <div class="workspace-sub">Knowledge Base</div>
+    </div>
+    <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="折りたたむ">
+      <i class="bi bi-layout-sidebar-reverse"></i>
     </button>
-    <div class="collapse navbar-collapse" id="navbarNav">
-      <ul class="navbar-nav ms-auto gap-2">
-        <li class="nav-item">
-          <a class="nav-link active" id="nav-dashboard" href="#" onclick="showTab('dashboard')"><i class="bi bi-grid-1x2 me-1"></i>ダッシュボード</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" id="nav-calendar" href="#" onclick="showTab('calendar')"><i class="bi bi-calendar3 text-info me-1"></i>カレンダー</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" id="nav-management" href="#" onclick="showTab('management')"><i class="bi bi-table text-success me-1"></i>データ管理(編集・出力)</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" id="nav-ai" href="#" onclick="showTab('ai')"><i class="bi bi-robot text-warning me-1"></i>AI検索・ロープレ</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" id="nav-analytics" href="#" onclick="showTab('analytics')"><i class="bi bi-magic text-info me-1"></i>業務分析・Chat</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" id="nav-career" href="#" onclick="showTab('career')"><i class="bi bi-award text-danger me-1"></i>キャリア・人事評価</a>
-        </li>
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-            <i class="bi bi-plus-circle me-1"></i>データ登録
-          </a>
-          <ul class="dropdown-menu dropdown-menu-end border-0 shadow-sm">
-            <li><a class="dropdown-item" href="#" onclick="showTab('product')"><i class="bi bi-box me-2"></i>製品マスタ登録</a></li>
-            <li><a class="dropdown-item" href="#" onclick="showTab('meeting')"><i class="bi bi-file-earmark-text me-2"></i>議事録登録</a></li>
-            <li><a class="dropdown-item" href="#" onclick="showTab('note')"><i class="bi bi-journal-text me-2"></i>メモ（Obsidian等）登録</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="#" onclick="showTab('import')"><i class="bi bi-file-earmark-arrow-up text-success me-2"></i>CSV / Excelインポート</a></li>
-            <li><a class="dropdown-item" href="#" onclick="showTab('drivesync')"><i class="bi bi-cloud-arrow-down text-primary me-2"></i>Driveフォルダ同期</a></li>
-          </ul>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" id="nav-notebooklm" href="#" onclick="showTab('notebooklm')"><i class="bi bi-book me-1"></i>NotebookLM台帳</a>
-        </li>
-      </ul>
-    </div>
-  </div>
-</nav>
-
-<div class="container main-container mt-4 mb-5 pb-5">
-  
-  <!-- 通知領域 -->
-  <div id="loader" class="glass-alert mb-3 d-none">
-    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-    <span class="fw-bold">システム処理中...</span>
-  </div>
-  <div id="alert-box" class="alert alert-success d-none alert-dismissible fade show shadow-sm border-0" role="alert">
-    <span id="alert-message"></span>
-    <button type="button" class="btn-close" onclick="closeAlert()"></button>
   </div>
 
-  <!-- タブ: ダッシュボード -->
-  <div id="tab-dashboard" class="tab-content active-tab">
-    <h3 class="mb-4 fw-bold text-dark"><i class="bi bi-grid-1x2 text-primary me-2"></i>全体ダッシュボード</h3>
-    <div class="row g-4 mb-5">
-      <div class="col-md-3">
-        <div class="stat-card p-4 rounded-4 shadow-sm border-0 bg-white">
-          <h6 class="text-muted fw-bold">製品マスタ数</h6>
-          <h2 class="display-6 fw-bold mb-0 text-dark" id="stat-products">0</h2>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="stat-card p-4 rounded-4 shadow-sm border-0 bg-white">
-          <h6 class="text-muted fw-bold">蓄積議事録</h6>
-          <h2 class="display-6 fw-bold mb-0 text-dark" id="stat-meetings">0</h2>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="stat-card p-4 rounded-4 shadow-sm border-0 bg-white">
-          <h6 class="text-muted fw-bold">ナレッジメモ</h6>
-          <h2 class="display-6 fw-bold mb-0 text-dark" id="stat-notes">0</h2>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="stat-card p-4 rounded-4 shadow-sm border-0 bg-white">
-          <h6 class="text-muted fw-bold">管理ノートブック</h6>
-          <h2 class="display-6 fw-bold mb-0 pt-0 text-dark" id="stat-notebooks">0</h2>
-        </div>
-      </div>
+  <nav class="sidebar-nav">
+    <div class="nav-group-label">メインメニュー</div>
+    <a class="nav-item active" id="nav-dashboard" onclick="showTab('dashboard')">
+      <i class="bi bi-house"></i><span>ホーム</span>
+    </a>
+    <a class="nav-item" id="nav-modeltree" onclick="showTab('modeltree')">
+      <i class="bi bi-diagram-3"></i><span>ドキュメント管理</span>
+    </a>
+    <a class="nav-item" id="nav-ai" onclick="showTab('ai')">
+      <i class="bi bi-stars"></i><span>AI アシスタント</span>
+    </a>
+    <a class="nav-item" id="nav-analytics" onclick="showTab('analytics')">
+      <i class="bi bi-bar-chart-line"></i><span>業務分析</span>
+    </a>
+
+    <div class="nav-group-label" style="margin-top:20px;">データベース</div>
+    <a class="nav-item" id="nav-products" onclick="showTab('products')">
+      <i class="bi bi-box"></i><span>製品マスタ</span>
+    </a>
+    <a class="nav-item" id="nav-meetings" onclick="showTab('meetings')">
+      <i class="bi bi-file-earmark-text"></i><span>商談議事録</span>
+    </a>
+    <a class="nav-item" id="nav-notes" onclick="showTab('notes')">
+      <i class="bi bi-journal-text"></i><span>ナレッジメモ</span>
+    </a>
+    <a class="nav-item" id="nav-quotes" onclick="showTab('quotes')">
+      <i class="bi bi-receipt"></i><span>見積書台帳</span>
+    </a>
+
+    <div class="nav-group-label" style="margin-top:20px;">その他</div>
+    <a class="nav-item" id="nav-career" onclick="showTab('career')">
+      <i class="bi bi-award"></i><span>キャリア目標</span>
+    </a>
+    <a class="nav-item" id="nav-notebooklm" onclick="showTab('notebooklm')">
+      <i class="bi bi-book"></i><span>NotebookLM</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <button class="sidebar-footer-btn" onclick="showScanModal()">
+      <i class="bi bi-cloud-arrow-down"></i><span>Drive 取込み</span>
+    </button>
+    <button class="sidebar-footer-btn" onclick="submitDriveSync()">
+      <i class="bi bi-arrow-repeat"></i><span>ナレッジ同期</span>
+    </button>
+  </div>
+</aside>
+
+<!-- ===== MAIN ===== -->
+<div id="main-wrap">
+
+  <!-- Topbar -->
+  <header id="topbar">
+    <div class="topbar-left">
+      <button class="topbar-hamburger" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
+      <nav class="notion-breadcrumb">
+        <span class="bc-root">Sales Hub</span>
+        <i class="bi bi-chevron-right bc-arrow"></i>
+        <span class="bc-current" id="bc-current">ホーム</span>
+      </nav>
     </div>
-    
-    <!-- グラフ・分析エリア -->
-    <div class="row g-4 mb-5">
-      <div class="col-md-6">
-        <div class="card border-0 shadow-sm rounded-4 h-100">
-          <div class="card-body p-4">
-            <h6 class="fw-bold text-muted mb-4"><i class="bi bi-graph-up text-primary me-2"></i>商談議事録の登録推移 (直近)</h6>
-            <canvas id="chart-meetings"></canvas>
-          </div>
-        </div>
+    <div class="topbar-right">
+      <div id="loader-dot" class="loading-dots d-none">
+        <span></span><span></span><span></span>
       </div>
-      <div class="col-md-6">
-        <div class="card border-0 shadow-sm rounded-4 h-100">
-          <div class="card-body p-4">
-            <h6 class="fw-bold text-muted mb-4"><i class="bi bi-pie-chart-fill text-warning me-2"></i>製品ステータス内訳</h6>
-            <div style="max-height: 250px; display: flex; justify-content: center;">
-              <canvas id="chart-products"></canvas>
-            </div>
-          </div>
+      <div id="toast-inline" class="toast-inline d-none"></div>
+    </div>
+  </header>
+
+  <!-- Pages -->
+  <main id="page-area">
+
+    <!-- HOME -->
+    <div id="tab-dashboard" class="notion-page active-page">
+      <div class="page-cover"></div>
+      <div class="page-body">
+        <div class="page-emoji">🏠</div>
+        <h1 class="page-h1">ホーム</h1>
+        <p class="page-lead">Sales Knowledge Hub のダッシュボードです。</p>
+
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-num" id="stat-products">—</div><div class="stat-lbl">製品マスタ</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-meetings">—</div><div class="stat-lbl">商談議事録</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-notes">—</div><div class="stat-lbl">ナレッジメモ</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-notebooks">—</div><div class="stat-lbl">NotebookLM</div></div>
+        </div>
+
+        <div class="notion-divider"><span>📈 アクティビティ</span></div>
+        <div class="charts-row">
+          <div class="chart-block"><div class="chart-lbl">商談登録推移</div><canvas id="chart-meetings" height="130"></canvas></div>
+          <div class="chart-block"><div class="chart-lbl">製品ステータス</div><canvas id="chart-products" height="130"></canvas></div>
+        </div>
+
+        <div class="notion-divider"><span>📚 NotebookLM 台帳</span></div>
+        <div id="notebooklm-list" class="nlm-list">
+          <div class="empty-msg">読み込み中...</div>
         </div>
       </div>
     </div>
-    
-    <div class="row">
-      <div class="col-md-12">
-        <div class="card border-0 shadow-sm rounded-4">
-          <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
-            <h5 class="fw-bold"><i class="bi bi-journal-bookmark-fill text-primary me-2"></i>連携済み NotebookLM 一覧</h5>
-            <p class="text-muted small">※Enterprise連携未実装の場合、各URLへのアクセスは個人のGoogle権限に依存します。</p>
+
+    <!-- PRODUCTS DB -->
+    <div id="tab-products" class="notion-page d-none">
+      <div class="page-body">
+        <div class="page-emoji">📦</div>
+        <h1 class="page-h1">製品マスタ</h1>
+        <div class="db-actions-bar">
+          <input class="db-search-input" type="text" placeholder="🔍 フィルター..." id="search-products" oninput="filterTable('products')">
+          <span class="db-row-count" id="count-products"></span>
+          <div class="db-action-btns">
+            <button class="notion-btn-sm" onclick="openAddRow('products')"><i class="bi bi-plus"></i> 新規</button>
+            <button class="notion-btn-sm ghost" onclick="exportCSV('products')"><i class="bi bi-download"></i></button>
           </div>
-          <div class="card-body p-4">
-            <ul id="notebooklm-list" class="list-group list-group-flush">
-              <!-- JSで動的にリスト生成 -->
-              <li class="list-group-item text-muted">データを読み込んでいます...</li>
-            </ul>
-          </div>
+        </div>
+        <div class="db-table-wrap">
+          <table class="db-table" id="table-products">
+            <thead id="thead-products"></thead>
+            <tbody id="tbody-products"></tbody>
+          </table>
+          <button class="db-add-row-btn" onclick="openAddRow('products')"><i class="bi bi-plus"></i> 新しい行</button>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- タブ: カレンダー -->
-  <div id="tab-calendar" class="tab-content d-none">
-    <div class="row g-3">
-
-      <!-- 左: メインカレンダーエリア -->
-      <div class="col-lg-8">
-        <div class="card border-0 shadow-sm rounded-4">
-          <div class="card-body p-3 p-md-4">
-
-            <!-- ヘッダー: 月ナビ + ビュー切替 -->
-            <div class="cal-header mb-3">
-              <div class="d-flex align-items-center gap-2">
-                <button class="cal-nav-btn" onclick="calPrev()"><i class="bi bi-chevron-left"></i></button>
-                <h5 id="cal-title" class="fw-bold mb-0" style="min-width:140px;text-align:center;"></h5>
-                <button class="cal-nav-btn" onclick="calNext()"><i class="bi bi-chevron-right"></i></button>
-                <button class="cal-nav-btn ms-2" onclick="calToday()" style="font-size:.8rem;padding:5px 12px;">今日</button>
-              </div>
-              <div class="view-toggle btn-group">
-                <button id="btn-view-month" class="btn btn-sm btn-dark active" onclick="setCalView('month')">月</button>
-                <button id="btn-view-week"  class="btn btn-sm btn-outline-secondary" onclick="setCalView('week')">週</button>
-              </div>
-            </div>
-
-            <!-- 月ビュー -->
-            <div id="cal-month-view">
-              <div class="cal-grid mb-1">
-                <div class="cal-dow sun">日</div>
-                <div class="cal-dow">月</div>
-                <div class="cal-dow">火</div>
-                <div class="cal-dow">水</div>
-                <div class="cal-dow">木</div>
-                <div class="cal-dow">金</div>
-                <div class="cal-dow sat">土</div>
-              </div>
-              <div class="cal-grid" id="cal-body"></div>
-            </div>
-
-            <!-- 週ビュー -->
-            <div id="cal-week-view" class="d-none">
-              <div class="week-view-grid" id="cal-week-grid"></div>
-            </div>
-
+    <!-- MEETINGS DB -->
+    <div id="tab-meetings" class="notion-page d-none">
+      <div class="page-body">
+        <div class="page-emoji">📝</div>
+        <h1 class="page-h1">商談議事録</h1>
+        <div class="db-actions-bar">
+          <input class="db-search-input" type="text" placeholder="🔍 フィルター..." id="search-meetings" oninput="filterTable('meetings')">
+          <span class="db-row-count" id="count-meetings"></span>
+          <div class="db-action-btns">
+            <button class="notion-btn-sm" onclick="openAddRow('meetings')"><i class="bi bi-plus"></i> 新規</button>
+            <button class="notion-btn-sm ghost" onclick="exportCSV('meetings')"><i class="bi bi-download"></i></button>
           </div>
         </div>
-      </div>
-
-      <!-- 右: サイドパネル -->
-      <div class="col-lg-4">
-        <div class="cal-side-panel">
-
-          <!-- 選択日のイベントリスト -->
-          <div class="card border-0 shadow-sm rounded-4 mb-3">
-            <div class="card-body p-3">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <h6 class="fw-bold mb-0" id="side-panel-date-title">今日の予定</h6>
-                <button class="btn btn-sm btn-primary rounded-pill px-3" onclick="openNewEventModal()">
-                  <i class="bi bi-plus me-1"></i>追加
-                </button>
-              </div>
-              <div id="side-event-list">
-                <p class="text-muted small text-center py-3">予定を選択してください</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Google Keep メモ一覧 -->
-          <div class="card border-0 shadow-sm rounded-4">
-            <div class="card-header bg-white border-0 pb-0 pt-3 px-3">
-              <div class="d-flex justify-content-between align-items-center">
-                <h6 class="fw-bold mb-0"><i class="bi bi-sticky text-warning me-2"></i>Google Keep メモ</h6>
-                <button class="btn btn-sm btn-outline-warning rounded-pill px-2 py-0" onclick="syncKeepNotes()" id="btn-sync-keep" style="font-size:.75rem;">
-                  <i class="bi bi-arrow-repeat me-1"></i>同期
-                </button>
-              </div>
-              <div class="mt-2 mb-2">
-                <input type="text" id="keep-search" class="form-control form-control-sm" placeholder="メモを検索..." oninput="filterKeepNotes(this.value)">
-              </div>
-            </div>
-            <div class="card-body p-3 pt-0" id="keep-notes-container" style="max-height:400px;overflow-y:auto;">
-              <div class="text-center py-4 text-muted small" id="keep-loading-msg">
-                <i class="bi bi-arrow-repeat spin me-1"></i>「同期」ボタンを押してKeepメモを読み込んでください
-              </div>
-            </div>
-          </div>
-
+        <div class="db-table-wrap">
+          <table class="db-table" id="table-meetings">
+            <thead id="thead-meetings"></thead>
+            <tbody id="tbody-meetings"></tbody>
+          </table>
+          <button class="db-add-row-btn" onclick="openAddRow('meetings')"><i class="bi bi-plus"></i> 新しい行</button>
         </div>
       </div>
-
     </div>
-  </div>
 
-  <!-- モーダル: 予定・議事録・メモ 追加/編集 -->
-  <div class="modal fade" id="modal-calendar" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content rounded-4 border-0 shadow-lg">
-
-        <div class="modal-header border-0 pb-0 px-4 pt-4">
-          <div>
-            <h5 class="modal-title fw-bold" id="cal-modal-title">新しい予定を追加</h5>
-            <div class="d-flex gap-1 mt-2 event-type-tabs" id="cal-event-type-nav">
-              <span class="nav-link active" onclick="switchEventType('meeting')" id="etype-meeting"><i class="bi bi-people me-1"></i>打合せ/議事録</span>
-              <span class="nav-link" onclick="switchEventType('note')" id="etype-note"><i class="bi bi-journal-text me-1"></i>メモ</span>
-              <span class="nav-link" onclick="switchEventType('keep')" id="etype-keep"><i class="bi bi-sticky me-1"></i>Keep登録</span>
-            </div>
+    <!-- NOTES DB -->
+    <div id="tab-notes" class="notion-page d-none">
+      <div class="page-body">
+        <div class="page-emoji">💡</div>
+        <h1 class="page-h1">ナレッジメモ</h1>
+        <div class="db-actions-bar">
+          <input class="db-search-input" type="text" placeholder="🔍 フィルター..." id="search-notes" oninput="filterTable('notes')">
+          <span class="db-row-count" id="count-notes"></span>
+          <div class="db-action-btns">
+            <button class="notion-btn-sm" onclick="openAddRow('notes')"><i class="bi bi-plus"></i> 新規</button>
           </div>
-          <button type="button" class="btn-close ms-auto mt-0" data-bs-dismiss="modal"></button>
         </div>
-
-        <div class="modal-body px-4 pb-2">
-
-          <!-- 共通: 日付・時間 -->
-          <div class="row g-2 mb-3">
-            <div class="col-5">
-              <label class="form-label fw-bold small mb-1">日付</label>
-              <input type="date" id="cal-ev-date" class="form-control form-control-sm">
-            </div>
-            <div class="col-3" id="cal-ev-time-group">
-              <label class="form-label fw-bold small mb-1">時刻</label>
-              <input type="time" id="cal-ev-time" class="form-control form-control-sm" value="10:00">
-            </div>
-            <div class="col-3" id="cal-ev-endtime-group">
-              <label class="form-label fw-bold small mb-1">終了</label>
-              <input type="time" id="cal-ev-endtime" class="form-control form-control-sm" value="11:00">
-            </div>
-          </div>
-          <!-- クイック時間選択 -->
-          <div class="d-flex gap-1 flex-wrap mb-3" id="quick-time-group">
-            <span class="quick-time-btn" onclick="setQuickTime(9,0,10,0)">09:00</span>
-            <span class="quick-time-btn" onclick="setQuickTime(10,0,11,0)">10:00</span>
-            <span class="quick-time-btn" onclick="setQuickTime(13,0,14,0)">13:00</span>
-            <span class="quick-time-btn" onclick="setQuickTime(14,0,15,0)">14:00</span>
-            <span class="quick-time-btn" onclick="setQuickTime(15,0,16,0)">15:00</span>
-            <span class="quick-time-btn" onclick="setQuickTime(16,0,17,0)">16:00</span>
-          </div>
-
-          <!-- 打合せ/議事録 フォーム -->
-          <div id="form-meeting-section">
-            <div class="mb-2">
-              <label class="form-label fw-bold small mb-1">顧客名・社名 <span class="text-danger">*</span></label>
-              <input type="text" id="cal-mtg-client" class="form-control form-control-sm" placeholder="株式会社〇〇">
-            </div>
-            <div class="mb-2">
-              <label class="form-label fw-bold small mb-1">件名・タイトル</label>
-              <input type="text" id="cal-mtg-title" class="form-control form-control-sm" placeholder="製品提案打合せ">
-            </div>
-            <div class="mb-2">
-              <label class="form-label fw-bold small mb-1">関連製品・機種</label>
-              <input type="text" id="cal-mtg-related" class="form-control form-control-sm" placeholder="XB-2200A">
-            </div>
-            <div class="mb-2">
-              <label class="form-label fw-bold small mb-1">内容サマリ（1行）</label>
-              <input type="text" id="cal-mtg-summary" class="form-control form-control-sm" placeholder="価格交渉あり、次回デモを提案">
-            </div>
-            <div class="mb-2">
-              <label class="form-label fw-bold small mb-1">議事録全文</label>
-              <textarea id="cal-mtg-fulltext" class="form-control form-control-sm" rows="4" placeholder="詳細な内容をここに記載..."></textarea>
-            </div>
-            <!-- Keep メモから取り込み -->
-            <div id="keep-import-hint" class="d-none">
-              <div class="alert alert-warning border-0 py-2 px-3 mb-2 small">
-                <i class="bi bi-sticky me-1"></i>選択中のKeepメモを議事録に取り込みました。
-                <a href="#" class="text-warning fw-bold" onclick="clearKeepImport()">クリア</a>
-              </div>
-            </div>
-          </div>
-
-          <!-- メモ フォーム -->
-          <div id="form-note-section" class="d-none">
-            <div class="mb-2">
-              <label class="form-label fw-bold small mb-1">タグ</label>
-              <input type="text" id="cal-nt-tags" class="form-control form-control-sm" placeholder="#営業トーク #競合">
-            </div>
-            <div class="mb-2">
-              <label class="form-label fw-bold small mb-1">メモ内容 <span class="text-danger">*</span></label>
-              <textarea id="cal-nt-content" class="form-control form-control-sm font-monospace" rows="6" placeholder="メモを入力..."></textarea>
-            </div>
-          </div>
-
-          <!-- Keep登録 フォーム -->
-          <div id="form-keep-section" class="d-none">
-            <div class="mb-2">
-              <label class="form-label fw-bold small mb-1">タイトル</label>
-              <input type="text" id="cal-keep-title" class="form-control form-control-sm" placeholder="メモのタイトル（省略可）">
-            </div>
-            <div class="mb-2">
-              <label class="form-label fw-bold small mb-1">内容 <span class="text-danger">*</span></label>
-              <textarea id="cal-keep-body" class="form-control form-control-sm" rows="5" placeholder="Keepに保存したいメモを入力..."></textarea>
-            </div>
-            <div class="mb-2">
-              <label class="form-label fw-bold small mb-1">色</label>
-              <div class="d-flex gap-2 mt-1">
-                <span class="keep-color-dot active" data-color="DEFAULT" onclick="selectKeepColor(this)" style="width:24px;height:24px;border-radius:50%;background:#e2e8f0;border:2.5px solid #94a3b8;cursor:pointer;"></span>
-                <span class="keep-color-dot" data-color="YELLOW"  onclick="selectKeepColor(this)" style="width:24px;height:24px;border-radius:50%;background:#fbbf24;border:2px solid transparent;cursor:pointer;"></span>
-                <span class="keep-color-dot" data-color="GREEN"   onclick="selectKeepColor(this)" style="width:24px;height:24px;border-radius:50%;background:#34d399;border:2px solid transparent;cursor:pointer;"></span>
-                <span class="keep-color-dot" data-color="BLUE"    onclick="selectKeepColor(this)" style="width:24px;height:24px;border-radius:50%;background:#60a5fa;border:2px solid transparent;cursor:pointer;"></span>
-                <span class="keep-color-dot" data-color="RED"     onclick="selectKeepColor(this)" style="width:24px;height:24px;border-radius:50%;background:#f87171;border:2px solid transparent;cursor:pointer;"></span>
-                <span class="keep-color-dot" data-color="PURPLE"  onclick="selectKeepColor(this)" style="width:24px;height:24px;border-radius:50%;background:#a78bfa;border:2px solid transparent;cursor:pointer;"></span>
-              </div>
-            </div>
-            <div class="mb-2">
-              <label class="form-label fw-bold small mb-1">ラベル（カンマ区切り）</label>
-              <input type="text" id="cal-keep-labels" class="form-control form-control-sm" placeholder="営業, 顧客A">
-            </div>
-          </div>
-
+        <div class="db-table-wrap">
+          <table class="db-table" id="table-notes">
+            <thead id="thead-notes"></thead>
+            <tbody id="tbody-notes"></tbody>
+          </table>
+          <button class="db-add-row-btn" onclick="openAddRow('notes')"><i class="bi bi-plus"></i> 新しい行</button>
         </div>
+      </div>
+    </div>
 
-        <div class="modal-footer border-0 px-4 pb-4 pt-0">
-          <button class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">キャンセル</button>
-          <button class="btn btn-primary rounded-pill px-4 fw-bold" id="cal-modal-save-btn" onclick="saveCalendarEvent()">
-            <i class="bi bi-save me-1"></i>保存する
+    <!-- QUOTES DB -->
+    <div id="tab-quotes" class="notion-page d-none">
+      <div class="page-body">
+        <div class="page-emoji">💴</div>
+        <h1 class="page-h1">見積書台帳</h1>
+        <div class="db-actions-bar">
+          <input class="db-search-input" type="text" placeholder="🔍 会社名・見積番号..." id="search-quotes" oninput="filterTable('quotes')">
+          <span class="db-row-count" id="count-quotes"></span>
+          <div class="db-action-btns">
+            <button class="notion-btn-sm" onclick="showScanModal()"><i class="bi bi-cloud-arrow-down"></i> Drive取込</button>
+          </div>
+        </div>
+        <div class="db-table-wrap">
+          <table class="db-table" id="table-quotes">
+            <thead id="thead-quotes"></thead>
+            <tbody id="tbody-quotes"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOC TREE -->
+    <div id="tab-modeltree" class="notion-page d-none">
+      <div class="page-body">
+        <div class="page-emoji">🗂️</div>
+        <h1 class="page-h1">ドキュメント管理</h1>
+        <div class="callout-notion">
+          <span>💡</span>
+          <div>Drive フォルダをスキャンして会社別・月別に自動分類します。フォルダ構成①②両対応。</div>
+        </div>
+        <div class="db-actions-bar" style="margin-top:16px;">
+          <input class="db-search-input" type="text" placeholder="🔍 会社名・ファイル名..." id="tree-search" oninput="filterModelTree()">
+          <select class="db-filter-sel" id="tree-company-filter" onchange="filterModelTree()"><option value="">すべての会社</option></select>
+          <select class="db-filter-sel" id="tree-month-filter" onchange="filterModelTree()"><option value="">すべての年月</option></select>
+          <span class="db-row-count" id="tree-count-badge"></span>
+          <div class="db-action-btns">
+            <button class="notion-btn-sm" onclick="showScanModal()"><i class="bi bi-cloud-arrow-down"></i> 取込む</button>
+            <button class="notion-btn-sm ghost" onclick="loadModelTree()"><i class="bi bi-arrow-clockwise"></i></button>
+          </div>
+        </div>
+        <div id="model-tree-container" style="margin-top:16px;">
+          <div class="empty-msg">「取込む」からDriveフォルダをスキャンしてください</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI -->
+    <div id="tab-ai" class="notion-page d-none">
+      <div class="page-body">
+        <div class="page-emoji">✨</div>
+        <h1 class="page-h1">AI アシスタント</h1>
+        <div class="callout-notion">
+          <span>🧠</span>
+          <div>社内データを横断的に検索します。Gemini 1.5 が回答を生成します。</div>
+        </div>
+        <div class="ai-mode-toggle" style="margin-top:20px;">
+          <button class="ai-mode-btn active" data-mode="search" onclick="setAiMode(this)">🔍 ナレッジ検索</button>
+          <button class="ai-mode-btn" data-mode="roleplay" onclick="setAiMode(this)">🎭 顧客ロープレ</button>
+          <button class="ai-mode-btn" data-mode="clone" onclick="setAiMode(this)">🤖 クローン</button>
+        </div>
+        <input type="hidden" id="ai-mode-value" value="search">
+        <div class="ai-input-area">
+          <textarea id="ai-query" class="ai-textarea" rows="4" placeholder="例: A社への提案で差別化ポイントを教えて..."></textarea>
+          <button class="ai-send-btn" onclick="submitAIQuery()"><i class="bi bi-send-fill"></i></button>
+        </div>
+        <div id="ai-response-container" class="d-none" style="margin-top:20px;">
+          <div class="notion-divider"><span>AI 回答</span></div>
+          <div id="ai-response" class="ai-response-box"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS -->
+    <div id="tab-analytics" class="notion-page d-none">
+      <div class="page-body">
+        <div class="page-emoji">📊</div>
+        <h1 class="page-h1">業務分析</h1>
+        <div class="callout-notion">
+          <span>📅</span>
+          <div>カレンダーとGmailを自動分析し、Google Chat に投稿します。</div>
+        </div>
+        <div style="margin-top:20px;">
+          <button id="btn-analytics" class="notion-btn-primary-lg" onclick="submitAnalytics()">
+            ⚡ 今すぐ分析 ＆ Chat 投稿
           </button>
         </div>
-
+        <div id="analytics-result" class="ai-response-box d-none" style="margin-top:20px;"></div>
       </div>
     </div>
-  </div>
 
-  <!-- タブ: AI検索 / ロープレ -->
-  <div id="tab-ai" class="tab-content d-none">
-    <div class="card border-0 shadow-lg rounded-4 overflow-hidden mb-4 glass-card">
-      <div class="card-header bg-gradient-brand text-white p-4">
-        <h3 class="mb-0 fw-bold"><i class="bi bi-robot me-2"></i>Gemini 営業ナレッジ検索 ＆ ロープレ</h3>
-        <p class="mb-0 mt-2 opacity-75 small">社内の製品・議事録・メモを横断的に検索したり、顧客になりきったAIと商談シミュレーションができます。</p>
-      </div>
-      <div class="card-body p-4 p-md-5 bg-white">
-        
-        <div class="mb-4">
-           <label class="form-label fw-bold">動作モードを選択</label><br>
-           <div class="btn-group w-100 shadow-sm" role="group">
-             <input type="radio" class="btn-check" name="aiMode" id="modeSearch" value="search" autocomplete="off" checked>
-             <label class="btn btn-outline-primary fw-bold" for="modeSearch"><i class="bi bi-search me-2"></i>社内ナレッジ検索</label>
-
-             <input type="radio" class="btn-check" name="aiMode" id="modeRoleplay" value="roleplay" autocomplete="off">
-             <label class="btn btn-outline-warning fw-bold text-dark border-start-0" for="modeRoleplay"><i class="bi bi-person-video me-2"></i>顧客ロープレ</label>
-
-             <input type="radio" class="btn-check" name="aiMode" id="modeClone" value="clone" autocomplete="off">
-             <label class="btn btn-outline-danger fw-bold border-start-0" for="modeClone"><i class="bi bi-person-lines-fill me-2"></i>クローンAI</label>
-           </div>
+    <!-- CAREER -->
+    <div id="tab-career" class="notion-page d-none">
+      <div class="page-body">
+        <div class="page-emoji">🎯</div>
+        <h1 class="page-h1">キャリア目標</h1>
+        <div class="stats-row" style="margin-bottom:24px;">
+          <div class="stat-card"><div class="stat-num" id="career-stat-meetings">—</div><div class="stat-lbl">直近1ヶ月の商談数</div></div>
+          <div class="stat-card"><div class="stat-num" id="career-stat-knowledge">—</div><div class="stat-lbl">新規ナレッジ作成数</div></div>
         </div>
-
-        <div class="mb-4">
-          <label class="form-label fw-bold">質問・発言内容</label>
-          <textarea id="ai-query" class="form-control form-control-lg bg-light" rows="4" placeholder="例: XB-2200Aが廃番になった理由は？ / （ロープレ）その製品、ウチの既存設備にそのまま組み込めるの？値段も高いよね。"></textarea>
-        </div>
-        
-        <div class="d-grid">
-          <button onclick="submitAIQuery()" class="btn btn-primary btn-lg fw-bold shadow-sm rounded-3">
-            <i class="bi bi-send-fill me-2"></i>AIに送信する
-          </button>
-        </div>
+        <button class="notion-btn-sm" style="margin-bottom:16px;" onclick="showModal('modal-goal')"><i class="bi bi-plus"></i> 目標を追加</button>
+        <div id="goal-list-container"></div>
       </div>
     </div>
 
-    <!-- AIの回答表示領域 -->
-    <div id="ai-response-container" class="card border-0 shadow-sm rounded-4 d-none">
-      <div class="card-header bg-white pt-3 pb-0 border-bottom-0">
-        <h5 class="fw-bold text-primary"><i class="bi bi-chat-left-dots-fill me-2"></i>AIからの回答</h5>
-      </div>
-      <div class="card-body p-4">
-        <div id="ai-response" class="response-text" style="white-space: pre-wrap; line-height: 1.8;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- タブ: 製品登録 -->
-  <div id="tab-product" class="tab-content d-none">
-    <div class="card border-0 shadow-sm rounded-4">
-      <div class="card-header bg-white pt-4 pb-0 px-4 border-bottom-0">
-        <h3 class="fw-bold"><i class="bi bi-box text-primary me-2"></i>製品マスタ登録</h3>
-        <p class="text-muted small">製品の仕様や改廃の背景を登録することで、AIが正確な提案を行えるようになります。</p>
-      </div>
-      <div class="card-body p-4">
-        <form id="form-product" onsubmit="event.preventDefault(); submitProduct();">
-          <div class="row g-3">
-            <div class="col-md-8">
-              <label class="form-label fw-bold">製品名・型番 <span class="text-danger">*</span></label>
-              <input type="text" id="prd-name" class="form-control" required>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label fw-bold">販売価格目安</label>
-              <input type="text" id="prd-price" class="form-control" placeholder="例: 150,000円〜">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-bold">ステータス</label>
-              <select id="prd-status" class="form-select">
-                <option value="現行品">現行品 (Active)</option>
-                <option value="廃番予定">廃番予定 (Phasing Out)</option>
-                <option value="廃番">廃番 (Obsolete)</option>
-                <option value="新製品">新製品 (New)</option>
-              </select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-bold">後継機種</label>
-              <input type="text" id="prd-successor" class="form-control" placeholder="廃番の場合は代替機種を入力">
-            </div>
-            <div class="col-12">
-              <label class="form-label fw-bold">改廃理由（なぜこの製品を作ったか・やめたか）</label>
-              <textarea id="prd-reason" class="form-control" rows="2" placeholder="例: 部品調達難のため。機能拡張を行った後継機へ切り替え。"></textarea>
-            </div>
-            <div class="col-12">
-              <label class="form-label fw-bold">競合優位性（他社製品に勝てるポイント）</label>
-              <textarea id="prd-advantage" class="form-control" rows="3" placeholder="耐久性が従来比1.5倍。〇〇基板との親和性が高い。"></textarea>
-            </div>
-            <div class="col-12 mt-4 text-end">
-              <button type="submit" class="btn btn-dark px-4 fw-bold rounded-pill"><i class="bi bi-save me-2"></i>データベースに登録</button>
-            </div>
+    <!-- NOTEBOOKLM -->
+    <div id="tab-notebooklm" class="notion-page d-none">
+      <div class="page-body">
+        <div class="page-emoji">📚</div>
+        <h1 class="page-h1">NotebookLM 台帳</h1>
+        <div class="notion-form-card">
+          <div class="form-prop-row">
+            <span class="form-prop-label">ノートブック名</span>
+            <input type="text" id="nlm-name" class="form-prop-input" placeholder="営業マニュアル一式">
           </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- タブ: 議事録登録 -->
-  <div id="tab-meeting" class="tab-content d-none">
-    <div class="card border-0 shadow-sm rounded-4">
-      <div class="card-header bg-white pt-4 pb-0 px-4 border-bottom-0">
-        <h3 class="fw-bold"><i class="bi bi-file-earmark-text text-primary me-2"></i>商談議事録 登録</h3>
-        <p class="text-muted small">商談内容を集約します。このデータによりAIは顧客の過去の関心事や断り文句を学習します。</p>
-      </div>
-      <div class="card-body p-4">
-        <form id="form-meeting" onsubmit="event.preventDefault(); submitMeeting();">
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label fw-bold">顧客名・社名 <span class="text-danger">*</span></label>
-              <input type="text" id="mtg-client" class="form-control" required placeholder="株式会社〇〇">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-bold">関連する基板・機種</label>
-              <input type="text" id="mtg-related" class="form-control" placeholder="対象製品タグ">
-            </div>
-            <div class="col-12">
-              <label class="form-label fw-bold">内容サマリ (AIが最も重視する1行要約) <span class="text-danger">*</span></label>
-              <input type="text" id="mtg-summary" class="form-control" required placeholder="価格ネックで一旦保留だが、耐久性には興味あり">
-            </div>
-            <div class="col-12">
-              <label class="form-label fw-bold">議事録全文 (手動入力またはシステムからのコピペ)</label>
-              <textarea id="mtg-fulltext" class="form-control" rows="6" placeholder="※ここにテキストを貼り付け"></textarea>
-            </div>
-            <div class="col-12 mt-4 text-end">
-              <button type="submit" class="btn btn-dark px-4 fw-bold rounded-pill"><i class="bi bi-save me-2"></i>データベースに登録</button>
-            </div>
+          <div class="form-prop-row">
+            <span class="form-prop-label">関連分野</span>
+            <input type="text" id="nlm-related" class="form-prop-input" placeholder="新人教育用">
           </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- タブ: メモ(Obsidian)登録 -->
-  <div id="tab-note" class="tab-content d-none">
-    <div class="card border-0 shadow-sm rounded-4">
-      <div class="card-header bg-white pt-4 pb-0 px-4 border-bottom-0">
-        <h3 class="fw-bold"><i class="bi bi-journal-text text-primary me-2"></i>社内メモ / Obsidian形式インポート</h3>
-        <p class="text-muted small">Google KeepやローカルのObsidian等で書かれたMarkdownメモ等を手動集約する画面です。</p>
-      </div>
-      <div class="card-body p-4">
-        <form id="form-note" onsubmit="event.preventDefault(); submitNote();">
-          <div class="mb-3">
-            <label class="form-label fw-bold">検索タグ (ハッシュタグ等) <span class="text-danger">*</span></label>
-            <input type="text" id="nt-tags" class="form-control" required placeholder="#ナレッジ #営業トーク #競合情報">
+          <div class="form-prop-row">
+            <span class="form-prop-label">共有 URL</span>
+            <input type="url" id="nlm-url" class="form-prop-input" placeholder="https://notebooklm.google.com/...">
           </div>
-          <div class="mb-3">
-            <label class="form-label fw-bold">メモ本文 (Markdown形式可)</label>
-            <textarea id="nt-content" class="form-control font-monospace" rows="10" placeholder="# 競合の最新動向\n\nA社がリリースした新基板は..."></textarea>
-          </div>
-          <div class="text-end">
-            <button type="submit" class="btn btn-dark px-4 fw-bold rounded-pill"><i class="bi bi-save me-2"></i>データベースに登録</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- タブ: CSV / Excel インポート -->
-  <div id="tab-import" class="tab-content d-none">
-    <div class="card border-0 shadow-sm rounded-4">
-      <div class="card-header bg-white pt-4 pb-0 px-4 border-bottom-0">
-        <h3 class="fw-bold"><i class="bi bi-file-earmark-arrow-up text-success me-2"></i>CSV / Excel インポート</h3>
-        <p class="text-muted small">手元のCSVまたはExcelファイルから一括でデータを登録できます。スプレッドシートからのエクスポートにも対応しています。</p>
-      </div>
-      <div class="card-body p-4">
-
-        <!-- インポート先選択 -->
-        <div class="mb-4">
-          <label class="form-label fw-bold">インポート先データ種別 <span class="text-danger">*</span></label>
-          <div class="btn-group w-100 shadow-sm" role="group" id="import-type-group">
-            <input type="radio" class="btn-check" name="importType" id="importTypeProduct" value="products" autocomplete="off" checked>
-            <label class="btn btn-outline-primary fw-bold" for="importTypeProduct"><i class="bi bi-box me-1"></i>製品マスタ</label>
-            <input type="radio" class="btn-check" name="importType" id="importTypeMeeting" value="meetings" autocomplete="off">
-            <label class="btn btn-outline-primary fw-bold" for="importTypeMeeting"><i class="bi bi-file-earmark-text me-1"></i>議事録</label>
-            <input type="radio" class="btn-check" name="importType" id="importTypeNote" value="notes" autocomplete="off">
-            <label class="btn btn-outline-primary fw-bold" for="importTypeNote"><i class="bi bi-journal-text me-1"></i>メモ</label>
-            <input type="radio" class="btn-check" name="importType" id="importTypeGoal" value="goals" autocomplete="off">
-            <label class="btn btn-outline-primary fw-bold" for="importTypeGoal"><i class="bi bi-award me-1"></i>目標</label>
+          <div style="text-align:right; margin-top:12px;">
+            <button class="notion-btn-sm" onclick="submitNotebookLM()"><i class="bi bi-save me-1"></i> 追加</button>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- テンプレートDL -->
-        <div class="alert alert-info border-0 bg-info-subtle mb-4">
-          <div class="d-flex align-items-center justify-content-between">
-            <div>
-              <i class="bi bi-info-circle-fill text-info me-2"></i>
-              <strong>テンプレートCSVをダウンロードしてから入力してください。</strong>
-              <span class="text-muted small d-block mt-1">列の順番・列名を変えずにデータを追記してください。</span>
+  </main>
+</div>
+
+<!-- ===== ROW DETAIL PANEL (Notion ページ展開風) ===== -->
+<div id="row-panel-overlay" class="row-panel-overlay d-none" onclick="closeRowPanel(event)">
+  <div class="row-panel" id="row-panel" onclick="event.stopPropagation()">
+    <div class="row-panel-topbar">
+      <button class="row-panel-close" onclick="closeRowPanel()"><i class="bi bi-x-lg"></i></button>
+      <div class="row-panel-breadcrumb" id="row-panel-bc"></div>
+      <button class="row-panel-delete danger-btn" onclick="deleteCurrentRow()">
+        <i class="bi bi-trash3"></i> 削除
+      </button>
+    </div>
+    <div class="row-panel-body">
+      <div class="row-panel-emoji" id="row-panel-emoji">📄</div>
+      <div class="row-panel-title" id="row-panel-title" contenteditable="true"
+           onblur="saveRowPanelTitle()" spellcheck="false">タイトル</div>
+      <div id="row-panel-props" class="row-panel-props"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DRIVE SCAN MODAL ===== -->
+<div class="modal fade" id="modal-scan" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content notion-modal-wrap">
+      <div class="notion-modal-head">
+        <span>☁️</span>
+        <h5>Drive フォルダ スキャン</h5>
+        <button data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="notion-modal-bd">
+        <div id="scan-step-1">
+          <p class="prop-label-sm">フォルダ構成タイプ</p>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
+            <div class="scan-type-opt selected" id="type-card-1" onclick="selectFolderType(1)">
+              <input type="radio" name="folderType" id="folderType1" value="1" checked style="display:none;">
+              <div style="font-weight:600; margin-bottom:6px;">構成①</div>
+              <div style="font-size:0.78em; color:#6b7280; line-height:1.7;">
+                📁 見積書<br>&nbsp;&nbsp;📁 本社 → 📁 2025年01月<br>&nbsp;&nbsp;📁 ○○支社 → 📁 2025年01月
+              </div>
             </div>
-            <button class="btn btn-info btn-sm text-white fw-bold rounded-pill ms-3 text-nowrap" onclick="downloadImportTemplate()">
-              <i class="bi bi-download me-1"></i>テンプレートDL
+            <div class="scan-type-opt" id="type-card-2" onclick="selectFolderType(2)">
+              <input type="radio" name="folderType" id="folderType2" value="2" style="display:none;">
+              <div style="font-weight:600; margin-bottom:6px;">構成②</div>
+              <div style="font-size:0.78em; color:#6b7280; line-height:1.7;">
+                📁 本社 → 📁 見積書 → 📁 2025年01月<br>📁 ○○支社 → 📁 見積書 → 📁 2025年01月
+              </div>
+            </div>
+          </div>
+          <p class="prop-label-sm">Drive フォルダ ID</p>
+          <div style="display:flex; gap:8px; margin-bottom:6px;">
+            <input type="text" id="scan-folder-id" class="form-prop-input" style="flex:1;" placeholder="1AbCdEfGhIjKlMnOpQrStUvWxYz">
+            <button class="notion-btn-sm ghost" onclick="validateFolder()">検証</button>
+          </div>
+          <div id="folder-validation-result" style="font-size:0.82em;"></div>
+          <div id="folder-preview" class="callout-notion d-none" style="margin-top:8px;">
+            <span>✅</span><div>確認済: <strong id="folder-preview-name"></strong></div>
+          </div>
+          <div style="text-align:right; margin-top:20px;">
+            <button class="notion-btn-sm" onclick="startScan()">▶ スキャン開始</button>
+          </div>
+        </div>
+        <div id="scan-step-2" class="d-none" style="text-align:center; padding:48px 0;">
+          <div class="loading-dots" style="justify-content:center;"><span></span><span></span><span></span></div>
+          <div style="margin-top:14px; color:#9ca3af; font-size:0.88em;">スキャン・分類中...</div>
+        </div>
+        <div id="scan-step-3" class="d-none">
+          <div style="text-align:center; margin-bottom:20px;">
+            <div style="font-size:2.5rem;">✅</div>
+            <div id="scan-result-title" style="font-weight:600; margin-top:8px;"></div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+            <div style="background:#f0fdf4; border-radius:8px; padding:16px; text-align:center;">
+              <div style="font-size:1.8rem; font-weight:700; color:#16a34a;" id="scan-count-classified">0</div>
+              <div style="font-size:0.8em; color:#6b7280;">自動分類</div>
+            </div>
+            <div style="background:#fffbeb; border-radius:8px; padding:16px; text-align:center;">
+              <div style="font-size:1.8rem; font-weight:700; color:#d97706;" id="scan-count-unclassified">0</div>
+              <div style="font-size:0.8em; color:#6b7280;">未分類</div>
+            </div>
+          </div>
+          <div id="scan-result-classified" style="max-height:180px; overflow-y:auto;"></div>
+          <div id="scan-result-unclassified-area" class="d-none" style="margin-top:10px;">
+            <p style="font-size:0.83em; font-weight:600; color:#d97706;">⚠️ 未分類</p>
+            <div id="scan-result-unclassified" style="max-height:100px; overflow-y:auto;"></div>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:20px;">
+            <button class="notion-btn-sm ghost" style="flex:1;" data-bs-dismiss="modal">閉じる</button>
+            <button class="notion-btn-sm" style="flex:1;"
+              onclick="loadModelTree(); showTab('modeltree'); bootstrap.Modal.getInstance(document.getElementById('modal-scan')).hide();">
+              ツリーを表示 →
             </button>
           </div>
         </div>
-
-        <!-- ファイル選択 -->
-        <div class="mb-4">
-          <label class="form-label fw-bold">ファイルを選択 <span class="text-danger">*</span></label>
-          <div id="import-dropzone" class="border border-2 border-dashed rounded-4 p-5 text-center bg-light" style="cursor:pointer; border-color:#adb5bd !important;"
-               onclick="document.getElementById('import-file-input').click()"
-               ondragover="event.preventDefault(); this.classList.add('border-primary','bg-primary-subtle')"
-               ondragleave="this.classList.remove('border-primary','bg-primary-subtle')"
-               ondrop="handleImportDrop(event)">
-            <i class="bi bi-cloud-upload text-muted" style="font-size:2.5rem;"></i>
-            <p class="mb-1 mt-2 fw-bold text-muted">ここにドラッグ＆ドロップ</p>
-            <p class="small text-muted mb-0">または クリックしてファイルを選択</p>
-            <p class="small text-muted">対応形式: <code>.csv</code> / <code>.xlsx</code> / <code>.xls</code></p>
-          </div>
-          <input type="file" id="import-file-input" class="d-none" accept=".csv,.xlsx,.xls" onchange="handleImportFile(this.files[0])">
-        </div>
-
-        <!-- プレビューテーブル -->
-        <div id="import-preview-section" class="d-none mb-4">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="fw-bold mb-0"><i class="bi bi-table me-2 text-success"></i>プレビュー（先頭5行）</h6>
-            <span id="import-row-count" class="badge bg-secondary rounded-pill"></span>
-          </div>
-          <div class="table-responsive rounded-3 border">
-            <table class="table table-sm table-hover mb-0" id="import-preview-table">
-              <thead class="table-dark"><tr id="import-preview-head"></tr></thead>
-              <tbody id="import-preview-body"></tbody>
-            </table>
-          </div>
-          <div id="import-col-warning" class="alert alert-warning mt-2 d-none border-0">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i><span id="import-col-warning-msg"></span>
-          </div>
-        </div>
-
-        <!-- スプレッドシート連携セクション -->
-        <div class="card border-0 bg-light rounded-4 mb-4 p-4">
-          <h6 class="fw-bold mb-3"><i class="bi bi-table text-success me-2"></i>Googleスプレッドシート から直接インポート</h6>
-          <p class="small text-muted mb-3">スプレッドシートのURLを入力するだけでデータを直接読み込めます。<br>※シートは公開設定 または スクリプトと同じアカウントでアクセス可能なファイルが対象です。</p>
-          <div class="input-group mb-2">
-            <span class="input-group-text bg-white border-end-0"><i class="bi bi-link-45deg text-success"></i></span>
-            <input type="url" id="sheet-url-input" class="form-control border-start-0" placeholder="https://docs.google.com/spreadsheets/d/...">
-            <input type="text" id="sheet-tab-name" class="form-control" placeholder="シート名（省略時は先頭シート）" style="max-width:200px;">
-            <button class="btn btn-success fw-bold" onclick="importFromSpreadsheet()"><i class="bi bi-download me-1"></i>読み込む</button>
-          </div>
-          <p class="small text-muted mb-0">※スプレッドシートのURLはブラウザのアドレスバーからそのまま貼り付けてください。</p>
-        </div>
-
-        <!-- 実行ボタン -->
-        <div class="d-grid">
-          <button id="btn-import-execute" class="btn btn-success btn-lg fw-bold rounded-pill d-none" onclick="executeImport()">
-            <i class="bi bi-upload me-2"></i>データをインポートする
-          </button>
-        </div>
-        
-        <!-- 結果表示 -->
-        <div id="import-result" class="mt-3"></div>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- タブ: Drive同期 -->
-  <div id="tab-drivesync" class="tab-content d-none">
-    <div class="card border-0 shadow-sm rounded-4">
-      <div class="card-header bg-gradient-brand text-white pt-4 pb-4 px-4 border-bottom-0 rounded-top-4">
-        <h3 class="fw-bold mb-1"><i class="bi bi-cloud-arrow-down me-2"></i>Google Drive 自動テキスト抽出</h3>
-        <p class="mb-0 opacity-75 small">指定したDriveフォルダ内の商談PDFやドキュメントをRAG用ナレッジに変換します。</p>
-      </div>
-      <div class="card-body p-4 p-md-5">
-        <div class="alert alert-warning mb-4 shadow-sm border-0 bg-warning-subtle">
-          <h6 class="fw-bold text-dark"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>事前準備</h6>
-          <p class="mb-0 text-dark small">スクリプトプロパティ <code>KNOWLEDGE_FOLDER_ID</code> に読み込み対象のフォルダID（URLの"folders/"以降の英数字）が設定されている必要があります。</p>
-        </div>
-        <div class="text-center py-4">
-          <i class="bi bi-hdd-network text-primary mb-3" style="font-size: 4rem;"></i>
-          <h5 class="fw-bold">最新ドキュメントの同期を開始</h5>
-          <p class="text-muted small mb-4">まだ同期されていない新規ファイル(PDF/ドキュメント)のみテキスト化します。<br>※大量のPDFがある場合はOCR処理に時間がかかります。</p>
-          <button onclick="submitDriveSync()" id="btn-drivesync" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold shadow-sm">
-            <i class="bi bi-arrow-repeat me-2"></i>同期を実行する
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- タブ: 業務分析・Chat -->
-  <div id="tab-analytics" class="tab-content d-none">
-    <div class="card border-0 shadow-sm rounded-4">
-      <div class="card-header bg-gradient-brand text-white pt-4 pb-4 px-4 border-bottom-0 rounded-top-4">
-        <h3 class="fw-bold mb-1"><i class="bi bi-magic me-2"></i>Google Workspace 自動業務分析 & Chat通知</h3>
-        <p class="mb-0 opacity-75 small">あなたのGmailとGoogleカレンダーの履歴から、学習傾向と今後のタスクをAIが自動分析します。</p>
-      </div>
-      <div class="card-body p-4 p-md-5">
-        <div class="text-center py-4">
-          <i class="bi bi-envelope-paper text-info mb-3" style="font-size: 4rem;"></i>
-          <h5 class="fw-bold">最新のメール・予定を分析する</h5>
-          <p class="text-muted small mb-4">このボタンを押すと、GASが自動であなたのGmailとカレンダー情報をGeminiに送信しレポートを作成します。<br>※プロパティに webhook URL があれば、同時にGoogle Chatへ発信されます。</p>
-          <button onclick="submitAnalytics()" id="btn-analytics" class="btn btn-info text-white btn-lg rounded-pill px-5 fw-bold shadow-sm">
-            <i class="bi bi-lightning-charge-fill me-2"></i>分析を実行する
-          </button>
-        </div>
-        
-        <div id="analytics-result-container" class="mt-4 d-none">
-          <h5 class="fw-bold text-primary border-bottom pb-2"><i class="bi bi-file-earmark-bar-graph text-primary me-2"></i>分析レポート結果</h5>
-          <div id="analytics-result" class="p-4 bg-light rounded-3 shadow-sm mt-3" style="white-space: pre-wrap; line-height: 1.8;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- タブ: キャリア・人事評価 (New) -->
-  <div id="tab-career" class="tab-content d-none">
-    <div class="row g-4 mb-4">
-      <div class="col-md-8">
-        <div class="card border-0 shadow-sm rounded-4">
-          <div class="card-header bg-gradient-brand text-white pt-4 pb-4 px-4 border-bottom-0 rounded-top-4">
-            <h3 class="fw-bold mb-1"><i class="bi bi-award me-2"></i>キャリア目標 & 成果エビデンス</h3>
-            <p class="mb-0 opacity-75 small">目標の進捗を記録し、人事評価でそのまま使える実績リストを作成します。</p>
-          </div>
-          <div class="card-body p-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h5 class="fw-bold mb-0">現在の目標リスト</h5>
-              <button class="btn btn-sm btn-dark rounded-pill" onclick="showModal('modal-goal')"><i class="bi bi-plus me-1"></i>目標を追加</button>
-            </div>
-            <div id="goal-list-container" class="list-group list-group-flush">
-              <!-- JSで動的生成 -->
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="card border-0 shadow-sm rounded-4 mb-4">
-          <div class="card-body p-4">
-            <h6 class="fw-bold text-muted mb-3"><i class="bi bi-lightning-auto text-warning me-2"></i>直近1ヶ月の実績エビデンス</h6>
-            <div class="d-flex justify-content-between mb-2">
-              <span>商談実施数:</span>
-              <span class="fw-bold text-primary" id="career-stat-meetings">0</span>
-            </div>
-            <div class="d-flex justify-content-between">
-              <span>新規ナレッジ作成数:</span>
-              <span class="fw-bold text-success" id="career-stat-knowledge">0</span>
-            </div>
-            <hr>
-            <p class="small text-muted">※これらは自動集計され、人事考課の際の強力な根拠になります。</p>
-          </div>
-        </div>
-        
-        <div class="card border-0 shadow-sm rounded-4 bg-light">
-          <div class="card-body p-4">
-            <h6 class="fw-bold mb-3"><i class="bi bi-headphones text-danger me-2"></i>通勤学習・音声化予約</h6>
-            <p class="small text-muted mb-3">書類や議事録を「聴く」教材に変換します。「データ管理」タブから対象を選んで音声リクエストをしてください。</p>
-            <div class="text-center">
-               <i class="bi bi-music-note-beamed text-muted opacity-25" style="font-size: 3rem;"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- タブ: NotebookLM登録 -->
-  <div id="tab-notebooklm" class="tab-content d-none">
-    <div class="card border-0 shadow-sm rounded-4">
-      <div class="card-header bg-white pt-4 pb-0 px-4 border-bottom-0">
-        <h3 class="fw-bold"><i class="bi bi-book-half text-primary me-2"></i>NotebookLM 管理台帳</h3>
-        <p class="text-muted small">NotebookLM (Enterprise未契約環境) のノートリンクを集約・管理し、散逸を防ぐための台帳です。</p>
-      </div>
-      <div class="card-body p-4">
-        <form id="form-notebooklm" onsubmit="event.preventDefault(); submitNotebookLM();">
-          <div class="row g-3">
-             <div class="col-md-6">
-              <label class="form-label fw-bold">ノートブック名 <span class="text-danger">*</span></label>
-              <input type="text" id="nlm-name" class="form-control" required placeholder="営業マニュアル一式">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-bold">関連分野</label>
-              <input type="text" id="nlm-related" class="form-control" placeholder="新人教育用">
-            </div>
-            <div class="col-12">
-              <label class="form-label fw-bold">共有URL (NotebookLMのリンク) <span class="text-danger">*</span></label>
-              <input type="url" id="nlm-url" class="form-control" required placeholder="https://notebooklm.google.com/notebook/...">
-            </div>
-            <div class="col-12 mt-4 text-end">
-              <button type="submit" class="btn btn-dark px-4 fw-bold rounded-pill"><i class="bi bi-save me-2"></i>台帳へ追加</button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- タブ: データ・一括管理 (SaaS機能) -->
-  <div id="tab-management" class="tab-content d-none">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h3 class="fw-bold text-dark"><i class="bi bi-table text-success me-2"></i>データ管理コンソール</h3>
-      <div class="d-print-none">
-        <button class="btn btn-outline-secondary fw-bold rounded-pill shadow-sm me-2" onclick="loadManagementData();">
-          <i class="bi bi-arrow-clockwise me-1"></i>データ再読込
-        </button>
-        <button class="btn btn-outline-primary fw-bold rounded-pill shadow-sm" onclick="window.print();">
-          <i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF / レポート印刷
-        </button>
-      </div>
-    </div>
-    
-    <div class="card border-0 shadow-sm rounded-4 mb-4">
-      <div class="card-header bg-white pt-4 pb-3 px-4 border-bottom d-flex justify-content-between align-items-center">
-        <h5 class="fw-bold mb-0"><i class="bi bi-box text-primary me-2"></i>製品マスタ (Products)</h5>
-        <button class="btn btn-sm btn-dark d-print-none" onclick="exportCSV('table-products-head', 'table-products-body', 'products.csv')"><i class="bi bi-download me-1"></i>CSVダウンロード</button>
-      </div>
-      <div class="card-body p-0 table-responsive" style="max-height: 400px;">
-        <table class="table table-hover align-middle mb-0">
-          <thead class="table-light sticky-top">
-            <tr id="table-products-head"></tr>
-          </thead>
-          <tbody id="table-products-body">
-            <!-- JSで動的生成 -->
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card border-0 shadow-sm rounded-4 mb-4">
-      <div class="card-header bg-white pt-4 pb-3 px-4 border-bottom d-flex justify-content-between align-items-center">
-        <h5 class="fw-bold mb-0"><i class="bi bi-file-earmark-text text-primary me-2"></i>商談議事録 (Meetings)</h5>
-        <button class="btn btn-sm btn-dark d-print-none" onclick="exportCSV('table-meetings-head', 'table-meetings-body', 'meetings.csv')"><i class="bi bi-download me-1"></i>CSVダウンロード</button>
-      </div>
-      <div class="card-body p-0 table-responsive" style="max-height: 400px;">
-        <table class="table table-hover align-middle mb-0">
-          <thead class="table-light sticky-top">
-            <tr id="table-meetings-head"></tr>
-          </thead>
-          <tbody id="table-meetings-body">
-            <!-- JSで動的生成 -->
-          </tbody>
-        </table>
-      </div>
-    </div>
-</div>
-
-
-<!-- Modal: 目標追加 -->
-<div class="modal fade" id="modal-goal" tabindex="-1" aria-labelledby="modalGoalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content rounded-4 border-0 shadow">
-      <div class="modal-header bg-dark text-white rounded-top-4">
-        <h5 class="modal-title fw-bold" id="modalGoalLabel">キャリア目標の新規登録</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body p-4">
-        <form id="form-goal" onsubmit="event.preventDefault(); submitGoal();">
-          <div class="mb-3">
-            <label class="form-label fw-bold">目標タイトル</label>
-            <input type="text" id="goal-title" class="form-control" required placeholder="部品知識100件マスター">
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-bold">対象期間</label>
-            <input type="text" id="goal-period" class="form-control" placeholder="2024年度 上期">
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-bold">測定指標 (KPI)</label>
-            <input type="text" id="goal-kpi" class="form-control" placeholder="〇〇のナレッジをXX件作成">
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-bold">進捗 (%)</label>
-            <input type="number" id="goal-progress" class="form-control" value="0" min="0" max="100">
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-bold">自己評価・エビデンス</label>
-            <textarea id="goal-eval" class="form-control" rows="3" placeholder="人事考課でアピールしたい内容"></textarea>
-          </div>
-          <div class="text-end mt-4">
-            <button type="submit" class="btn btn-primary px-4 fw-bold rounded-pill">保存する</button>
-          </div>
-        </form>
       </div>
     </div>
   </div>
 </div>
 
-<!-- SheetJS for Excel読み込み -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<!-- Bootstrap JS & Custom JS -->
+<!-- ===== GOAL MODAL ===== -->
+<div class="modal fade" id="modal-goal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content notion-modal-wrap">
+      <div class="notion-modal-head">
+        <span>🎯</span><h5>目標を追加</h5>
+        <button data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="notion-modal-bd">
+        <div class="notion-form-card">
+          <div class="form-prop-row"><span class="form-prop-label">目標タイトル *</span><input type="text" id="goal-title" class="form-prop-input" placeholder="部品知識100件マスター"></div>
+          <div class="form-prop-row"><span class="form-prop-label">対象期間</span><input type="text" id="goal-period" class="form-prop-input" placeholder="2024年度 上期"></div>
+          <div class="form-prop-row"><span class="form-prop-label">測定指標(KPI)</span><input type="text" id="goal-kpi" class="form-prop-input" placeholder="ナレッジXX件"></div>
+          <div class="form-prop-row">
+            <span class="form-prop-label">進捗</span>
+            <div style="flex:1; display:flex; align-items:center; gap:10px;">
+              <input type="range" id="goal-progress" min="0" max="100" value="0" class="form-range" style="flex:1;"
+                oninput="document.getElementById('goal-pval').textContent=this.value+'%'">
+              <span id="goal-pval" style="min-width:36px; font-size:0.85em; color:#6b7280;">0%</span>
+            </div>
+          </div>
+          <div class="form-prop-row"><span class="form-prop-label">自己評価</span><textarea id="goal-eval" class="form-prop-input" rows="3" style="resize:vertical;"></textarea></div>
+        </div>
+        <div style="text-align:right; margin-top:12px;">
+          <button class="notion-btn-sm" onclick="submitGoal()"><i class="bi bi-save me-1"></i> 保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ADD ROW MODAL ===== -->
+<div class="modal fade" id="modal-add-row" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content notion-modal-wrap">
+      <div class="notion-modal-head">
+        <span id="add-row-icon">➕</span>
+        <h5 id="add-row-title">新規追加</h5>
+        <button data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="notion-modal-bd">
+        <div class="notion-form-card" id="add-row-fields"></div>
+        <div style="text-align:right; margin-top:12px;">
+          <button class="notion-btn-sm" onclick="submitAddRow()"><i class="bi bi-save me-1"></i> 保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <?!= include('JavaScript'); ?>
 </body>

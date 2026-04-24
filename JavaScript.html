@@ -1,1247 +1,921 @@
 <script>
-/**
- * 画面UI・非同期処理コントローラー
- */
+// ============================================
+// JavaScript.html — Notion-like Inline Editor
+// ============================================
 
-// 初回読み込み時のダッシュボードデータ取得
+// ===== State =====
+let _currentSheet   = null;
+let _currentRowId   = null;
+let _currentHeaders = [];
+let _tableCache     = {};
+let _treeData       = [];
+let _meetingChart, _productChart;
+
+// ===== Page metadata =====
+const PAGE_META = {
+  dashboard:  { label: 'ホーム',         emoji: '🏠' },
+  products:   { label: '製品マスタ',     emoji: '📦' },
+  meetings:   { label: '商談議事録',     emoji: '📝' },
+  notes:      { label: 'ナレッジメモ',   emoji: '💡' },
+  quotes:     { label: '見積書台帳',     emoji: '💴' },
+  modeltree:  { label: 'ドキュメント管理', emoji: '🗂️' },
+  ai:         { label: 'AI アシスタント', emoji: '✨' },
+  analytics:  { label: '業務分析',       emoji: '📊' },
+  career:     { label: 'キャリア目標',   emoji: '🎯' },
+  notebooklm: { label: 'NotebookLM',    emoji: '📚' },
+};
+
+// DB schema definitions (label → GAS function mapping)
+const DB_CONFIG = {
+  products: {
+    icon: '📦', title: '製品マスタ',
+    addFn: 'saveProduct',
+    fields: [
+      { key: 'name',      label: '製品名',     required: true },
+      { key: 'price',     label: '価格',       type: 'number' },
+      { key: 'status',    label: 'ステータス', type: 'select', options: ['販売中','廃番','開発中'] },
+      { key: 'successor', label: '後継機種' },
+      { key: 'reason',    label: '改廃理由' },
+      { key: 'advantage', label: '競合優位性', type: 'textarea' },
+    ]
+  },
+  meetings: {
+    icon: '📝', title: '商談議事録',
+    addFn: 'saveMeeting',
+    fields: [
+      { key: 'client',   label: '顧客名',       required: true },
+      { key: 'related',  label: '関連基板・機種' },
+      { key: 'summary',  label: '内容サマリ',   type: 'textarea' },
+      { key: 'fulltext', label: '議事録全文',   type: 'textarea' },
+    ]
+  },
+  notes: {
+    icon: '💡', title: 'ナレッジメモ',
+    addFn: 'saveNote',
+    fields: [
+      { key: 'tags',    label: 'タグ',   placeholder: '#製品知識 #営業Tips' },
+      { key: 'content', label: 'メモ内容', required: true, type: 'textarea' },
+    ]
+  },
+};
+
+// ===== Init =====
 document.addEventListener('DOMContentLoaded', () => {
-  loadDashboardData();
-  loadManagementData();
+  loadDashboard();
+  loadTableData('products');
+  loadTableData('meetings');
+  loadTableData('notes');
   loadCareerData();
 });
 
-// タブ切り替え処理
-function showTab(tabId) {
-  // すべてのタブコンテンツを非表示
-  document.querySelectorAll('.tab-content').forEach(el => {
-    el.classList.add('d-none');
-    el.classList.remove('active-tab');
+// =============================================
+// NAVIGATION
+// =============================================
+function showTab(id) {
+  document.querySelectorAll('.notion-page').forEach(p => {
+    p.classList.add('d-none');
+    p.classList.remove('active-page');
   });
-  // ナビゲーションのActive解除
-  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-  // 指定のタブを表示
-  const target = document.getElementById('tab-' + tabId);
-  if (target) {
-    target.classList.remove('d-none');
-    target.classList.add('active-tab');
-  }
-  
-  // ナビゲーションをActive化
-  const navItem = document.getElementById('nav-' + tabId);
-  if (navItem) navItem.classList.add('active');
+  const page = document.getElementById('tab-' + id);
+  if (page) { page.classList.remove('d-none'); page.classList.add('active-page'); }
+  const nav = document.getElementById('nav-' + id);
+  if (nav) nav.classList.add('active');
 
-  // ダッシュボードを開いた場合は最新データをフェッチ
-  if (tabId === 'dashboard') loadDashboardData();
+  const meta = PAGE_META[id] || { label: id, emoji: '📄' };
+  document.getElementById('bc-current').textContent = meta.label;
+
+  if (id === 'dashboard') loadDashboard();
+  if (id === 'modeltree') loadModelTree();
+  if (id === 'quotes')    loadQuotesTable();
 }
 
-// UIユーティリティ (ローディング・通知)
-function showLoading() {
-  document.getElementById('loader').classList.remove('d-none');
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
 }
 
-function hideLoading() {
-  document.getElementById('loader').classList.add('d-none');
+// =============================================
+// LOADING / TOAST
+// =============================================
+function showLoading() { document.getElementById('loader-dot').classList.remove('d-none'); }
+function hideLoading()  { document.getElementById('loader-dot').classList.add('d-none'); }
+
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toast-inline');
+  el.textContent = isError ? '⚠️ ' + msg : '✓ ' + msg;
+  el.style.color = isError ? 'var(--red)' : 'var(--green)';
+  el.style.background = isError ? 'var(--red-soft)' : 'var(--green-soft)';
+  el.classList.remove('d-none');
+  setTimeout(() => el.classList.add('d-none'), 3500);
 }
 
-function showAlert(msg) {
-  const alertBox = document.getElementById('alert-box');
-  document.getElementById('alert-message').innerText = msg;
-  alertBox.classList.remove('d-none');
-  setTimeout(() => closeAlert(), 5000); // 5秒後に自動非表示
-}
-
-function closeAlert() {
-  document.getElementById('alert-box').classList.add('d-none');
-}
-
-// -----------------------------------------------------------------
-// データ取得系処理
-// -----------------------------------------------------------------
-function loadDashboardData() {
+// =============================================
+// DASHBOARD
+// =============================================
+function loadDashboard() {
   showLoading();
   google.script.run
     .withSuccessHandler(data => {
       hideLoading();
-      // 統計カウンター更新
-      document.getElementById('stat-products').innerText = data.productsCount;
-      document.getElementById('stat-meetings').innerText = data.meetingsCount;
-      document.getElementById('stat-notes').innerText = data.notesCount;
-      document.getElementById('stat-notebooks').innerText = data.notebookLMs.length;
+      document.getElementById('stat-products').textContent  = data.productsCount;
+      document.getElementById('stat-meetings').textContent  = data.meetingsCount;
+      document.getElementById('stat-notes').textContent     = data.notesCount;
+      document.getElementById('stat-notebooks').textContent = data.notebookLMs.length;
 
-      // NotebookLMリスト生成
-      const listEl = document.getElementById('notebooklm-list');
-      listEl.innerHTML = '';
-      if(data.notebookLMs.length === 0) {
-        listEl.innerHTML = '<li class="list-group-item text-muted">台帳に登録されたノートブックはありません。</li>';
+      // NotebookLM list
+      const list = document.getElementById('notebooklm-list');
+      list.innerHTML = '';
+      if (!data.notebookLMs.length) {
+        list.innerHTML = '<div class="empty-msg">NotebookLMの台帳がありません</div>';
       } else {
         data.notebookLMs.forEach(n => {
-          const li = document.createElement('li');
-          li.className = 'list-group-item d-flex justify-content-between align-items-center py-3';
-          li.innerHTML = `
-            <div>
-              <h6 class="mb-1 fw-bold">${n['ノートブック名']}</h6>
-              <span class="badge bg-light text-dark border">${n['関連製品']}</span>
-              <span class="badge bg-success ms-1">${n['Enterprise連携フラグ']}</span>
-            </div>
-            <a href="${n['共有URL']}" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill px-3">開く <i class="bi bi-box-arrow-up-right ms-1"></i></a>
-          `;
-          listEl.appendChild(li);
+          list.innerHTML += `
+            <div class="nlm-item">
+              <div class="nlm-item-info">
+                <div class="nlm-item-name">${esc(n['ノートブック名'])}</div>
+                <div class="nlm-item-tag">${esc(n['関連製品'])}</div>
+              </div>
+              <a href="${n['共有URL']}" target="_blank" class="nlm-item-link">開く ↗</a>
+            </div>`;
         });
       }
     })
-    .withFailureHandler(err => {
-      hideLoading();
-      showAlert("ダッシュボードのデータ取得に失敗しました: " + err.message);
-    })
+    .withFailureHandler(err => { hideLoading(); showToast(err.message, true); })
     .getDashboardData();
 }
 
-// -----------------------------------------------------------------
-// AI呼び出し処理
-// -----------------------------------------------------------------
-function submitAIQuery() {
-  const query = document.getElementById('ai-query').value.trim();
-  if(!query) {
-    alert("質問内容を入力してください。");
-    return;
+// =============================================
+// DATABASE TABLE LOAD & RENDER
+// =============================================
+function loadTableData(sheetName) {
+  google.script.run
+    .withSuccessHandler(data => {
+      _tableCache[sheetName] = data;
+      renderTable(sheetName, data);
+      if (sheetName === 'products' || sheetName === 'meetings') renderCharts();
+    })
+    .withFailureHandler(err => showToast(err.message, true))
+    .getAllDataForTables();
+}
+
+function loadQuotesTable() {
+  google.script.run
+    .withSuccessHandler(data => {
+      const quoteData = data && data.quotes ? data.quotes : { headers: ['見積ID','親会社ID','会社名','見積番号','年月','DriveファイルID','Drive URL','ステータス','登録日時'], rows: [] };
+      _tableCache['quotes'] = quoteData;
+      renderRawTable('quotes', quoteData);
+    })
+    .withFailureHandler(err => showToast(err.message, true))
+    .getAllDataForTables();
+}
+
+function renderTable(sheetName, allData) {
+  const sheetData = allData[sheetName];
+  if (!sheetData) return;
+  renderRawTable(sheetName, sheetData);
+}
+
+function renderRawTable(sheetName, sheetData) {
+  if (!sheetData || !sheetData.headers) return;
+  const thead = document.getElementById('thead-' + sheetName);
+  const tbody = document.getElementById('tbody-' + sheetName);
+  if (!thead || !tbody) return;
+
+  const headers = sheetData.headers;
+  thead.innerHTML = '';
+  tbody.innerHTML = '';
+
+  // Header row
+  const tr = document.createElement('tr');
+  headers.forEach((h, i) => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    if (i === 0) th.style.width = '40px';
+    tr.appendChild(th);
+  });
+  const thAct = document.createElement('th'); thAct.textContent = ''; thAct.style.width = '40px';
+  tr.appendChild(thAct);
+  thead.appendChild(tr);
+
+  // Body rows
+  const rows = sheetData.rows || [];
+  updateRowCount(sheetName, rows.length);
+
+  rows.forEach(row => {
+    tbody.appendChild(buildRow(sheetName, row, headers));
+  });
+}
+
+function buildRow(sheetName, row, headers) {
+  const tr = document.createElement('tr');
+  tr.dataset.id = row[0];
+
+  row.forEach((val, idx) => {
+    const td = document.createElement('td');
+
+    if (idx === 0) {
+      // Primary / title column — opens detail panel
+      td.innerHTML = `
+        <div class="cell-primary" onclick="openRowPanel('${sheetName}', '${esc(String(row[0]))}')">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${esc(String(val))}</span>
+          <i class="bi bi-arrow-up-right-square cell-open-icon"></i>
+        </div>`;
+    } else {
+      // Inline editable cell
+      const cellDiv = document.createElement('div');
+      cellDiv.className = 'cell-wrap';
+      cellDiv.contentEditable = 'true';
+      cellDiv.textContent = val;
+      cellDiv.spellcheck = false;
+      cellDiv.dataset.original = val;
+      cellDiv.dataset.header = headers[idx];
+      cellDiv.dataset.id = row[0];
+      cellDiv.dataset.sheet = sheetName;
+
+      cellDiv.addEventListener('focus', () => {
+        cellDiv.dataset.original = cellDiv.textContent;
+      });
+      cellDiv.addEventListener('blur', () => {
+        if (cellDiv.textContent !== cellDiv.dataset.original) {
+          saveCellInline(cellDiv, sheetName, row[0], headers[idx], cellDiv.textContent);
+        }
+      });
+      cellDiv.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); cellDiv.blur(); }
+        if (e.key === 'Escape') { cellDiv.textContent = cellDiv.dataset.original; cellDiv.blur(); }
+      });
+      td.appendChild(cellDiv);
+    }
+    tr.appendChild(td);
+  });
+
+  // Action td (placeholder for row hover actions)
+  const tdAct = document.createElement('td');
+  tdAct.style.width = '36px';
+  tr.appendChild(tdAct);
+
+  return tr;
+}
+
+function saveCellInline(cellEl, sheetName, id, header, newVal) {
+  cellEl.classList.add('saving');
+  google.script.run
+    .withSuccessHandler(() => {
+      cellEl.classList.remove('saving');
+      cellEl.dataset.original = newVal;
+      showToast('保存しました');
+    })
+    .withFailureHandler(err => {
+      cellEl.classList.remove('saving');
+      cellEl.textContent = cellEl.dataset.original;
+      showToast('保存失敗: ' + err.message, true);
+    })
+    .updateRowData(sheetName, id, header, newVal);
+}
+
+function updateRowCount(sheetName, count) {
+  const el = document.getElementById('count-' + sheetName);
+  if (el) el.textContent = count + ' 件';
+}
+
+// Table filter
+function filterTable(sheetName) {
+  const kw    = document.getElementById('search-' + sheetName).value.toLowerCase();
+  const tbody = document.getElementById('tbody-' + sheetName);
+  if (!tbody) return;
+  let shown = 0;
+  tbody.querySelectorAll('tr').forEach(tr => {
+    const match = tr.textContent.toLowerCase().includes(kw);
+    tr.style.display = match ? '' : 'none';
+    if (match) shown++;
+  });
+  updateRowCount(sheetName, shown);
+}
+
+// CSV export
+function exportCSV(sheetName) {
+  const data = _tableCache[sheetName];
+  if (!data || !data.headers) { showToast('データがありません', true); return; }
+  const rows = [data.headers.map(h => `"${h}"`).join(',')];
+  (data.rows || []).forEach(r => rows.push(r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')));
+  const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = sheetName + '.csv';
+  a.click();
+}
+
+// =============================================
+// CHARTS
+// =============================================
+function renderCharts() {
+  const allData = _tableCache['products'] && _tableCache['meetings'] ? null : null;
+  // Use meetings cache
+  const meetings = _tableCache['meetings'];
+  const products = _tableCache['products'];
+
+  // Meeting trend
+  if (meetings && meetings.rows) {
+    const counts = {};
+    meetings.rows.forEach(r => {
+      const d = String(r[1] || '').split(' ')[0] || '?';
+      counts[d] = (counts[d] || 0) + 1;
+    });
+    const labels = Object.keys(counts).slice(-10);
+    const vals   = labels.map(k => counts[k]);
+    if (_meetingChart) _meetingChart.destroy();
+    _meetingChart = new Chart(document.getElementById('chart-meetings'), {
+      type: 'line',
+      data: { labels, datasets: [{ data: vals, borderColor: '#2383e2', backgroundColor: 'rgba(35,131,226,0.08)', tension: 0.4, fill: true, pointRadius: 3 }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { font: { size: 11 } } }, y: { ticks: { font: { size: 11 }, stepSize: 1 } } } }
+    });
   }
-  
-  const mode = document.querySelector('input[name="aiMode"]:checked').value;
-  const resContainer = document.getElementById('ai-response-container');
-  const resDiv = document.getElementById('ai-response');
-  
-  // UI状態更新
-  resContainer.classList.remove('d-none');
-  resDiv.innerHTML = '<div class="spinner-border text-primary spinner-border-sm me-2" role="status"></div><span class="text-muted">社内データを分析して回答を生成しています...</span>';
-  
+
+  // Product status
+  if (products && products.rows) {
+    const counts = {};
+    products.rows.forEach(r => { const s = r[3] || '未設定'; counts[s] = (counts[s] || 0) + 1; });
+    if (_productChart) _productChart.destroy();
+    _productChart = new Chart(document.getElementById('chart-products'), {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(counts),
+        datasets: [{ data: Object.values(counts), backgroundColor: ['#2383e2','#16a34a','#d97706','#dc2626','#7c3aed'], borderWidth: 0 }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } } }, cutout: '65%' }
+    });
+  }
+}
+
+// =============================================
+// ADD ROW MODAL
+// =============================================
+let _addRowSheet = null;
+
+function openAddRow(sheetName) {
+  const cfg = DB_CONFIG[sheetName];
+  if (!cfg) return;
+  _addRowSheet = sheetName;
+  document.getElementById('add-row-icon').textContent = cfg.icon;
+  document.getElementById('add-row-title').textContent = cfg.title + ' — 新規追加';
+
+  const fields = document.getElementById('add-row-fields');
+  fields.innerHTML = '';
+
+  cfg.fields.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'form-prop-row';
+    const label = document.createElement('span');
+    label.className = 'form-prop-label';
+    label.textContent = f.label + (f.required ? ' *' : '');
+    row.appendChild(label);
+
+    let input;
+    if (f.type === 'textarea') {
+      input = document.createElement('textarea');
+      input.rows = 3;
+      input.style.resize = 'vertical';
+    } else if (f.type === 'select') {
+      input = document.createElement('select');
+      f.options.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = o;
+        input.appendChild(opt);
+      });
+    } else {
+      input = document.createElement('input');
+      input.type = f.type === 'number' ? 'number' : 'text';
+    }
+    input.className = 'form-prop-input';
+    input.dataset.key = f.key;
+    input.placeholder = f.placeholder || '';
+    row.appendChild(input);
+    fields.appendChild(row);
+  });
+
+  new bootstrap.Modal(document.getElementById('modal-add-row')).show();
+}
+
+function submitAddRow() {
+  const cfg = DB_CONFIG[_addRowSheet];
+  if (!cfg) return;
+
+  const data = {};
+  document.querySelectorAll('#add-row-fields .form-prop-input').forEach(el => {
+    data[el.dataset.key] = el.value;
+  });
+
   showLoading();
   google.script.run
-    .withSuccessHandler(response => {
+    .withSuccessHandler(msg => {
       hideLoading();
-      // 簡単なマークダウンタグをHTMLにパースして表示
-      resDiv.innerHTML = parseMarkdownToHTML(response);
+      showToast(msg || '登録しました');
+      bootstrap.Modal.getInstance(document.getElementById('modal-add-row')).hide();
+      loadTableData(_addRowSheet);
+    })
+    .withFailureHandler(err => { hideLoading(); showToast(err.message, true); })
+    [cfg.addFn](data);
+}
+
+// =============================================
+// ROW DETAIL PANEL (Notion page expand)
+// =============================================
+function openRowPanel(sheetName, rowId) {
+  const data = _tableCache[sheetName];
+  if (!data) return;
+
+  const row = data.rows.find(r => String(r[0]) === String(rowId));
+  if (!row) return;
+
+  _currentSheet   = sheetName;
+  _currentRowId   = rowId;
+  _currentHeaders = data.headers;
+
+  const cfg  = DB_CONFIG[sheetName] || {};
+  const meta = PAGE_META[sheetName] || {};
+
+  // Breadcrumb
+  document.getElementById('row-panel-bc').textContent = meta.label || sheetName;
+  // Emoji
+  document.getElementById('row-panel-emoji').textContent = cfg.icon || '📄';
+  // Title (first column)
+  const titleEl = document.getElementById('row-panel-title');
+  titleEl.textContent = row[0] || '';
+
+  // Properties
+  const propsEl = document.getElementById('row-panel-props');
+  propsEl.innerHTML = '';
+  data.headers.forEach((header, idx) => {
+    const val = row[idx] || '';
+    const propRow = document.createElement('div');
+    propRow.className = 'panel-prop-row';
+
+    const keyEl = document.createElement('div');
+    keyEl.className = 'panel-prop-key';
+    keyEl.innerHTML = `<i class="bi bi-text-left" style="font-size:13px;"></i>${esc(header)}`;
+
+    const valEl = document.createElement('div');
+    valEl.className = 'panel-prop-val';
+    valEl.contentEditable = idx !== 0 ? 'true' : 'false';
+    valEl.textContent = String(val);
+    valEl.spellcheck = false;
+    valEl.dataset.header  = header;
+    valEl.dataset.original = String(val);
+    valEl.setAttribute('data-placeholder', '空');
+
+    if (idx !== 0) {
+      valEl.addEventListener('focus', () => { valEl.dataset.original = valEl.textContent; });
+      valEl.addEventListener('blur', () => {
+        if (valEl.textContent !== valEl.dataset.original) {
+          valEl.classList.add('saving');
+          google.script.run
+            .withSuccessHandler(() => {
+              valEl.classList.remove('saving');
+              valEl.dataset.original = valEl.textContent;
+              showToast('保存しました');
+              loadTableData(sheetName);
+            })
+            .withFailureHandler(err => {
+              valEl.classList.remove('saving');
+              valEl.textContent = valEl.dataset.original;
+              showToast('保存失敗: ' + err.message, true);
+            })
+            .updateRowData(sheetName, rowId, header, valEl.textContent);
+        }
+      });
+      valEl.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { valEl.textContent = valEl.dataset.original; valEl.blur(); }
+      });
+    }
+
+    propRow.appendChild(keyEl);
+    propRow.appendChild(valEl);
+    propsEl.appendChild(propRow);
+  });
+
+  const overlay = document.getElementById('row-panel-overlay');
+  overlay.classList.remove('d-none');
+}
+
+function closeRowPanel(event) {
+  if (event && event.target !== document.getElementById('row-panel-overlay')) return;
+  document.getElementById('row-panel-overlay').classList.add('d-none');
+  _currentSheet = _currentRowId = null;
+}
+
+function saveRowPanelTitle() {
+  // Title is ID column (read-only in this context)
+}
+
+function deleteCurrentRow() {
+  if (!_currentSheet || !_currentRowId) return;
+  if (!confirm('この行を削除しますか？')) return;
+  showLoading();
+  google.script.run
+    .withSuccessHandler(msg => {
+      hideLoading();
+      document.getElementById('row-panel-overlay').classList.add('d-none');
+      showToast('削除しました');
+      loadTableData(_currentSheet);
+    })
+    .withFailureHandler(err => { hideLoading(); showToast(err.message, true); })
+    .deleteRowData(_currentSheet, _currentRowId);
+}
+
+// =============================================
+// AI
+// =============================================
+function setAiMode(btn) {
+  document.querySelectorAll('.ai-mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('ai-mode-value').value = btn.dataset.mode;
+}
+
+function submitAIQuery() {
+  const query = document.getElementById('ai-query').value.trim();
+  const mode  = document.getElementById('ai-mode-value').value || 'search';
+  if (!query) { showToast('質問を入力してください', true); return; }
+  const container = document.getElementById('ai-response-container');
+  const resEl     = document.getElementById('ai-response');
+  container.classList.remove('d-none');
+  resEl.innerHTML = '<div style="color:var(--text-muted);font-size:14px;">生成中...</div>';
+  showLoading();
+  google.script.run
+    .withSuccessHandler(resp => {
+      hideLoading();
+      resEl.innerHTML = mdToHtml(resp);
     })
     .withFailureHandler(err => {
       hideLoading();
-      resDiv.innerHTML = `<span class="text-danger fw-bold">エラーが発生しました: ${err.message}</span>`;
+      resEl.innerHTML = `<span style="color:var(--red);">エラー: ${esc(err.message)}</span>`;
     })
     .processAIQuery(query, mode);
 }
 
-// 簡易Markdownパーサー (マークダウンの装飾を見やすくする)
-function parseMarkdownToHTML(text) {
-  if(!text) return "";
-  let html = text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')       // ボールド
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')                    // イタリック
-    .replace(/\n\n/g, '</p><p>')                             // 段落
-    .replace(/\n- (.*)/g, '<br>&bull; $1')                   // リスト簡略化
-    .replace(/\n\d+\. (.*)/g, '<br>&raquo; $1')              // 番号付きリスト
-    .replace(/\n/g, '<br>');                                 // 改行
-  return `<p>${html}</p>`;
-}
-
-// -----------------------------------------------------------------
-// データ登録系処理
-// -----------------------------------------------------------------
-function submitProduct() {
-  const data = {
-    name: document.getElementById('prd-name').value,
-    price: document.getElementById('prd-price').value,
-    status: document.getElementById('prd-status').value,
-    successor: document.getElementById('prd-successor').value,
-    reason: document.getElementById('prd-reason').value,
-    advantage: document.getElementById('prd-advantage').value
-  };
-  showLoading();
-  google.script.run
-    .withSuccessHandler(msg => { hideLoading(); showAlert(msg); document.getElementById('form-product').reset(); })
-    .withFailureHandler(err => { hideLoading(); showAlert("エラー: " + err.message); })
-    .saveProduct(data);
-}
-
-function submitMeeting() {
-  const data = {
-    client: document.getElementById('mtg-client').value,
-    related: document.getElementById('mtg-related').value,
-    summary: document.getElementById('mtg-summary').value,
-    fulltext: document.getElementById('mtg-fulltext').value
-  };
-  showLoading();
-  google.script.run
-    .withSuccessHandler(msg => { hideLoading(); showAlert(msg); document.getElementById('form-meeting').reset(); })
-    .withFailureHandler(err => { hideLoading(); showAlert("エラー: " + err.message); })
-    .saveMeeting(data);
-}
-
-function submitNote() {
-  const data = {
-    tags: document.getElementById('nt-tags').value,
-    content: document.getElementById('nt-content').value
-  };
-  showLoading();
-  google.script.run
-    .withSuccessHandler(msg => { hideLoading(); showAlert(msg); document.getElementById('form-note').reset(); })
-    .withFailureHandler(err => { hideLoading(); showAlert("エラー: " + err.message); })
-    .saveNote(data);
-}
-
-function submitNotebookLM() {
-  const data = {
-    name: document.getElementById('nlm-name').value,
-    related: document.getElementById('nlm-related').value,
-    url: document.getElementById('nlm-url').value
-  };
-  showLoading();
-  google.script.run
-    .withSuccessHandler(msg => { hideLoading(); showAlert(msg); document.getElementById('form-notebooklm').reset(); })
-    .withFailureHandler(err => { hideLoading(); showAlert("エラー: " + err.message); })
-    .saveNotebookLM(data);
-}
-
-// -----------------------------------------------------------------
-// Drive Sync処理
-// -----------------------------------------------------------------
-function submitDriveSync() {
-  const btn = document.getElementById('btn-drivesync');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>同期中... (数分かかる場合があります)';
-  showLoading();
-
-  google.script.run
-    .withSuccessHandler(msg => { 
-      hideLoading(); 
-      showAlert(msg); 
-      btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>同期を実行する';
-    })
-    .withFailureHandler(err => { 
-      hideLoading(); 
-      showAlert("エラー: " + err.message); 
-      btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>同期を実行する';
-    })
-    .syncDriveKnowledge();
-}
-
-// -----------------------------------------------------------------
-// 分析・Chat発信処理
-// -----------------------------------------------------------------
 function submitAnalytics() {
   const btn = document.getElementById('btn-analytics');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>分析中... (数分かかります)';
-  showLoading();
-
-  const resContainer = document.getElementById('analytics-result-container');
-  const resDiv = document.getElementById('analytics-result');
-  resContainer.classList.remove('d-none');
-  resDiv.innerHTML = '<div class="spinner-border text-info spinner-border-sm me-2" role="status"></div><span class="text-muted">Gmailとカレンダーを解析しています...</span>';
-
-  google.script.run
-    .withSuccessHandler(response => { 
-      hideLoading(); 
-      resDiv.innerHTML = parseMarkdownToHTML(response);
-      btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-lightning-charge-fill me-2"></i>分析を再実行する';
-      showAlert("自動分析が完了しました。設定があればChatにも送信されています。");
-    })
-    .withFailureHandler(err => { 
-      hideLoading(); 
-      resDiv.innerHTML = `<span class="text-danger fw-bold">エラーが発生しました: ${err.message}</span>`;
-      btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-lightning-charge-fill me-2"></i>分析を実行する';
-    })
-    .analyzeWorkspaceAndPushChat();
-}
-// -----------------------------------------------------------------
-// データ管理・インライン編集・出力・グラフ機能 (SaaS機能)
-// -----------------------------------------------------------------
-
-function exportCSV(headId, bodyId, filename) {
-  let csv = [];
-  const thead = document.getElementById(headId);
-  if (thead.children.length > 0) {
-    const row = Array.from(thead.children[0].children).map(th => `"${th.innerText.replace(/"/g, '""')}"`);
-    csv.push(row.join(','));
-  }
-  const tbody = document.getElementById(bodyId);
-  for (let i = 0; i < tbody.children.length; i++) {
-    const row = Array.from(tbody.children[i].children).map(td => `"${td.innerText.replace(/"/g, '""')}"`);
-    csv.push(row.join(','));
-  }
-  const blob = new Blob(["\uFEFF" + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement("a");
-  const url = URL.createObjectURL(blob);
-  link.setAttribute("href", url);
-  link.setAttribute("download", filename);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-let meetingChartInstance = null;
-let productChartInstance = null;
-
-function renderCharts(allData) {
-  // 1. 商談議事録推移 
-  const meetings = allData.meetings.rows;
-  let dateCounts = {};
-  meetings.forEach(r => {
-    let dStr = r[1] ? String(r[1]).split(' ')[0] : '不明'; // 登録日時
-    dateCounts[dStr] = (dateCounts[dStr] || 0) + 1;
-  });
-  
-  const labelsM = Object.keys(dateCounts).slice(-10); // 直近10期
-  const dataM = labelsM.map(k => dateCounts[k]);
-
-  if (meetingChartInstance) meetingChartInstance.destroy();
-  meetingChartInstance = new Chart(document.getElementById('chart-meetings'), {
-    type: 'line',
-    data: {
-      labels: labelsM,
-      datasets: [{
-        label: '商談件数',
-        data: dataM,
-        borderColor: '#4361ee',
-        backgroundColor: 'rgba(67, 97, 238, 0.1)',
-        tension: 0.4,
-        fill: true
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: false }
-  });
-
-  // 2. 製品ステータス割合
-  const products = allData.products.rows;
-  let statusCounts = {};
-  products.forEach(r => {
-    let st = r[3] || '未設定'; // ステータス列
-    statusCounts[st] = (statusCounts[st] || 0) + 1;
-  });
-  
-  if (productChartInstance) productChartInstance.destroy();
-  productChartInstance = new Chart(document.getElementById('chart-products'), {
-    type: 'doughnut',
-    data: {
-      labels: Object.keys(statusCounts),
-      datasets: [{
-        data: Object.values(statusCounts),
-        backgroundColor: ['#4cc9f0', '#f72585', '#3f37c9', '#ffd166', '#ef476f']
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '60%' }
-  });
-}
-
-function loadManagementData() {
-  google.script.run
-    .withSuccessHandler(data => {
-      renderManagementTable('table-products-head', 'table-products-body', data.products, 'products');
-      renderManagementTable('table-meetings-head', 'table-meetings-body', data.meetings, 'meetings');
-      renderCharts(data);
-    })
-    .getAllDataForTables();
-}
-
-function renderManagementTable(headId, bodyId, sheetData, sheetName) {
-  const thead = document.getElementById(headId);
-  const tbody = document.getElementById(bodyId);
-  thead.innerHTML = "";
-  tbody.innerHTML = "";
-  
-  if (!sheetData || sheetData.headers.length === 0) return;
-  
-  sheetData.headers.forEach(h => {
-    const th = document.createElement('th');
-    th.textContent = h;
-    thead.appendChild(th);
-  });
-  // 操作列ヘッダー
-  const thAction = document.createElement('th');
-  thAction.textContent = "操作";
-  thead.appendChild(thAction);
-  
-  sheetData.rows.forEach(row => {
-    const tr = document.createElement('tr');
-    const id = row[0]; 
-    
-    row.forEach((col, index) => {
-      const td = document.createElement('td');
-      td.textContent = col;
-      if (index !== 0) {
-        td.contentEditable = "true";
-        td.style.cursor = "text";
-        td.onblur = function() {
-          if (td.dataset.original !== td.innerText) {
-            updateDataInline(sheetName, id, sheetData.headers[index], td.innerText, td);
-          }
-        };
-        td.onfocus = function() {
-          td.dataset.original = td.innerText;
-          td.style.backgroundColor = "#e9ecef";
-        };
-      } else {
-        td.classList.add('text-muted');
-        td.style.fontSize = "0.7em";
-      }
-      tr.appendChild(td);
-    });
-
-    // 操作列の追加
-    const tdAction = document.createElement('td');
-    tdAction.innerHTML = `
-      <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill" onclick="requestAudio('${row[1] || 'ナレッジ'}', \`${(row[sheetData.headers.indexOf('テキスト内容')] || row[sheetData.headers.indexOf('議事録全文')] || '').replace(/`/g, '\\`')}\`)">
-        <i class="bi bi-headphones"></i> 音声化
-      </button>
-    `;
-    tr.appendChild(tdAction);
-
-    tbody.appendChild(tr);
-  });
-}
-
-function requestAudio(title, text) {
-  if (!text || text.length < 10) {
-    showAlert("音声化するためのテキストが不足しています。");
-    return;
-  }
-  showLoading();
-  google.script.run
-    .withSuccessHandler(msg => {
-      hideLoading();
-      showAlert(msg);
-    })
-    .requestAudioConversion(title, text);
-}
-
-function loadCareerData() {
-  google.script.run
-    .withSuccessHandler(data => {
-      document.getElementById('career-stat-meetings').textContent = data.stats.recentMeetings;
-      document.getElementById('career-stat-knowledge').textContent = data.stats.knowledgeCreated;
-      
-      const container = document.getElementById('goal-list-container');
-      container.innerHTML = "";
-      if (data.goals.length === 0) {
-        container.innerHTML = "<p class='text-muted p-4 text-center'>目標が登録されていません。</p>";
-        return;
-      }
-      
-      data.goals.forEach(g => {
-        const item = document.createElement('div');
-        item.className = "list-group-item p-3 border-0 bg-light rounded-4 mb-3";
-        item.innerHTML = `
-          <div class="d-flex justify-content-between align-items-start mb-2">
-            <h6 class="fw-bold mb-0 text-primary">${g['目標タイトル']}</h6>
-            <span class="badge bg-dark rounded-pill">${g['進捗(%)']}%</span>
-          </div>
-          <div class="progress mb-2" style="height: 6px;">
-            <div class="progress-bar bg-primary" style="width: ${g['進捗(%)']}%"></div>
-          </div>
-          <p class="small text-muted mb-1">KPI: ${g['測定指標(KPI)']}</p>
-          <p class="small text-dark mb-0">${g['達成状況・自己評価'] || '(未評価)'}</p>
-        `;
-        container.appendChild(item);
-      });
-    })
-    .getCareerData();
-}
-
-function updateDataInline(sheetName, id, headerName, newValue, tdElement) {
-  tdElement.style.backgroundColor = '#fff3cd'; 
-  google.script.run
-    .withSuccessHandler(res => {
-      tdElement.style.backgroundColor = 'transparent';
-      showToast("更新: " + res);
-      // 再読込してグラフ等も同期させる
-      loadManagementData();
-    })
-    .withFailureHandler(err => {
-      tdElement.style.backgroundColor = '#f8d7da';
-      showAlert("更新失敗: " + err.message);
-    })
-    .updateRowData(sheetName, id, headerName, newValue);
-}
-
-function showToast(message) {
-  const toast = document.createElement('div');
-  toast.className = 'position-fixed bottom-0 end-0 p-3';
-  toast.style.zIndex = "1055"; // Bootstrap modal is 1050
-  toast.innerHTML = `<div class="toast align-items-center text-white bg-success border-0 show" role="alert"><div class="d-flex"><div class="toast-body">${message}</div></div></div>`;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
-}
-
-function showModal(id) {
-  const m = new bootstrap.Modal(document.getElementById(id));
-  m.show();
-}
-
-function submitGoal() {
-  const data = {
-    title: document.getElementById('goal-title').value,
-    period: document.getElementById('goal-period').value,
-    kpi: document.getElementById('goal-kpi').value,
-    progress: document.getElementById('goal-progress').value,
-    eval: document.getElementById('goal-eval').value
-  };
-  showLoading();
-  google.script.run
-    .withSuccessHandler(msg => {
-      hideLoading();
-      bootstrap.Modal.getInstance(document.getElementById('modal-goal')).hide();
-      showAlert(msg);
-      loadCareerData();
-      document.getElementById('form-goal').reset();
-    })
-    .saveGoal(data);
-}
-</script>
-
-// =================================================================
-// CSV / Excel インポート & スプレッドシート連携
-// =================================================================
-
-// インポートテンプレートの列定義
-const IMPORT_TEMPLATES = {
-  products: {
-    label: '製品マスタ',
-    headers: ['製品名', '価格', 'ステータス', '後継機種', '改廃理由', '競合優位性'],
-    sample: [['XB-2200A', '150,000円～', '現行品', '', '', '耐久性が従来比1.5倍']]
-  },
-  meetings: {
-    label: '商談議事録',
-    headers: ['顧客名', '関連基板・機種', '内容サマリ', '議事録全文'],
-    sample: [['株式会社サンプル', 'XB-2200A', '価格交渉あり', '詳細な議事録本文をここに']]
-  },
-  notes: {
-    label: 'ナレッジメモ',
-    headers: ['タグ(Obsidianタグ等)', 'メモ内容'],
-    sample: [['#営業トーク #競合', '競合A社の最新基板は...']]
-  },
-  goals: {
-    label: 'キャリア目標',
-    headers: ['対象期間', '目標タイトル', '測定指標(KPI)', '進捗(%)', '達成状況・自己評価'],
-    sample: [['2024年度 上期', '部品知識マスター', 'ナレッジ50件作成', '30', '現在進行中']]
-  }
-};
-
-let importParsedData = null; // パース済みデータを保持
-
-// テンプレートCSVダウンロード
-function downloadImportTemplate() {
-  const type = document.querySelector('input[name="importType"]:checked').value;
-  const tmpl = IMPORT_TEMPLATES[type];
-  if (!tmpl) return;
-
-  const rows = [tmpl.headers, ...tmpl.sample];
-  const csvContent = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `template_${type}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// ドラッグ＆ドロップ
-function handleImportDrop(event) {
-  event.preventDefault();
-  const dropzone = document.getElementById('import-dropzone');
-  dropzone.classList.remove('border-primary', 'bg-primary-subtle');
-  const file = event.dataTransfer.files[0];
-  if (file) handleImportFile(file);
-}
-
-// ファイル読み込み
-function handleImportFile(file) {
-  if (!file) return;
-  const ext = file.name.split('.').pop().toLowerCase();
-
-  if (ext === 'csv') {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const text = e.target.result;
-      const rows = parseCSV(text);
-      showImportPreview(rows);
-    };
-    reader.readAsText(file, 'UTF-8');
-  } else if (ext === 'xlsx' || ext === 'xls') {
-    if (typeof XLSX === 'undefined') {
-      showAlert('Excelライブラリの読み込みに失敗しました。ページを再読み込みしてください。');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        const workbook = XLSX.read(e.target.result, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-        showImportPreview(rows.map(r => r.map(c => String(c))));
-      } catch(err) {
-        showAlert('Excelファイルの読み込みに失敗しました: ' + err.message);
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  } else {
-    showAlert('対応していないファイル形式です。CSV(.csv) または Excel(.xlsx/.xls) を選択してください。');
-  }
-}
-
-// CSV パーサー（ダブルクォート対応）
-function parseCSV(text) {
-  const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
-  return lines.map(line => {
-    const result = [];
-    let current = '';
-    let inQuote = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuote && line[i+1] === '"') { current += '"'; i++; }
-        else { inQuote = !inQuote; }
-      } else if (ch === ',' && !inQuote) {
-        result.push(current.trim()); current = '';
-      } else {
-        current += ch;
-      }
-    }
-    result.push(current.trim());
-    return result;
-  });
-}
-
-// プレビュー表示
-function showImportPreview(rows) {
-  if (!rows || rows.length < 2) {
-    showAlert('データが空、またはヘッダー行のみです。');
-    return;
-  }
-
-  importParsedData = rows;
-  const headers = rows[0];
-  const dataRows = rows.slice(1);
-
-  const type = document.querySelector('input[name="importType"]:checked').value;
-  const expectedHeaders = IMPORT_TEMPLATES[type].headers;
-
-  // 列名チェック
-  const warningEl = document.getElementById('import-col-warning');
-  const warningMsg = document.getElementById('import-col-warning-msg');
-  const missing = expectedHeaders.filter(h => !headers.includes(h));
-  if (missing.length > 0) {
-    warningEl.classList.remove('d-none');
-    warningMsg.textContent = `以下の列が見つかりません（列名の一致が必要です）: ${missing.join(', ')}`;
-  } else {
-    warningEl.classList.add('d-none');
-  }
-
-  // ヘッダー描画
-  const thead = document.getElementById('import-preview-head');
-  thead.innerHTML = headers.map(h => `<th class="text-nowrap">${h}</th>`).join('');
-
-  // 先頭5行描画
-  const tbody = document.getElementById('import-preview-body');
-  tbody.innerHTML = dataRows.slice(0, 5).map(row =>
-    `<tr>${row.map(cell => `<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${cell}">${cell}</td>`).join('')}</tr>`
-  ).join('');
-
-  document.getElementById('import-row-count').textContent = `${dataRows.length}件のデータ`;
-  document.getElementById('import-preview-section').classList.remove('d-none');
-  document.getElementById('btn-import-execute').classList.remove('d-none');
-}
-
-// インポート実行
-function executeImport() {
-  if (!importParsedData || importParsedData.length < 2) {
-    showAlert('インポートするデータがありません。');
-    return;
-  }
-
-  const type = document.querySelector('input[name="importType"]:checked').value;
-  const headers = importParsedData[0];
-  const dataRows = importParsedData.slice(1).filter(r => r.some(c => c !== ''));
-
-  const btn = document.getElementById('btn-import-execute');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>インポート中...';
-
-  showLoading();
-  google.script.run
-    .withSuccessHandler(msg => {
-      hideLoading();
-      btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-upload me-2"></i>データをインポートする';
-      document.getElementById('import-result').innerHTML =
-        `<div class="alert alert-success border-0 shadow-sm"><i class="bi bi-check-circle-fill me-2"></i>${msg}</div>`;
-      importParsedData = null;
-      document.getElementById('import-preview-section').classList.add('d-none');
-      btn.classList.add('d-none');
-      loadDashboardData();
-    })
-    .withFailureHandler(err => {
-      hideLoading();
-      btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-upload me-2"></i>データをインポートする';
-      document.getElementById('import-result').innerHTML =
-        `<div class="alert alert-danger border-0 shadow-sm"><i class="bi bi-x-circle-fill me-2"></i>エラー: ${err.message}</div>`;
-    })
-    .importBulkData(type, headers, dataRows);
-}
-
-// スプレッドシートURLからインポート
-function importFromSpreadsheet() {
-  const url = document.getElementById('sheet-url-input').value.trim();
-  const tabName = document.getElementById('sheet-tab-name').value.trim();
-
-  if (!url || !url.includes('spreadsheets/d/')) {
-    showAlert('正しいスプレッドシートURLを入力してください。');
-    return;
-  }
-
-  // Spreadsheet IDを抽出
-  const match = url.match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-  if (!match) {
-    showAlert('URLからスプレッドシートIDを取得できませんでした。');
-    return;
-  }
-  const spreadsheetId = match[1];
-  const type = document.querySelector('input[name="importType"]:checked').value;
-
-  const btn = event.target;
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>読み込み中...';
-
+  btn.textContent = '分析中...';
   showLoading();
   google.script.run
     .withSuccessHandler(result => {
       hideLoading();
       btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-download me-1"></i>読み込む';
-      if (result.rows && result.rows.length > 0) {
-        // headers + rows の形式でプレビュー
-        const allRows = [result.headers, ...result.rows];
-        showImportPreview(allRows);
-        showAlert(`スプレッドシートから ${result.rows.length} 件のデータを読み込みました。内容を確認して「インポートする」を押してください。`);
-      } else {
-        showAlert('スプレッドシートにデータが見つかりませんでした。シート名や権限を確認してください。');
-      }
+      btn.innerHTML = '⚡ 今すぐ分析 ＆ Chat 投稿';
+      const el = document.getElementById('analytics-result');
+      el.classList.remove('d-none');
+      el.innerHTML = mdToHtml(result);
     })
     .withFailureHandler(err => {
       hideLoading();
       btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-download me-1"></i>読み込む';
-      showAlert('スプレッドシート読み込みエラー: ' + err.message);
+      btn.innerHTML = '⚡ 今すぐ分析 ＆ Chat 投稿';
+      showToast(err.message, true);
     })
-    .readFromSpreadsheet(spreadsheetId, tabName);
+    .analyzeWorkspaceAndPushChat();
 }
 
-// =================================================================
-// カレンダー機能 & Google Keep連携
-// =================================================================
-
-// --- 状態管理 ---
-let calYear, calMonth;      // 表示中の年月
-let calView = 'month';      // 'month' | 'week'
-let calSelectedDate = null; // 選択中の日付(YYYY-MM-DD)
-let calEvents = {};         // { 'YYYY-MM-DD': [ event, ... ] }
-let keepNotes = [];         // Keepメモキャッシュ
-let keepNotesFiltered = [];
-let selectedKeepNote = null;
-let selectedEventType = 'meeting';
-let selectedKeepColor = 'DEFAULT';
-let editingEventId = null;
-
-// 初期化
-function initCalendar() {
-  const now = new Date();
-  calYear = now.getFullYear();
-  calMonth = now.getMonth(); // 0-indexed
-  calSelectedDate = toDateStr(now);
-  loadCalendarEvents();
+// =============================================
+// DRIVE SYNC (simple knowledge sync)
+// =============================================
+function submitDriveSync() {
+  showLoading();
+  showToast('同期を開始しました...');
+  google.script.run
+    .withSuccessHandler(msg => { hideLoading(); showToast(msg); })
+    .withFailureHandler(err => { hideLoading(); showToast(err.message, true); })
+    .syncDriveKnowledge();
 }
 
-function toDateStr(d) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-function todayStr() { return toDateStr(new Date()); }
-
-// --- ビュー切替 ---
-function setCalView(v) {
-  calView = v;
-  document.getElementById('btn-view-month').className = v==='month'
-    ? 'btn btn-sm btn-dark active' : 'btn btn-sm btn-outline-secondary';
-  document.getElementById('btn-view-week').className = v==='week'
-    ? 'btn btn-sm btn-dark active' : 'btn btn-sm btn-outline-secondary';
-  renderCalendar();
-}
-
-function calPrev() {
-  if (calView === 'month') {
-    calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }
-  } else {
-    // 週ビュー: 7日前
-    const d = weekStartDate();
-    d.setDate(d.getDate() - 7);
-    calYear = d.getFullYear(); calMonth = d.getMonth();
-    calSelectedDate = toDateStr(d);
-  }
-  renderCalendar();
-}
-function calNext() {
-  if (calView === 'month') {
-    calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; }
-  } else {
-    const d = weekStartDate();
-    d.setDate(d.getDate() + 7);
-    calYear = d.getFullYear(); calMonth = d.getMonth();
-    calSelectedDate = toDateStr(d);
-  }
-  renderCalendar();
-}
-function calToday() {
-  const now = new Date();
-  calYear = now.getFullYear();
-  calMonth = now.getMonth();
-  calSelectedDate = toDateStr(now);
-  renderCalendar();
-  renderSidePanel(calSelectedDate);
-}
-
-function weekStartDate() {
-  // 選択日の週の日曜日
-  const ref = calSelectedDate ? new Date(calSelectedDate + 'T00:00:00') : new Date();
-  const dow = ref.getDay();
-  ref.setDate(ref.getDate() - dow);
-  return ref;
-}
-
-// --- カレンダー描画 ---
-function renderCalendar() {
-  if (calView === 'month') renderMonthView();
-  else renderWeekView();
-}
-
-function renderMonthView() {
-  document.getElementById('cal-month-view').classList.remove('d-none');
-  document.getElementById('cal-week-view').classList.add('d-none');
-
-  const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-  document.getElementById('cal-title').textContent = `${calYear}年 ${MONTHS[calMonth]}`;
-
-  const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
-  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  const prevDays = new Date(calYear, calMonth, 0).getDate();
-  const today = todayStr();
-
-  let html = '';
-  let dayCount = 0;
-  // 先月分
-  for (let i = firstDay - 1; i >= 0; i--) {
-    const d = prevDays - i;
-    const m = calMonth === 0 ? 12 : calMonth;
-    const y = calMonth === 0 ? calYear - 1 : calYear;
-    html += `<div class="cal-cell other-month"><span class="cal-day-num">${d}</span></div>`;
-    dayCount++;
-  }
-  // 今月
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const dow = (firstDay + d - 1) % 7;
-    const isToday = dateStr === today;
-    const isSel  = dateStr === calSelectedDate;
-    const isSun = dow === 0, isSat = dow === 6;
-    let cls = 'cal-cell';
-    if (isToday) cls += ' today';
-    if (isSel)   cls += ' selected';
-    if (isSun)   cls += ' sun-col';
-    if (isSat)   cls += ' sat-col';
-
-    const evs = calEvents[dateStr] || [];
-    let chips = evs.slice(0,3).map(e => {
-      const chipCls = e.type==='meeting'?'chip-meeting':e.type==='note'?'chip-note':e.type==='keep'?'chip-keep':'chip-goal';
-      const label = e.type==='meeting'?(e.client||e.title||'打合せ'):e.type==='note'?(e.tags||'メモ'):e.type==='keep'?(e.title||'Keepメモ'):'目標';
-      return `<span class="cal-event-chip ${chipCls}" onclick="event.stopPropagation();openEventDetail('${dateStr}','${e.id}')" title="${label}">${label}</span>`;
-    }).join('');
-    if (evs.length > 3) chips += `<span class="cal-event-chip chip-meeting" style="background:#f1f5f9;color:#94a3b8;">+${evs.length-3}</span>`;
-
-    html += `<div class="${cls}" onclick="selectCalDate('${dateStr}')">
-      <span class="cal-day-num">${d}</span>
-      ${chips}
-      <button class="cal-add-btn" onclick="event.stopPropagation();openNewEventModal('${dateStr}')"><i class="bi bi-plus" style="font-size:.65rem;"></i></button>
-    </div>`;
-    dayCount++;
-  }
-  // 来月分で6行になるまで埋める
-  const remaining = 42 - dayCount;
-  for (let d = 1; d <= remaining; d++) {
-    html += `<div class="cal-cell other-month"><span class="cal-day-num">${d}</span></div>`;
-  }
-  document.getElementById('cal-body').innerHTML = html;
-}
-
-function renderWeekView() {
-  document.getElementById('cal-month-view').classList.add('d-none');
-  document.getElementById('cal-week-view').classList.remove('d-none');
-
-  const wStart = weekStartDate();
-  const days = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(wStart);
-    d.setDate(d.getDate() + i);
-    days.push(d);
-  }
-
-  // タイトル更新
-  const s = days[0], e = days[6];
-  document.getElementById('cal-title').textContent =
-    `${s.getFullYear()}年${s.getMonth()+1}月${s.getDate()}日 〜 ${e.getMonth()+1}月${e.getDate()}日`;
-
-  const DOWS = ['日','月','火','水','木','金','土'];
-  const today = todayStr();
-  const HOURS = Array.from({length:12}, (_,i)=>i+8); // 8〜19時
-
-  let headerHtml = '<div class="week-time-col"><div class="week-day-header"></div>';
-  HOURS.forEach(h => {
-    headerHtml += `<div class="week-hour-label">${h}:00</div>`;
-  });
-  headerHtml += '</div>';
-
-  let colsHtml = '';
-  days.forEach((d, di) => {
-    const ds = toDateStr(d);
-    const isToday = ds === today;
-    const isSel = ds === calSelectedDate;
-    const cls = isToday ? 'today-col' : '';
-    const evs = calEvents[ds] || [];
-
-    // イベントブロック生成
-    let blocks = '';
-    evs.forEach(e => {
-      if (!e.time) return;
-      const [hh, mm] = e.time.split(':').map(Number);
-      const topPx = (hh - 8) * 40 + (mm / 60) * 40 + 41; // header=41px
-      let heightPx = 40;
-      if (e.endtime) {
-        const [eh, em] = e.endtime.split(':').map(Number);
-        heightPx = Math.max(20, ((eh*60+em)-(hh*60+mm)) / 60 * 40);
-      }
-      const wevCls = e.type==='meeting'?'wev-meeting':e.type==='note'?'wev-note':'wev-keep';
-      const label = e.type==='meeting'?(e.client||e.title||'打合せ'):(e.tags||e.title||'メモ');
-      blocks += `<div class="week-event-block ${wevCls}" style="top:${topPx}px;height:${heightPx}px;" onclick="openEventDetail('${ds}','${e.id}')" title="${label}">
-        ${e.time} ${label}
-      </div>`;
-    });
-
-    // 時間帯ライン
-    let linesHtml = HOURS.map(() => '<div class="week-hour-line"></div>').join('');
-
-    colsHtml += `<div class="week-day-col ${isSel?'border-primary':''}">
-      <div class="week-day-header ${cls}" onclick="selectCalDate('${ds}')" style="cursor:pointer;">
-        <div style="font-size:.85rem;">${DOWS[di]}</div>
-        <div style="font-size:1rem;font-weight:800;">${d.getDate()}</div>
-      </div>
-      <div style="position:relative;">${linesHtml}${blocks}</div>
-    </div>`;
-  });
-
-  document.getElementById('cal-week-grid').innerHTML = headerHtml + colsHtml;
-}
-
-// --- 日付選択 ---
-function selectCalDate(dateStr) {
-  calSelectedDate = dateStr;
-  renderCalendar();
-  renderSidePanel(dateStr);
-}
-
-// --- サイドパネル ---
-function renderSidePanel(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  const DAYS = ['日','月','火','水','木','金','土'];
-  document.getElementById('side-panel-date-title').textContent =
-    `${d.getMonth()+1}月${d.getDate()}日（${DAYS[d.getDay()]}）の予定`;
-
-  const evs = calEvents[dateStr] || [];
-  if (evs.length === 0) {
-    document.getElementById('side-event-list').innerHTML =
-      '<p class="text-muted small text-center py-3">この日の予定はありません<br><a href="#" onclick="openNewEventModal(\'' + dateStr + '\')">＋追加する</a></p>';
-    return;
-  }
-
-  const html = evs.map(e => {
-    const badgeCls = e.type==='meeting'?'bg-primary':e.type==='note'?'bg-success':e.type==='keep'?'bg-warning text-dark':'bg-purple';
-    const label = e.type==='meeting'?(e.client||'打合せ'):e.type==='note'?(e.tags||'メモ'):e.type==='keep'?(e.title||'Keep'):'目標';
-    const time = e.time ? `<span class="text-muted" style="font-size:.72rem;">${e.time}${e.endtime?'〜'+e.endtime:''}</span>` : '';
-    const desc = e.type==='meeting'?(e.summary||''):(e.type==='note'?(e.content||'').substring(0,40):'');
-    return `<div class="d-flex align-items-start gap-2 mb-2 p-2 rounded-3 bg-light" style="cursor:pointer;" onclick="openEventDetail('${dateStr}','${e.id}')">
-      <span class="badge ${badgeCls} mt-1" style="font-size:.65rem;">${e.type==='meeting'?'打合せ':e.type==='note'?'メモ':e.type==='keep'?'Keep':'目標'}</span>
-      <div style="flex:1;min-width:0;">
-        <div class="fw-bold" style="font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</div>
-        ${time}
-        ${desc ? `<div class="text-muted" style="font-size:.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${desc}</div>` : ''}
-      </div>
-    </div>`;
-  }).join('');
-  document.getElementById('side-event-list').innerHTML = html;
-}
-
-// --- イベントデータ読み込み ---
-function loadCalendarEvents() {
+// =============================================
+// MISC FORMS
+// =============================================
+function submitNotebookLM() {
+  const data = {
+    name:    document.getElementById('nlm-name').value,
+    related: document.getElementById('nlm-related').value,
+    url:     document.getElementById('nlm-url').value,
+  };
+  if (!data.name || !data.url) { showToast('名前とURLは必須です', true); return; }
   showLoading();
   google.script.run
-    .withSuccessHandler(data => {
-      hideLoading();
-      calEvents = {};
-      (data || []).forEach(e => {
-        const ds = e.date;
-        if (!ds) return;
-        if (!calEvents[ds]) calEvents[ds] = [];
-        calEvents[ds].push(e);
-      });
-      renderCalendar();
-      renderSidePanel(calSelectedDate || todayStr());
+    .withSuccessHandler(msg => {
+      hideLoading(); showToast(msg);
+      ['nlm-name','nlm-related','nlm-url'].forEach(id => document.getElementById(id).value = '');
+      loadDashboard();
     })
-    .withFailureHandler(err => {
-      hideLoading();
-      renderCalendar();
-    })
-    .getCalendarEvents();
+    .withFailureHandler(err => { hideLoading(); showToast(err.message, true); })
+    .saveNotebookLM(data);
 }
 
-// --- モーダル: 新規イベント ---
-function openNewEventModal(dateStr) {
-  editingEventId = null;
-  selectedKeepNote = null;
-  document.getElementById('keep-import-hint').classList.add('d-none');
-  const d = dateStr || calSelectedDate || todayStr();
-  document.getElementById('cal-ev-date').value = d;
-  document.getElementById('cal-ev-time').value = '10:00';
-  document.getElementById('cal-ev-endtime').value = '11:00';
-  document.getElementById('cal-mtg-client').value = '';
-  document.getElementById('cal-mtg-title').value = '';
-  document.getElementById('cal-mtg-related').value = '';
-  document.getElementById('cal-mtg-summary').value = '';
-  document.getElementById('cal-mtg-fulltext').value = '';
-  document.getElementById('cal-nt-tags').value = '';
-  document.getElementById('cal-nt-content').value = '';
-  document.getElementById('cal-keep-title').value = '';
-  document.getElementById('cal-keep-body').value = '';
-  document.getElementById('cal-keep-labels').value = '';
-  document.getElementById('cal-modal-title').textContent = '新しい予定を追加';
-  switchEventType('meeting');
-  const m = new bootstrap.Modal(document.getElementById('modal-calendar'));
-  m.show();
-}
-
-// --- モーダル: 既存イベント詳細 ---
-function openEventDetail(dateStr, eventId) {
-  const evs = calEvents[dateStr] || [];
-  const ev = evs.find(e => e.id === eventId);
-  if (!ev) { openNewEventModal(dateStr); return; }
-
-  editingEventId = eventId;
-  document.getElementById('cal-ev-date').value = ev.date;
-  document.getElementById('cal-ev-time').value = ev.time || '10:00';
-  document.getElementById('cal-ev-endtime').value = ev.endtime || '11:00';
-  document.getElementById('cal-modal-title').textContent = ev.type==='meeting'?'打合せ詳細・議事録':ev.type==='note'?'メモ詳細':'Keepメモ';
-
-  if (ev.type === 'meeting') {
-    document.getElementById('cal-mtg-client').value = ev.client || '';
-    document.getElementById('cal-mtg-title').value = ev.title || '';
-    document.getElementById('cal-mtg-related').value = ev.related || '';
-    document.getElementById('cal-mtg-summary').value = ev.summary || '';
-    document.getElementById('cal-mtg-fulltext').value = ev.fulltext || '';
-    switchEventType('meeting');
-  } else if (ev.type === 'note') {
-    document.getElementById('cal-nt-tags').value = ev.tags || '';
-    document.getElementById('cal-nt-content').value = ev.content || '';
-    switchEventType('note');
-  }
-  const m = new bootstrap.Modal(document.getElementById('modal-calendar'));
-  m.show();
-}
-
-// --- タブ切替 ---
-function switchEventType(type) {
-  selectedEventType = type;
-  ['meeting','note','keep'].forEach(t => {
-    document.getElementById(`form-${t}-section`).classList.toggle('d-none', t !== type);
-    document.getElementById(`etype-${t}`).classList.toggle('active', t === type);
-  });
-  // Keep登録は時刻不要
-  const showTime = type !== 'keep';
-  document.getElementById('cal-ev-time-group').classList.toggle('d-none', !showTime);
-  document.getElementById('cal-ev-endtime-group').classList.toggle('d-none', !showTime);
-  document.getElementById('quick-time-group').classList.toggle('d-none', !showTime);
-}
-
-// --- クイック時間 ---
-function setQuickTime(sh, sm, eh, em) {
-  document.getElementById('cal-ev-time').value = `${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
-  document.getElementById('cal-ev-endtime').value = `${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`;
-  document.querySelectorAll('.quick-time-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
-}
-
-// --- Keep色選択 ---
-function selectKeepColor(el) {
-  document.querySelectorAll('.keep-color-dot').forEach(d => d.style.border = '2px solid transparent');
-  el.style.border = '2.5px solid #334155';
-  selectedKeepColor = el.dataset.color;
-}
-
-// --- 保存 ---
-function saveCalendarEvent() {
-  const date = document.getElementById('cal-ev-date').value;
-  if (!date) { showAlert('日付を入力してください。'); return; }
-
-  const btn = document.getElementById('cal-modal-save-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>保存中...';
-
-  if (selectedEventType === 'meeting') {
-    const client = document.getElementById('cal-mtg-client').value.trim();
-    if (!client) { showAlert('顧客名を入力してください。'); btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する'; return; }
-    const data = {
-      client, date,
-      time:    document.getElementById('cal-ev-time').value,
-      endtime: document.getElementById('cal-ev-endtime').value,
-      title:   document.getElementById('cal-mtg-title').value,
-      related: document.getElementById('cal-mtg-related').value,
-      summary: document.getElementById('cal-mtg-summary').value,
-      fulltext:document.getElementById('cal-mtg-fulltext').value,
-      id: editingEventId || ''
-    };
-    showLoading();
-    google.script.run
-      .withSuccessHandler(msg => { hideLoading(); afterSave(btn, msg); })
-      .withFailureHandler(err => { hideLoading(); showAlert('エラー: '+err.message); btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する'; })
-      .saveMeetingWithDate(data);
-
-  } else if (selectedEventType === 'note') {
-    const content = document.getElementById('cal-nt-content').value.trim();
-    if (!content) { showAlert('メモ内容を入力してください。'); btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する'; return; }
-    const data = {
-      date,
-      time: document.getElementById('cal-ev-time').value,
-      endtime: document.getElementById('cal-ev-endtime').value,
-      tags:    document.getElementById('cal-nt-tags').value,
-      content, id: editingEventId || ''
-    };
-    showLoading();
-    google.script.run
-      .withSuccessHandler(msg => { hideLoading(); afterSave(btn, msg); })
-      .withFailureHandler(err => { hideLoading(); showAlert('エラー: '+err.message); btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する'; })
-      .saveNoteWithDate(data);
-
-  } else if (selectedEventType === 'keep') {
-    const body = document.getElementById('cal-keep-body').value.trim();
-    if (!body) { showAlert('Keep内容を入力してください。'); btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する'; return; }
-    const data = {
-      date, title: document.getElementById('cal-keep-title').value,
-      body, color: selectedKeepColor,
-      labels: document.getElementById('cal-keep-labels').value
-    };
-    showLoading();
-    google.script.run
-      .withSuccessHandler(msg => { hideLoading(); afterSave(btn, msg); })
-      .withFailureHandler(err => { hideLoading(); showAlert('エラー: '+err.message); btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する'; })
-      .saveToKeep(data);
-  }
-}
-
-function afterSave(btn, msg) {
-  btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する';
-  bootstrap.Modal.getInstance(document.getElementById('modal-calendar')).hide();
-  showAlert(msg);
-  loadCalendarEvents();
-  syncKeepNotes();
-}
-
-// --- Google Keep 同期 ---
-function syncKeepNotes() {
-  const btn = document.getElementById('btn-sync-keep');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>同期中...';
-  document.getElementById('keep-loading-msg').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>読み込み中...';
-  document.getElementById('keep-loading-msg').classList.remove('d-none');
-
+// =============================================
+// CAREER
+// =============================================
+function loadCareerData() {
   google.script.run
-    .withSuccessHandler(notes => {
-      keepNotes = notes || [];
-      keepNotesFiltered = keepNotes;
-      renderKeepNotes(keepNotes);
-      btn.disabled=false; btn.innerHTML='<i class="bi bi-arrow-repeat me-1"></i>同期';
-      document.getElementById('keep-loading-msg').classList.add('d-none');
+    .withSuccessHandler(data => {
+      document.getElementById('career-stat-meetings').textContent  = data.stats.recentMeetings;
+      document.getElementById('career-stat-knowledge').textContent = data.stats.knowledgeCreated;
+      const container = document.getElementById('goal-list-container');
+      container.innerHTML = '';
+      if (!data.goals.length) {
+        container.innerHTML = '<div class="empty-msg">目標が登録されていません</div>'; return;
+      }
+      data.goals.forEach(g => {
+        const pct = parseInt(g['進捗(%)']) || 0;
+        container.innerHTML += `
+          <div class="goal-card">
+            <div class="goal-header">
+              <div class="goal-title">${esc(g['目標タイトル'])}</div>
+              <div class="goal-pct">${pct}%</div>
+            </div>
+            <div class="goal-bar-track"><div class="goal-bar-fill" style="width:${pct}%"></div></div>
+            <div class="goal-kpi">KPI: ${esc(g['測定指標(KPI)'])}</div>
+          </div>`;
+      });
+    })
+    .getCareerData();
+}
+
+function showModal(id) { new bootstrap.Modal(document.getElementById(id)).show(); }
+
+function submitGoal() {
+  const data = {
+    title:    document.getElementById('goal-title').value,
+    period:   document.getElementById('goal-period').value,
+    kpi:      document.getElementById('goal-kpi').value,
+    progress: document.getElementById('goal-progress').value,
+    eval:     document.getElementById('goal-eval').value,
+  };
+  if (!data.title) { showToast('タイトルは必須です', true); return; }
+  showLoading();
+  google.script.run
+    .withSuccessHandler(msg => {
+      hideLoading();
+      bootstrap.Modal.getInstance(document.getElementById('modal-goal')).hide();
+      showToast(msg); loadCareerData();
+    })
+    .withFailureHandler(err => { hideLoading(); showToast(err.message, true); })
+    .saveGoal(data);
+}
+
+// =============================================
+// DRIVE SCAN MODAL
+// =============================================
+function showScanModal() {
+  document.getElementById('scan-step-1').classList.remove('d-none');
+  document.getElementById('scan-step-2').classList.add('d-none');
+  document.getElementById('scan-step-3').classList.add('d-none');
+  document.getElementById('scan-folder-id').value = '';
+  document.getElementById('folder-validation-result').innerHTML = '';
+  document.getElementById('folder-preview').classList.add('d-none');
+  selectFolderType(1);
+  new bootstrap.Modal(document.getElementById('modal-scan')).show();
+}
+
+function selectFolderType(t) {
+  document.getElementById('folderType' + t).checked = true;
+  [1,2].forEach(i => {
+    const card = document.getElementById('type-card-' + i);
+    card.classList.toggle('selected', i === t);
+  });
+}
+
+function validateFolder() {
+  const id = document.getElementById('scan-folder-id').value.trim();
+  const res = document.getElementById('folder-validation-result');
+  const prev = document.getElementById('folder-preview');
+  if (!id) { res.innerHTML = '<span style="color:var(--red);">IDを入力してください</span>'; return; }
+  res.innerHTML = '<span style="color:var(--text-muted);">検証中...</span>';
+  google.script.run
+    .withSuccessHandler(r => {
+      if (r.valid) {
+        res.innerHTML = `<span style="color:var(--green);">✓ ${esc(r.name)}</span>`;
+        document.getElementById('folder-preview-name').textContent = r.name;
+        prev.classList.remove('d-none');
+      } else {
+        res.innerHTML = `<span style="color:var(--red);">${esc(r.message)}</span>`;
+        prev.classList.add('d-none');
+      }
+    })
+    .withFailureHandler(err => { res.innerHTML = `<span style="color:var(--red);">${esc(err.message)}</span>`; })
+    .validateDriveFolderId(id);
+}
+
+function startScan() {
+  const id   = document.getElementById('scan-folder-id').value.trim();
+  const type = document.querySelector('input[name="folderType"]:checked').value;
+  if (!id) { showToast('フォルダIDを入力してください', true); return; }
+  document.getElementById('scan-step-1').classList.add('d-none');
+  document.getElementById('scan-step-2').classList.remove('d-none');
+  google.script.run
+    .withSuccessHandler(result => {
+      document.getElementById('scan-step-2').classList.add('d-none');
+      document.getElementById('scan-step-3').classList.remove('d-none');
+      if (result.status === 'error') {
+        document.getElementById('scan-result-title').textContent = 'エラー: ' + result.message;
+        document.getElementById('scan-count-classified').textContent = '0';
+        document.getElementById('scan-count-unclassified').textContent = '-';
+        return;
+      }
+      document.getElementById('scan-count-classified').textContent   = result.classified;
+      document.getElementById('scan-count-unclassified').textContent = result.unclassified;
+      document.getElementById('scan-result-title').textContent = `完了 (${(result.companies||[]).join('・')})`;
+      const cdiv = document.getElementById('scan-result-classified');
+      cdiv.innerHTML = (result.details||[]).map(f =>
+        `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span>${f.icon}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.name)}</span>
+          <span style="font-size:11px;color:var(--text-muted);">${esc(f.company)} / ${esc(f.month)}</span>
+        </div>`).join('') || '<p style="color:var(--text-muted);font-size:13px;">なし</p>';
+      const uarea = document.getElementById('scan-result-unclassified-area');
+      const udiv  = document.getElementById('scan-result-unclassified');
+      if (result.unclassifiedFiles && result.unclassifiedFiles.length) {
+        uarea.classList.remove('d-none');
+        udiv.innerHTML = result.unclassifiedFiles.map(f =>
+          `<div style="display:flex;gap:8px;padding:4px 0;font-size:13px;">
+            <span>⚠️</span>
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.name)}</span>
+            <a href="${f.url}" target="_blank" style="color:var(--accent);font-size:12px;">開く</a>
+          </div>`).join('');
+      } else { uarea.classList.add('d-none'); }
     })
     .withFailureHandler(err => {
-      document.getElementById('keep-loading-msg').innerHTML = '⚠️ Keep読み込みエラー: ' + err.message;
-      btn.disabled=false; btn.innerHTML='<i class="bi bi-arrow-repeat me-1"></i>同期';
+      document.getElementById('scan-step-2').classList.add('d-none');
+      document.getElementById('scan-step-3').classList.remove('d-none');
+      document.getElementById('scan-result-title').textContent = 'エラー: ' + err.message;
     })
-    .getKeepNotes();
+    .scanAndClassifyDriveFolder(id, type);
 }
 
-function filterKeepNotes(q) {
-  const lower = q.toLowerCase();
-  keepNotesFiltered = keepNotes.filter(n =>
-    (n.title||'').toLowerCase().includes(lower) ||
-    (n.body||'').toLowerCase().includes(lower) ||
-    (n.labels||[]).some(l => l.toLowerCase().includes(lower))
+// =============================================
+// DOCUMENT TREE
+// =============================================
+let _treeCache = [];
+
+function loadModelTree() {
+  const c = document.getElementById('model-tree-container');
+  c.innerHTML = '<div class="empty-msg" style="padding:40px 0;"><div class="loading-dots" style="justify-content:center;"><span></span><span></span><span></span></div><div style="margin-top:12px;">読み込み中...</div></div>';
+  google.script.run
+    .withSuccessHandler(tree => {
+      _treeCache = tree;
+      populateTreeFilters(tree);
+      renderTree(tree);
+    })
+    .withFailureHandler(err => {
+      c.innerHTML = `<div class="empty-msg" style="color:var(--red);">エラー: ${esc(err.message)}</div>`;
+    })
+    .getModelTree();
+}
+
+function populateTreeFilters(tree) {
+  const cSel = document.getElementById('tree-company-filter');
+  const mSel = document.getElementById('tree-month-filter');
+  const months = new Set();
+  cSel.innerHTML = '<option value="">すべての会社</option>';
+  tree.forEach(c => {
+    cSel.innerHTML += `<option value="${c.id}">${esc(c.name)}</option>`;
+    c.months.forEach(m => months.add(m.yearMonth));
+  });
+  mSel.innerHTML = '<option value="">すべての年月</option>';
+  Array.from(months).sort().reverse().forEach(ym => {
+    mSel.innerHTML += `<option value="${ym}">${esc(ym)}</option>`;
+  });
+}
+
+function filterModelTree() {
+  const kw  = document.getElementById('tree-search').value.toLowerCase();
+  const cId = document.getElementById('tree-company-filter').value;
+  const ym  = document.getElementById('tree-month-filter').value;
+  let filtered = _treeCache;
+  if (cId) filtered = filtered.filter(c => c.id === cId);
+  if (ym)  filtered = filtered.map(c => ({ ...c, months: c.months.filter(m => m.yearMonth === ym) })).filter(c => c.months.length);
+  if (kw)  filtered = filtered.filter(c =>
+    c.name.toLowerCase().includes(kw) ||
+    c.months.some(m => m.files.some(f => (f['ファイル名']||'').toLowerCase().includes(kw)))
   );
-  renderKeepNotes(keepNotesFiltered);
+  renderTree(filtered);
 }
 
-function renderKeepNotes(notes) {
-  const container = document.getElementById('keep-notes-container');
-  if (!notes || notes.length === 0) {
-    container.innerHTML = '<p class="text-muted small text-center py-3">メモが見つかりません</p>';
-    return;
+function renderTree(tree) {
+  const c = document.getElementById('model-tree-container');
+  document.getElementById('tree-count-badge').textContent = tree.length + ' 社';
+  if (!tree.length) {
+    c.innerHTML = '<div class="empty-msg">該当なし</div>'; return;
   }
-  container.innerHTML = notes.slice(0, 30).map(n => {
-    const colorCls = `keep-color-${n.color || 'DEFAULT'}`;
-    const isSelected = selectedKeepNote && selectedKeepNote.id === n.id;
-    const labels = (n.labels||[]).map(l => `<span class="badge bg-secondary rounded-pill me-1" style="font-size:.6rem;">${l}</span>`).join('');
-    const body = (n.body||'').substring(0,80) + ((n.body||'').length>80?'…':'');
-    return `<div class="keep-card mb-2 ${isSelected?'selected-keep':''}" onclick="selectKeepNote('${n.id}')">
-      <div class="keep-color-bar ${colorCls}"></div>
-      <div style="padding-left:8px;">
-        ${n.title ? `<div class="fw-bold" style="font-size:.8rem;">${n.title}</div>` : ''}
-        <div class="text-muted" style="font-size:.75rem;margin-top:2px;">${body}</div>
-        ${labels ? `<div class="mt-1">${labels}</div>` : ''}
-      </div>
-    </div>`;
+  c.innerHTML = tree.map(company => {
+    const isHQ = ['本社','本店','HQ','headquarters'].some(k => company.name.toLowerCase().includes(k.toLowerCase()));
+    const badgeClass = isHQ ? 'badge-hq' : 'badge-branch';
+    const badgeLabel = isHQ ? '🏢 本社' : '🏭 支社';
+
+    const monthsHtml = company.months.map(m => {
+      const mId = 'mo-' + btoa(encodeURIComponent(company.id + m.yearMonth)).replace(/[=+/]/g,'');
+      return `
+        <div class="month-node">
+          <div class="month-label" onclick="toggleEl('${mId}')">
+            <i class="bi bi-calendar3" style="font-size:12px;"></i>
+            ${esc(m.yearMonth)}
+            <span class="month-count">${m.files.length}</span>
+          </div>
+          <div id="${mId}">
+            ${m.files.map(f => renderFileRow(f)).join('')}
+          </div>
+        </div>`;
+    }).join('');
+
+    const quotesHtml = company.quotes.length ? `
+      <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
+        <div style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:6px;">見積書台帳 (${company.quotes.length}件)</div>
+        ${company.quotes.map(q => `
+          <div class="file-row">
+            <span>💴</span>
+            <span class="file-name" style="font-weight:500;">${esc(q['見積番号'])}</span>
+            <span style="font-size:12px;color:var(--text-muted);">${esc(q['年月'])}</span>
+            <span class="file-type-badge" style="background:${q['ステータス']==='確認済'?'var(--green)':'var(--text-muted)'};">${esc(q['ステータス'])}</span>
+            ${q['Drive URL'] ? `<a href="${q['Drive URL']}" target="_blank" class="file-link">↗</a>` : ''}
+          </div>`).join('')}
+      </div>` : '';
+
+    const bodyId = 'co-' + company.id;
+    return `
+      <div class="company-card">
+        <div class="company-header" onclick="toggleEl('${bodyId}')">
+          <span style="font-size:1.1em;">${isHQ ? '🏢' : '🏭'}</span>
+          <span class="company-name">${esc(company.name)}</span>
+          <span class="company-badge ${badgeClass}">${badgeLabel}</span>
+          <span class="company-meta">${company.months.length}ヶ月 / ${company.totalDocs}件</span>
+          ${company.url ? `<a href="${company.url}" target="_blank" onclick="event.stopPropagation();" class="notion-btn-sm ghost" style="padding:3px 8px;font-size:12px;">Drive ↗</a>` : ''}
+          <i class="bi bi-chevron-down" style="font-size:12px;color:var(--text-muted);"></i>
+        </div>
+        <div class="company-body" id="${bodyId}">
+          ${monthsHtml}
+          ${quotesHtml}
+        </div>
+      </div>`;
   }).join('');
 }
 
-function selectKeepNote(noteId) {
-  selectedKeepNote = keepNotes.find(n => n.id === noteId);
-  renderKeepNotes(keepNotesFiltered);
-
-  if (selectedKeepNote) {
-    // 議事録モーダルに内容を取り込む
-    openNewEventModal(calSelectedDate);
-    if (selectedKeepNote.title) document.getElementById('cal-mtg-title').value = selectedKeepNote.title;
-    document.getElementById('cal-mtg-fulltext').value = selectedKeepNote.body || '';
-    document.getElementById('cal-mtg-summary').value = (selectedKeepNote.body||'').substring(0,50);
-    document.getElementById('keep-import-hint').classList.remove('d-none');
-  }
+function renderFileRow(doc) {
+  const isUnclassified = doc['ファイル種別'] === '【未分類】';
+  const meta = FILE_TYPE_META[doc['ファイル種別']] || { color: 'var(--text-muted)', icon: '📄' };
+  return `
+    <div class="file-row">
+      <span>${meta.icon}</span>
+      <span class="file-name">${esc(doc['ファイル名'])}</span>
+      <span class="file-type-badge" style="background:${meta.color};">${esc(doc['ファイル種別'])}</span>
+      ${doc['Drive URL'] ? `<a href="${doc['Drive URL']}" target="_blank" class="file-link">↗</a>` : ''}
+      ${isUnclassified ? `<button class="reclassify-btn" onclick="doReclassify('${doc['ドキュメントID']}','${esc(doc['ファイル名'])}')">分類する</button>` : ''}
+    </div>`;
 }
 
-function clearKeepImport() {
-  selectedKeepNote = null;
-  document.getElementById('cal-mtg-fulltext').value = '';
-  document.getElementById('cal-mtg-summary').value = '';
-  document.getElementById('keep-import-hint').classList.add('d-none');
-}
-
-// カレンダータブ切替時に初期化
-const _origShowTab = showTab;
-showTab = function(tabId) {
-  _origShowTab(tabId);
-  if (tabId === 'calendar' && !calYear) initCalendar();
-  else if (tabId === 'calendar') renderCalendar();
+const FILE_TYPE_META = {
+  '機種製品仕様書': { icon:'📋', color:'#2383e2' },
+  '基板設計仕様書': { icon:'🔧', color:'#7c3aed' },
+  '構成表(BOM)':   { icon:'📦', color:'#16a34a' },
+  '見積書':        { icon:'💴', color:'#d97706' },
+  '図面':          { icon:'📐', color:'#dc2626' },
+  'マニュアル':    { icon:'📖', color:'#6b7280' },
+  '試験・検査書':  { icon:'🧪', color:'#0891b2' },
+  '【未分類】':    { icon:'⚠️', color:'#9ca3af' },
 };
+
+function toggleEl(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+function doReclassify(docId, fileName) {
+  const types = Object.keys(FILE_TYPE_META).filter(t => t !== '【未分類】');
+  const choice = prompt(`「${fileName}」の種別:\n\n` + types.map((t,i) => `${i+1}. ${t}`).join('\n') + '\n\n番号を入力:');
+  if (!choice) return;
+  const idx = parseInt(choice, 10) - 1;
+  if (idx < 0 || idx >= types.length) { showToast('正しい番号を入力してください', true); return; }
+  showLoading();
+  google.script.run
+    .withSuccessHandler(() => { hideLoading(); showToast('種別を変更しました'); loadModelTree(); })
+    .withFailureHandler(err => { hideLoading(); showToast(err.message, true); })
+    .reclassifyDocument(docId, types[idx]);
+}
+
+// =============================================
+// UTILITIES
+// =============================================
+function mdToHtml(text) {
+  if (!text) return '';
+  return '<p>' + text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g,     '<em>$1</em>')
+    .replace(/\n\n/g,          '</p><p>')
+    .replace(/\n- (.*)/g,      '<br>• $1')
+    .replace(/\n/g,            '<br>') + '</p>';
+}
+
+function esc(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
