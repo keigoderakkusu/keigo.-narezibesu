@@ -500,3 +500,748 @@ function submitGoal() {
     .saveGoal(data);
 }
 </script>
+
+// =================================================================
+// CSV / Excel インポート & スプレッドシート連携
+// =================================================================
+
+// インポートテンプレートの列定義
+const IMPORT_TEMPLATES = {
+  products: {
+    label: '製品マスタ',
+    headers: ['製品名', '価格', 'ステータス', '後継機種', '改廃理由', '競合優位性'],
+    sample: [['XB-2200A', '150,000円～', '現行品', '', '', '耐久性が従来比1.5倍']]
+  },
+  meetings: {
+    label: '商談議事録',
+    headers: ['顧客名', '関連基板・機種', '内容サマリ', '議事録全文'],
+    sample: [['株式会社サンプル', 'XB-2200A', '価格交渉あり', '詳細な議事録本文をここに']]
+  },
+  notes: {
+    label: 'ナレッジメモ',
+    headers: ['タグ(Obsidianタグ等)', 'メモ内容'],
+    sample: [['#営業トーク #競合', '競合A社の最新基板は...']]
+  },
+  goals: {
+    label: 'キャリア目標',
+    headers: ['対象期間', '目標タイトル', '測定指標(KPI)', '進捗(%)', '達成状況・自己評価'],
+    sample: [['2024年度 上期', '部品知識マスター', 'ナレッジ50件作成', '30', '現在進行中']]
+  }
+};
+
+let importParsedData = null; // パース済みデータを保持
+
+// テンプレートCSVダウンロード
+function downloadImportTemplate() {
+  const type = document.querySelector('input[name="importType"]:checked').value;
+  const tmpl = IMPORT_TEMPLATES[type];
+  if (!tmpl) return;
+
+  const rows = [tmpl.headers, ...tmpl.sample];
+  const csvContent = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `template_${type}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ドラッグ＆ドロップ
+function handleImportDrop(event) {
+  event.preventDefault();
+  const dropzone = document.getElementById('import-dropzone');
+  dropzone.classList.remove('border-primary', 'bg-primary-subtle');
+  const file = event.dataTransfer.files[0];
+  if (file) handleImportFile(file);
+}
+
+// ファイル読み込み
+function handleImportFile(file) {
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  if (ext === 'csv') {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const text = e.target.result;
+      const rows = parseCSV(text);
+      showImportPreview(rows);
+    };
+    reader.readAsText(file, 'UTF-8');
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    if (typeof XLSX === 'undefined') {
+      showAlert('Excelライブラリの読み込みに失敗しました。ページを再読み込みしてください。');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const workbook = XLSX.read(e.target.result, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+        showImportPreview(rows.map(r => r.map(c => String(c))));
+      } catch(err) {
+        showAlert('Excelファイルの読み込みに失敗しました: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    showAlert('対応していないファイル形式です。CSV(.csv) または Excel(.xlsx/.xls) を選択してください。');
+  }
+}
+
+// CSV パーサー（ダブルクォート対応）
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+  return lines.map(line => {
+    const result = [];
+    let current = '';
+    let inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuote && line[i+1] === '"') { current += '"'; i++; }
+        else { inQuote = !inQuote; }
+      } else if (ch === ',' && !inQuote) {
+        result.push(current.trim()); current = '';
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  });
+}
+
+// プレビュー表示
+function showImportPreview(rows) {
+  if (!rows || rows.length < 2) {
+    showAlert('データが空、またはヘッダー行のみです。');
+    return;
+  }
+
+  importParsedData = rows;
+  const headers = rows[0];
+  const dataRows = rows.slice(1);
+
+  const type = document.querySelector('input[name="importType"]:checked').value;
+  const expectedHeaders = IMPORT_TEMPLATES[type].headers;
+
+  // 列名チェック
+  const warningEl = document.getElementById('import-col-warning');
+  const warningMsg = document.getElementById('import-col-warning-msg');
+  const missing = expectedHeaders.filter(h => !headers.includes(h));
+  if (missing.length > 0) {
+    warningEl.classList.remove('d-none');
+    warningMsg.textContent = `以下の列が見つかりません（列名の一致が必要です）: ${missing.join(', ')}`;
+  } else {
+    warningEl.classList.add('d-none');
+  }
+
+  // ヘッダー描画
+  const thead = document.getElementById('import-preview-head');
+  thead.innerHTML = headers.map(h => `<th class="text-nowrap">${h}</th>`).join('');
+
+  // 先頭5行描画
+  const tbody = document.getElementById('import-preview-body');
+  tbody.innerHTML = dataRows.slice(0, 5).map(row =>
+    `<tr>${row.map(cell => `<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${cell}">${cell}</td>`).join('')}</tr>`
+  ).join('');
+
+  document.getElementById('import-row-count').textContent = `${dataRows.length}件のデータ`;
+  document.getElementById('import-preview-section').classList.remove('d-none');
+  document.getElementById('btn-import-execute').classList.remove('d-none');
+}
+
+// インポート実行
+function executeImport() {
+  if (!importParsedData || importParsedData.length < 2) {
+    showAlert('インポートするデータがありません。');
+    return;
+  }
+
+  const type = document.querySelector('input[name="importType"]:checked').value;
+  const headers = importParsedData[0];
+  const dataRows = importParsedData.slice(1).filter(r => r.some(c => c !== ''));
+
+  const btn = document.getElementById('btn-import-execute');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>インポート中...';
+
+  showLoading();
+  google.script.run
+    .withSuccessHandler(msg => {
+      hideLoading();
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-upload me-2"></i>データをインポートする';
+      document.getElementById('import-result').innerHTML =
+        `<div class="alert alert-success border-0 shadow-sm"><i class="bi bi-check-circle-fill me-2"></i>${msg}</div>`;
+      importParsedData = null;
+      document.getElementById('import-preview-section').classList.add('d-none');
+      btn.classList.add('d-none');
+      loadDashboardData();
+    })
+    .withFailureHandler(err => {
+      hideLoading();
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-upload me-2"></i>データをインポートする';
+      document.getElementById('import-result').innerHTML =
+        `<div class="alert alert-danger border-0 shadow-sm"><i class="bi bi-x-circle-fill me-2"></i>エラー: ${err.message}</div>`;
+    })
+    .importBulkData(type, headers, dataRows);
+}
+
+// スプレッドシートURLからインポート
+function importFromSpreadsheet() {
+  const url = document.getElementById('sheet-url-input').value.trim();
+  const tabName = document.getElementById('sheet-tab-name').value.trim();
+
+  if (!url || !url.includes('spreadsheets/d/')) {
+    showAlert('正しいスプレッドシートURLを入力してください。');
+    return;
+  }
+
+  // Spreadsheet IDを抽出
+  const match = url.match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (!match) {
+    showAlert('URLからスプレッドシートIDを取得できませんでした。');
+    return;
+  }
+  const spreadsheetId = match[1];
+  const type = document.querySelector('input[name="importType"]:checked').value;
+
+  const btn = event.target;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>読み込み中...';
+
+  showLoading();
+  google.script.run
+    .withSuccessHandler(result => {
+      hideLoading();
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-download me-1"></i>読み込む';
+      if (result.rows && result.rows.length > 0) {
+        // headers + rows の形式でプレビュー
+        const allRows = [result.headers, ...result.rows];
+        showImportPreview(allRows);
+        showAlert(`スプレッドシートから ${result.rows.length} 件のデータを読み込みました。内容を確認して「インポートする」を押してください。`);
+      } else {
+        showAlert('スプレッドシートにデータが見つかりませんでした。シート名や権限を確認してください。');
+      }
+    })
+    .withFailureHandler(err => {
+      hideLoading();
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-download me-1"></i>読み込む';
+      showAlert('スプレッドシート読み込みエラー: ' + err.message);
+    })
+    .readFromSpreadsheet(spreadsheetId, tabName);
+}
+
+// =================================================================
+// カレンダー機能 & Google Keep連携
+// =================================================================
+
+// --- 状態管理 ---
+let calYear, calMonth;      // 表示中の年月
+let calView = 'month';      // 'month' | 'week'
+let calSelectedDate = null; // 選択中の日付(YYYY-MM-DD)
+let calEvents = {};         // { 'YYYY-MM-DD': [ event, ... ] }
+let keepNotes = [];         // Keepメモキャッシュ
+let keepNotesFiltered = [];
+let selectedKeepNote = null;
+let selectedEventType = 'meeting';
+let selectedKeepColor = 'DEFAULT';
+let editingEventId = null;
+
+// 初期化
+function initCalendar() {
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth(); // 0-indexed
+  calSelectedDate = toDateStr(now);
+  loadCalendarEvents();
+}
+
+function toDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function todayStr() { return toDateStr(new Date()); }
+
+// --- ビュー切替 ---
+function setCalView(v) {
+  calView = v;
+  document.getElementById('btn-view-month').className = v==='month'
+    ? 'btn btn-sm btn-dark active' : 'btn btn-sm btn-outline-secondary';
+  document.getElementById('btn-view-week').className = v==='week'
+    ? 'btn btn-sm btn-dark active' : 'btn btn-sm btn-outline-secondary';
+  renderCalendar();
+}
+
+function calPrev() {
+  if (calView === 'month') {
+    calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }
+  } else {
+    // 週ビュー: 7日前
+    const d = weekStartDate();
+    d.setDate(d.getDate() - 7);
+    calYear = d.getFullYear(); calMonth = d.getMonth();
+    calSelectedDate = toDateStr(d);
+  }
+  renderCalendar();
+}
+function calNext() {
+  if (calView === 'month') {
+    calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; }
+  } else {
+    const d = weekStartDate();
+    d.setDate(d.getDate() + 7);
+    calYear = d.getFullYear(); calMonth = d.getMonth();
+    calSelectedDate = toDateStr(d);
+  }
+  renderCalendar();
+}
+function calToday() {
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+  calSelectedDate = toDateStr(now);
+  renderCalendar();
+  renderSidePanel(calSelectedDate);
+}
+
+function weekStartDate() {
+  // 選択日の週の日曜日
+  const ref = calSelectedDate ? new Date(calSelectedDate + 'T00:00:00') : new Date();
+  const dow = ref.getDay();
+  ref.setDate(ref.getDate() - dow);
+  return ref;
+}
+
+// --- カレンダー描画 ---
+function renderCalendar() {
+  if (calView === 'month') renderMonthView();
+  else renderWeekView();
+}
+
+function renderMonthView() {
+  document.getElementById('cal-month-view').classList.remove('d-none');
+  document.getElementById('cal-week-view').classList.add('d-none');
+
+  const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  document.getElementById('cal-title').textContent = `${calYear}年 ${MONTHS[calMonth]}`;
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const prevDays = new Date(calYear, calMonth, 0).getDate();
+  const today = todayStr();
+
+  let html = '';
+  let dayCount = 0;
+  // 先月分
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const d = prevDays - i;
+    const m = calMonth === 0 ? 12 : calMonth;
+    const y = calMonth === 0 ? calYear - 1 : calYear;
+    html += `<div class="cal-cell other-month"><span class="cal-day-num">${d}</span></div>`;
+    dayCount++;
+  }
+  // 今月
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow = (firstDay + d - 1) % 7;
+    const isToday = dateStr === today;
+    const isSel  = dateStr === calSelectedDate;
+    const isSun = dow === 0, isSat = dow === 6;
+    let cls = 'cal-cell';
+    if (isToday) cls += ' today';
+    if (isSel)   cls += ' selected';
+    if (isSun)   cls += ' sun-col';
+    if (isSat)   cls += ' sat-col';
+
+    const evs = calEvents[dateStr] || [];
+    let chips = evs.slice(0,3).map(e => {
+      const chipCls = e.type==='meeting'?'chip-meeting':e.type==='note'?'chip-note':e.type==='keep'?'chip-keep':'chip-goal';
+      const label = e.type==='meeting'?(e.client||e.title||'打合せ'):e.type==='note'?(e.tags||'メモ'):e.type==='keep'?(e.title||'Keepメモ'):'目標';
+      return `<span class="cal-event-chip ${chipCls}" onclick="event.stopPropagation();openEventDetail('${dateStr}','${e.id}')" title="${label}">${label}</span>`;
+    }).join('');
+    if (evs.length > 3) chips += `<span class="cal-event-chip chip-meeting" style="background:#f1f5f9;color:#94a3b8;">+${evs.length-3}</span>`;
+
+    html += `<div class="${cls}" onclick="selectCalDate('${dateStr}')">
+      <span class="cal-day-num">${d}</span>
+      ${chips}
+      <button class="cal-add-btn" onclick="event.stopPropagation();openNewEventModal('${dateStr}')"><i class="bi bi-plus" style="font-size:.65rem;"></i></button>
+    </div>`;
+    dayCount++;
+  }
+  // 来月分で6行になるまで埋める
+  const remaining = 42 - dayCount;
+  for (let d = 1; d <= remaining; d++) {
+    html += `<div class="cal-cell other-month"><span class="cal-day-num">${d}</span></div>`;
+  }
+  document.getElementById('cal-body').innerHTML = html;
+}
+
+function renderWeekView() {
+  document.getElementById('cal-month-view').classList.add('d-none');
+  document.getElementById('cal-week-view').classList.remove('d-none');
+
+  const wStart = weekStartDate();
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(wStart);
+    d.setDate(d.getDate() + i);
+    days.push(d);
+  }
+
+  // タイトル更新
+  const s = days[0], e = days[6];
+  document.getElementById('cal-title').textContent =
+    `${s.getFullYear()}年${s.getMonth()+1}月${s.getDate()}日 〜 ${e.getMonth()+1}月${e.getDate()}日`;
+
+  const DOWS = ['日','月','火','水','木','金','土'];
+  const today = todayStr();
+  const HOURS = Array.from({length:12}, (_,i)=>i+8); // 8〜19時
+
+  let headerHtml = '<div class="week-time-col"><div class="week-day-header"></div>';
+  HOURS.forEach(h => {
+    headerHtml += `<div class="week-hour-label">${h}:00</div>`;
+  });
+  headerHtml += '</div>';
+
+  let colsHtml = '';
+  days.forEach((d, di) => {
+    const ds = toDateStr(d);
+    const isToday = ds === today;
+    const isSel = ds === calSelectedDate;
+    const cls = isToday ? 'today-col' : '';
+    const evs = calEvents[ds] || [];
+
+    // イベントブロック生成
+    let blocks = '';
+    evs.forEach(e => {
+      if (!e.time) return;
+      const [hh, mm] = e.time.split(':').map(Number);
+      const topPx = (hh - 8) * 40 + (mm / 60) * 40 + 41; // header=41px
+      let heightPx = 40;
+      if (e.endtime) {
+        const [eh, em] = e.endtime.split(':').map(Number);
+        heightPx = Math.max(20, ((eh*60+em)-(hh*60+mm)) / 60 * 40);
+      }
+      const wevCls = e.type==='meeting'?'wev-meeting':e.type==='note'?'wev-note':'wev-keep';
+      const label = e.type==='meeting'?(e.client||e.title||'打合せ'):(e.tags||e.title||'メモ');
+      blocks += `<div class="week-event-block ${wevCls}" style="top:${topPx}px;height:${heightPx}px;" onclick="openEventDetail('${ds}','${e.id}')" title="${label}">
+        ${e.time} ${label}
+      </div>`;
+    });
+
+    // 時間帯ライン
+    let linesHtml = HOURS.map(() => '<div class="week-hour-line"></div>').join('');
+
+    colsHtml += `<div class="week-day-col ${isSel?'border-primary':''}">
+      <div class="week-day-header ${cls}" onclick="selectCalDate('${ds}')" style="cursor:pointer;">
+        <div style="font-size:.85rem;">${DOWS[di]}</div>
+        <div style="font-size:1rem;font-weight:800;">${d.getDate()}</div>
+      </div>
+      <div style="position:relative;">${linesHtml}${blocks}</div>
+    </div>`;
+  });
+
+  document.getElementById('cal-week-grid').innerHTML = headerHtml + colsHtml;
+}
+
+// --- 日付選択 ---
+function selectCalDate(dateStr) {
+  calSelectedDate = dateStr;
+  renderCalendar();
+  renderSidePanel(dateStr);
+}
+
+// --- サイドパネル ---
+function renderSidePanel(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const DAYS = ['日','月','火','水','木','金','土'];
+  document.getElementById('side-panel-date-title').textContent =
+    `${d.getMonth()+1}月${d.getDate()}日（${DAYS[d.getDay()]}）の予定`;
+
+  const evs = calEvents[dateStr] || [];
+  if (evs.length === 0) {
+    document.getElementById('side-event-list').innerHTML =
+      '<p class="text-muted small text-center py-3">この日の予定はありません<br><a href="#" onclick="openNewEventModal(\'' + dateStr + '\')">＋追加する</a></p>';
+    return;
+  }
+
+  const html = evs.map(e => {
+    const badgeCls = e.type==='meeting'?'bg-primary':e.type==='note'?'bg-success':e.type==='keep'?'bg-warning text-dark':'bg-purple';
+    const label = e.type==='meeting'?(e.client||'打合せ'):e.type==='note'?(e.tags||'メモ'):e.type==='keep'?(e.title||'Keep'):'目標';
+    const time = e.time ? `<span class="text-muted" style="font-size:.72rem;">${e.time}${e.endtime?'〜'+e.endtime:''}</span>` : '';
+    const desc = e.type==='meeting'?(e.summary||''):(e.type==='note'?(e.content||'').substring(0,40):'');
+    return `<div class="d-flex align-items-start gap-2 mb-2 p-2 rounded-3 bg-light" style="cursor:pointer;" onclick="openEventDetail('${dateStr}','${e.id}')">
+      <span class="badge ${badgeCls} mt-1" style="font-size:.65rem;">${e.type==='meeting'?'打合せ':e.type==='note'?'メモ':e.type==='keep'?'Keep':'目標'}</span>
+      <div style="flex:1;min-width:0;">
+        <div class="fw-bold" style="font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</div>
+        ${time}
+        ${desc ? `<div class="text-muted" style="font-size:.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${desc}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('side-event-list').innerHTML = html;
+}
+
+// --- イベントデータ読み込み ---
+function loadCalendarEvents() {
+  showLoading();
+  google.script.run
+    .withSuccessHandler(data => {
+      hideLoading();
+      calEvents = {};
+      (data || []).forEach(e => {
+        const ds = e.date;
+        if (!ds) return;
+        if (!calEvents[ds]) calEvents[ds] = [];
+        calEvents[ds].push(e);
+      });
+      renderCalendar();
+      renderSidePanel(calSelectedDate || todayStr());
+    })
+    .withFailureHandler(err => {
+      hideLoading();
+      renderCalendar();
+    })
+    .getCalendarEvents();
+}
+
+// --- モーダル: 新規イベント ---
+function openNewEventModal(dateStr) {
+  editingEventId = null;
+  selectedKeepNote = null;
+  document.getElementById('keep-import-hint').classList.add('d-none');
+  const d = dateStr || calSelectedDate || todayStr();
+  document.getElementById('cal-ev-date').value = d;
+  document.getElementById('cal-ev-time').value = '10:00';
+  document.getElementById('cal-ev-endtime').value = '11:00';
+  document.getElementById('cal-mtg-client').value = '';
+  document.getElementById('cal-mtg-title').value = '';
+  document.getElementById('cal-mtg-related').value = '';
+  document.getElementById('cal-mtg-summary').value = '';
+  document.getElementById('cal-mtg-fulltext').value = '';
+  document.getElementById('cal-nt-tags').value = '';
+  document.getElementById('cal-nt-content').value = '';
+  document.getElementById('cal-keep-title').value = '';
+  document.getElementById('cal-keep-body').value = '';
+  document.getElementById('cal-keep-labels').value = '';
+  document.getElementById('cal-modal-title').textContent = '新しい予定を追加';
+  switchEventType('meeting');
+  const m = new bootstrap.Modal(document.getElementById('modal-calendar'));
+  m.show();
+}
+
+// --- モーダル: 既存イベント詳細 ---
+function openEventDetail(dateStr, eventId) {
+  const evs = calEvents[dateStr] || [];
+  const ev = evs.find(e => e.id === eventId);
+  if (!ev) { openNewEventModal(dateStr); return; }
+
+  editingEventId = eventId;
+  document.getElementById('cal-ev-date').value = ev.date;
+  document.getElementById('cal-ev-time').value = ev.time || '10:00';
+  document.getElementById('cal-ev-endtime').value = ev.endtime || '11:00';
+  document.getElementById('cal-modal-title').textContent = ev.type==='meeting'?'打合せ詳細・議事録':ev.type==='note'?'メモ詳細':'Keepメモ';
+
+  if (ev.type === 'meeting') {
+    document.getElementById('cal-mtg-client').value = ev.client || '';
+    document.getElementById('cal-mtg-title').value = ev.title || '';
+    document.getElementById('cal-mtg-related').value = ev.related || '';
+    document.getElementById('cal-mtg-summary').value = ev.summary || '';
+    document.getElementById('cal-mtg-fulltext').value = ev.fulltext || '';
+    switchEventType('meeting');
+  } else if (ev.type === 'note') {
+    document.getElementById('cal-nt-tags').value = ev.tags || '';
+    document.getElementById('cal-nt-content').value = ev.content || '';
+    switchEventType('note');
+  }
+  const m = new bootstrap.Modal(document.getElementById('modal-calendar'));
+  m.show();
+}
+
+// --- タブ切替 ---
+function switchEventType(type) {
+  selectedEventType = type;
+  ['meeting','note','keep'].forEach(t => {
+    document.getElementById(`form-${t}-section`).classList.toggle('d-none', t !== type);
+    document.getElementById(`etype-${t}`).classList.toggle('active', t === type);
+  });
+  // Keep登録は時刻不要
+  const showTime = type !== 'keep';
+  document.getElementById('cal-ev-time-group').classList.toggle('d-none', !showTime);
+  document.getElementById('cal-ev-endtime-group').classList.toggle('d-none', !showTime);
+  document.getElementById('quick-time-group').classList.toggle('d-none', !showTime);
+}
+
+// --- クイック時間 ---
+function setQuickTime(sh, sm, eh, em) {
+  document.getElementById('cal-ev-time').value = `${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
+  document.getElementById('cal-ev-endtime').value = `${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`;
+  document.querySelectorAll('.quick-time-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// --- Keep色選択 ---
+function selectKeepColor(el) {
+  document.querySelectorAll('.keep-color-dot').forEach(d => d.style.border = '2px solid transparent');
+  el.style.border = '2.5px solid #334155';
+  selectedKeepColor = el.dataset.color;
+}
+
+// --- 保存 ---
+function saveCalendarEvent() {
+  const date = document.getElementById('cal-ev-date').value;
+  if (!date) { showAlert('日付を入力してください。'); return; }
+
+  const btn = document.getElementById('cal-modal-save-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>保存中...';
+
+  if (selectedEventType === 'meeting') {
+    const client = document.getElementById('cal-mtg-client').value.trim();
+    if (!client) { showAlert('顧客名を入力してください。'); btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する'; return; }
+    const data = {
+      client, date,
+      time:    document.getElementById('cal-ev-time').value,
+      endtime: document.getElementById('cal-ev-endtime').value,
+      title:   document.getElementById('cal-mtg-title').value,
+      related: document.getElementById('cal-mtg-related').value,
+      summary: document.getElementById('cal-mtg-summary').value,
+      fulltext:document.getElementById('cal-mtg-fulltext').value,
+      id: editingEventId || ''
+    };
+    showLoading();
+    google.script.run
+      .withSuccessHandler(msg => { hideLoading(); afterSave(btn, msg); })
+      .withFailureHandler(err => { hideLoading(); showAlert('エラー: '+err.message); btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する'; })
+      .saveMeetingWithDate(data);
+
+  } else if (selectedEventType === 'note') {
+    const content = document.getElementById('cal-nt-content').value.trim();
+    if (!content) { showAlert('メモ内容を入力してください。'); btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する'; return; }
+    const data = {
+      date,
+      time: document.getElementById('cal-ev-time').value,
+      endtime: document.getElementById('cal-ev-endtime').value,
+      tags:    document.getElementById('cal-nt-tags').value,
+      content, id: editingEventId || ''
+    };
+    showLoading();
+    google.script.run
+      .withSuccessHandler(msg => { hideLoading(); afterSave(btn, msg); })
+      .withFailureHandler(err => { hideLoading(); showAlert('エラー: '+err.message); btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する'; })
+      .saveNoteWithDate(data);
+
+  } else if (selectedEventType === 'keep') {
+    const body = document.getElementById('cal-keep-body').value.trim();
+    if (!body) { showAlert('Keep内容を入力してください。'); btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する'; return; }
+    const data = {
+      date, title: document.getElementById('cal-keep-title').value,
+      body, color: selectedKeepColor,
+      labels: document.getElementById('cal-keep-labels').value
+    };
+    showLoading();
+    google.script.run
+      .withSuccessHandler(msg => { hideLoading(); afterSave(btn, msg); })
+      .withFailureHandler(err => { hideLoading(); showAlert('エラー: '+err.message); btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する'; })
+      .saveToKeep(data);
+  }
+}
+
+function afterSave(btn, msg) {
+  btn.disabled=false; btn.innerHTML='<i class="bi bi-save me-1"></i>保存する';
+  bootstrap.Modal.getInstance(document.getElementById('modal-calendar')).hide();
+  showAlert(msg);
+  loadCalendarEvents();
+  syncKeepNotes();
+}
+
+// --- Google Keep 同期 ---
+function syncKeepNotes() {
+  const btn = document.getElementById('btn-sync-keep');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>同期中...';
+  document.getElementById('keep-loading-msg').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>読み込み中...';
+  document.getElementById('keep-loading-msg').classList.remove('d-none');
+
+  google.script.run
+    .withSuccessHandler(notes => {
+      keepNotes = notes || [];
+      keepNotesFiltered = keepNotes;
+      renderKeepNotes(keepNotes);
+      btn.disabled=false; btn.innerHTML='<i class="bi bi-arrow-repeat me-1"></i>同期';
+      document.getElementById('keep-loading-msg').classList.add('d-none');
+    })
+    .withFailureHandler(err => {
+      document.getElementById('keep-loading-msg').innerHTML = '⚠️ Keep読み込みエラー: ' + err.message;
+      btn.disabled=false; btn.innerHTML='<i class="bi bi-arrow-repeat me-1"></i>同期';
+    })
+    .getKeepNotes();
+}
+
+function filterKeepNotes(q) {
+  const lower = q.toLowerCase();
+  keepNotesFiltered = keepNotes.filter(n =>
+    (n.title||'').toLowerCase().includes(lower) ||
+    (n.body||'').toLowerCase().includes(lower) ||
+    (n.labels||[]).some(l => l.toLowerCase().includes(lower))
+  );
+  renderKeepNotes(keepNotesFiltered);
+}
+
+function renderKeepNotes(notes) {
+  const container = document.getElementById('keep-notes-container');
+  if (!notes || notes.length === 0) {
+    container.innerHTML = '<p class="text-muted small text-center py-3">メモが見つかりません</p>';
+    return;
+  }
+  container.innerHTML = notes.slice(0, 30).map(n => {
+    const colorCls = `keep-color-${n.color || 'DEFAULT'}`;
+    const isSelected = selectedKeepNote && selectedKeepNote.id === n.id;
+    const labels = (n.labels||[]).map(l => `<span class="badge bg-secondary rounded-pill me-1" style="font-size:.6rem;">${l}</span>`).join('');
+    const body = (n.body||'').substring(0,80) + ((n.body||'').length>80?'…':'');
+    return `<div class="keep-card mb-2 ${isSelected?'selected-keep':''}" onclick="selectKeepNote('${n.id}')">
+      <div class="keep-color-bar ${colorCls}"></div>
+      <div style="padding-left:8px;">
+        ${n.title ? `<div class="fw-bold" style="font-size:.8rem;">${n.title}</div>` : ''}
+        <div class="text-muted" style="font-size:.75rem;margin-top:2px;">${body}</div>
+        ${labels ? `<div class="mt-1">${labels}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectKeepNote(noteId) {
+  selectedKeepNote = keepNotes.find(n => n.id === noteId);
+  renderKeepNotes(keepNotesFiltered);
+
+  if (selectedKeepNote) {
+    // 議事録モーダルに内容を取り込む
+    openNewEventModal(calSelectedDate);
+    if (selectedKeepNote.title) document.getElementById('cal-mtg-title').value = selectedKeepNote.title;
+    document.getElementById('cal-mtg-fulltext').value = selectedKeepNote.body || '';
+    document.getElementById('cal-mtg-summary').value = (selectedKeepNote.body||'').substring(0,50);
+    document.getElementById('keep-import-hint').classList.remove('d-none');
+  }
+}
+
+function clearKeepImport() {
+  selectedKeepNote = null;
+  document.getElementById('cal-mtg-fulltext').value = '';
+  document.getElementById('cal-mtg-summary').value = '';
+  document.getElementById('keep-import-hint').classList.add('d-none');
+}
+
+// カレンダータブ切替時に初期化
+const _origShowTab = showTab;
+showTab = function(tabId) {
+  _origShowTab(tabId);
+  if (tabId === 'calendar' && !calYear) initCalendar();
+  else if (tabId === 'calendar') renderCalendar();
+};

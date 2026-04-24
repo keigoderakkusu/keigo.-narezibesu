@@ -513,3 +513,436 @@ function processAIQuery(query, mode) {
     return "通信エラーが発生しました。ネットワーク設定またはAPI制限を確認してください: " + e.message;
   }
 }
+
+// ============================================================
+// CSV / Excel / スプレッドシート インポート機能
+// ============================================================
+
+/**
+ * フロントエンドから送られた行データを一括インポートする
+ * @param {string} sheetType - 'products' | 'meetings' | 'notes' | 'goals'
+ * @param {string[]} headers - ヘッダー列名の配列
+ * @param {string[][]} dataRows - データ行の2次元配列
+ */
+function importBulkData(sheetType, headers, dataRows) {
+  const SHEET_CONFIG = {
+    products: {
+      sheetName: 'products',
+      requiredCols: ['製品名'],
+      buildRow: (h, r) => [
+        generateId(),
+        getCellValue(h, r, '製品名'),
+        getCellValue(h, r, '価格'),
+        getCellValue(h, r, 'ステータス') || '現行品',
+        getCellValue(h, r, '改廃理由'),
+        getCellValue(h, r, '後継機種'),
+        getCellValue(h, r, '競合優位性')
+      ]
+    },
+    meetings: {
+      sheetName: 'meetings',
+      requiredCols: ['顧客名'],
+      buildRow: (h, r) => [
+        generateId(),
+        getCurrentTime(),
+        getCellValue(h, r, '顧客名'),
+        getCellValue(h, r, '関連基板・機種'),
+        getCellValue(h, r, '内容サマリ'),
+        getCellValue(h, r, '議事録全文')
+      ]
+    },
+    notes: {
+      sheetName: 'notes',
+      requiredCols: ['メモ内容'],
+      buildRow: (h, r) => [
+        generateId(),
+        getCurrentTime(),
+        getCellValue(h, r, 'タグ(Obsidianタグ等)'),
+        getCellValue(h, r, 'メモ内容')
+      ]
+    },
+    goals: {
+      sheetName: 'goals',
+      requiredCols: ['目標タイトル'],
+      buildRow: (h, r) => [
+        generateId(),
+        getCurrentTime(),
+        getCellValue(h, r, '対象期間'),
+        getCellValue(h, r, '目標タイトル'),
+        getCellValue(h, r, '測定指標(KPI)'),
+        getCellValue(h, r, '進捗(%)') || 0,
+        getCellValue(h, r, '達成状況・自己評価'),
+        ''
+      ]
+    }
+  };
+
+  const config = SHEET_CONFIG[sheetType];
+  if (!config) throw new Error('不明なインポート種別: ' + sheetType);
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(config.sheetName);
+  if (!sheet) throw new Error('シートが見つかりません: ' + config.sheetName);
+
+  // 必須列チェック
+  for (const req of config.requiredCols) {
+    if (!headers.includes(req)) {
+      throw new Error(`必須列「${req}」が見つかりません。テンプレートを確認してください。`);
+    }
+  }
+
+  let successCount = 0;
+  let skipCount = 0;
+
+  for (const row of dataRows) {
+    // 空行スキップ
+    if (row.every(cell => !String(cell).trim())) { skipCount++; continue; }
+    try {
+      const newRow = config.buildRow(headers, row);
+      sheet.appendRow(newRow);
+      successCount++;
+    } catch(e) {
+      skipCount++;
+    }
+  }
+
+  return `インポート完了: ${successCount} 件を登録しました。（${skipCount} 件スキップ）`;
+}
+
+/**
+ * ヘッダー配列と行配列から特定列の値を取得するヘルパー
+ */
+function getCellValue(headers, row, columnName) {
+  const idx = headers.indexOf(columnName);
+  if (idx === -1) return '';
+  return String(row[idx] || '').trim();
+}
+
+/**
+ * 別のスプレッドシートからデータを読み込む
+ * @param {string} spreadsheetId - スプレッドシートID
+ * @param {string} tabName - シート名（空の場合は先頭シート）
+ */
+function readFromSpreadsheet(spreadsheetId, tabName) {
+  try {
+    const ss = SpreadsheetApp.openById(spreadsheetId);
+    let sheet;
+    if (tabName && tabName.trim() !== '') {
+      sheet = ss.getSheetByName(tabName.trim());
+      if (!sheet) throw new Error(`シート名「${tabName}」が見つかりません。スプレッドシート内のシート名を確認してください。`);
+    } else {
+      sheet = ss.getSheets()[0];
+    }
+
+    const data = sheet.getDataRange().getValues();
+    if (!data || data.length < 2) {
+      return { headers: [], rows: [] };
+    }
+
+    const headers = data[0].map(h => String(h).trim());
+    const rows = data.slice(1)
+      .filter(row => row.some(cell => String(cell).trim() !== ''))
+      .map(row => row.map(cell => String(cell)));
+
+    return { headers: headers, rows: rows };
+  } catch(e) {
+    throw new Error('スプレッドシートへのアクセスに失敗しました: ' + e.message + ' ※スプレッドシートの共有設定または同一アカウントでのアクセスを確認してください。');
+  }
+}
+
+// ============================================================
+// カレンダー機能 & Google Keep 連携
+// ============================================================
+
+/**
+ * カレンダー表示用のイベントデータを一括取得
+ * meetings, notes, goals シートから日付情報を含めて返す
+ */
+function getCalendarEvents() {
+  const events = [];
+
+  // ---- meetings ----
+  const meetings = getSheetData('meetings');
+  meetings.forEach(m => {
+    const dateStr = extractDateStr(m['登録日時'] || '');
+    const calDate = m['打合せ日'] ? extractDateStr(String(m['打合せ日'])) : dateStr;
+    if (!calDate) return;
+    events.push({
+      id:      m['ID'] || generateId(),
+      type:    'meeting',
+      date:    calDate,
+      time:    m['開始時刻'] || '',
+      endtime: m['終了時刻'] || '',
+      client:  m['顧客名'] || '',
+      title:   m['件名'] || '',
+      related: m['関連基板・機種'] || '',
+      summary: m['内容サマリ'] || '',
+      fulltext:m['議事録全文'] || ''
+    });
+  });
+
+  // ---- notes ----
+  const notes = getSheetData('notes');
+  notes.forEach(n => {
+    const dateStr = extractDateStr(n['登録日時'] || '');
+    const calDate = n['対象日'] ? extractDateStr(String(n['対象日'])) : dateStr;
+    if (!calDate) return;
+    events.push({
+      id:      n['ID'] || generateId(),
+      type:    'note',
+      date:    calDate,
+      time:    n['時刻'] || '',
+      endtime: '',
+      tags:    n['タグ(Obsidianタグ等)'] || '',
+      content: n['メモ内容'] || ''
+    });
+  });
+
+  // ---- goals ----
+  const goals = getSheetData('goals');
+  goals.forEach(g => {
+    const dateStr = extractDateStr(g['登録日時'] || '');
+    if (!dateStr) return;
+    events.push({
+      id:      g['ID'] || generateId(),
+      type:    'goal',
+      date:    dateStr,
+      time:    '',
+      title:   g['目標タイトル'] || '',
+      progress:g['進捗(%)'] || 0
+    });
+  });
+
+  return events;
+}
+
+/**
+ * 日時文字列から YYYY-MM-DD を抽出するユーティリティ
+ */
+function extractDateStr(str) {
+  if (!str) return '';
+  const s = String(str);
+  // YYYY/MM/DD または YYYY-MM-DD
+  const m1 = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m1) return `${m1[1]}-${m1[2].padStart(2,'0')}-${m1[3].padStart(2,'0')}`;
+  // Date オブジェクト系
+  try {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    }
+  } catch(e) {}
+  return '';
+}
+
+/**
+ * 打合せ日付・時刻付きで商談議事録を保存
+ */
+function saveMeetingWithDate(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('meetings');
+
+  // meetingsシートに打合せ日・開始/終了時刻列を動的追加（なければ）
+  ensureColumns('meetings', ['打合せ日', '件名', '開始時刻', '終了時刻']);
+
+  if (data.id) {
+    // 既存レコードの更新
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const rows = sheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]) === String(data.id)) {
+        const colMap = {};
+        headers.forEach((h, ci) => colMap[h] = ci + 1);
+        if (colMap['顧客名'])        sheet.getRange(i+1, colMap['顧客名']).setValue(data.client);
+        if (colMap['件名'])          sheet.getRange(i+1, colMap['件名']).setValue(data.title || '');
+        if (colMap['打合せ日'])      sheet.getRange(i+1, colMap['打合せ日']).setValue(data.date);
+        if (colMap['開始時刻'])      sheet.getRange(i+1, colMap['開始時刻']).setValue(data.time || '');
+        if (colMap['終了時刻'])      sheet.getRange(i+1, colMap['終了時刻']).setValue(data.endtime || '');
+        if (colMap['関連基板・機種'])sheet.getRange(i+1, colMap['関連基板・機種']).setValue(data.related || '');
+        if (colMap['内容サマリ'])    sheet.getRange(i+1, colMap['内容サマリ']).setValue(data.summary || '');
+        if (colMap['議事録全文'])    sheet.getRange(i+1, colMap['議事録全文']).setValue(data.fulltext || '');
+        return '議事録を更新しました。';
+      }
+    }
+  }
+
+  // 新規追加
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const colMap = {};
+  headers.forEach((h, ci) => colMap[h] = ci);
+
+  // 基本7列 + 拡張列の順で行データを構築
+  const baseRow = [
+    generateId(), getCurrentTime(),
+    data.client || '',
+    data.related || '',
+    data.summary || '',
+    data.fulltext || ''
+  ];
+
+  // 拡張列は別途 setValue で設定
+  sheet.appendRow(baseRow);
+  const newRow = sheet.getLastRow();
+  const hdr = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  hdr.forEach((h, ci) => {
+    if (h === '打合せ日')      sheet.getRange(newRow, ci+1).setValue(data.date || '');
+    if (h === '件名')          sheet.getRange(newRow, ci+1).setValue(data.title || '');
+    if (h === '開始時刻')      sheet.getRange(newRow, ci+1).setValue(data.time || '');
+    if (h === '終了時刻')      sheet.getRange(newRow, ci+1).setValue(data.endtime || '');
+  });
+
+  return '打合せ・議事録を登録しました。';
+}
+
+/**
+ * 対象日・時刻付きでメモを保存
+ */
+function saveNoteWithDate(data) {
+  ensureColumns('notes', ['対象日', '時刻']);
+
+  if (data.id) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('notes');
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const rows = sheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]) === String(data.id)) {
+        const colMap = {};
+        headers.forEach((h, ci) => colMap[h] = ci + 1);
+        if (colMap['タグ(Obsidianタグ等)']) sheet.getRange(i+1, colMap['タグ(Obsidianタグ等)']).setValue(data.tags || '');
+        if (colMap['メモ内容'])            sheet.getRange(i+1, colMap['メモ内容']).setValue(data.content || '');
+        if (colMap['対象日'])              sheet.getRange(i+1, colMap['対象日']).setValue(data.date || '');
+        if (colMap['時刻'])                sheet.getRange(i+1, colMap['時刻']).setValue(data.time || '');
+        return 'メモを更新しました。';
+      }
+    }
+  }
+
+  appendToSheet('notes', [generateId(), getCurrentTime(), data.tags || '', data.content || '']);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('notes');
+  const newRow = sheet.getLastRow();
+  const hdr = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  hdr.forEach((h, ci) => {
+    if (h === '対象日') sheet.getRange(newRow, ci+1).setValue(data.date || '');
+    if (h === '時刻')   sheet.getRange(newRow, ci+1).setValue(data.time || '');
+  });
+
+  return 'メモを登録しました。';
+}
+
+/**
+ * Google Keep にメモを作成する
+ * ※ Keep API は現在一般公開されていないため、
+ *    Googleが提供する KeepService (Apps Script 拡張サービス) を使用。
+ *    利用不可環境では notesシートへの保存にフォールバック。
+ */
+function saveToKeep(data) {
+  // ---- Keep API 試行 ----
+  try {
+    if (typeof Keep !== 'undefined') {
+      const note = Keep.newNote();
+      note.title = data.title || '';
+      const body = Keep.newTextContent();
+      body.text = data.body || '';
+      note.body = body;
+
+      // 色設定
+      const colorMap = {
+        'DEFAULT': Keep.ColorValue.DEFAULT,
+        'YELLOW':  Keep.ColorValue.YELLOW,
+        'GREEN':   Keep.ColorValue.GREEN,
+        'BLUE':    Keep.ColorValue.BLUE,
+        'RED':     Keep.ColorValue.RED,
+        'PURPLE':  Keep.ColorValue.PURPLE
+      };
+      note.color = colorMap[data.color] || Keep.ColorValue.DEFAULT;
+
+      Keep.Notes.create(note);
+
+      // スプレッドシートにも記録
+      _saveKeepRecord(data, true);
+      return 'Google Keep にメモを保存しました。';
+    }
+  } catch(e) {
+    // Keep API が利用できない場合はフォールバック
+  }
+
+  // ---- フォールバック: スプレッドシートに保存 ----
+  _saveKeepRecord(data, false);
+  return 'ナレッジメモ（Keep同等）として登録しました。※Google Keep APIをApps Scriptで有効化すると直接Keepに保存されます。';
+}
+
+function _saveKeepRecord(data, sentToKeep) {
+  ensureColumns('notes', ['対象日', '時刻', 'Keepラベル', 'Keepカラー', 'Keep送信済み']);
+  appendToSheet('notes', [
+    generateId(), getCurrentTime(),
+    '#keep ' + (data.labels || ''),
+    (data.title ? '【' + data.title + '】\n' : '') + (data.body || '')
+  ]);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('notes');
+  const newRow = sheet.getLastRow();
+  const hdr = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  hdr.forEach((h, ci) => {
+    if (h === '対象日')      sheet.getRange(newRow, ci+1).setValue(data.date || '');
+    if (h === 'Keepラベル')  sheet.getRange(newRow, ci+1).setValue(data.labels || '');
+    if (h === 'Keepカラー')  sheet.getRange(newRow, ci+1).setValue(data.color || 'DEFAULT');
+    if (h === 'Keep送信済み')sheet.getRange(newRow, ci+1).setValue(sentToKeep ? '済' : '未');
+  });
+}
+
+/**
+ * Google Keep からメモ一覧を取得
+ */
+function getKeepNotes() {
+  const results = [];
+
+  // ---- Keep API 試行 ----
+  try {
+    if (typeof Keep !== 'undefined') {
+      const notes = Keep.Notes.list({ pageSize: 50 });
+      (notes.notes || []).forEach(n => {
+        results.push({
+          id:     n.name || generateId(),
+          title:  n.title || '',
+          body:   n.body && n.body.text ? n.body.text.text : '',
+          color:  n.color || 'DEFAULT',
+          labels: (n.labels || []).map(l => l.name || '')
+        });
+      });
+      return results;
+    }
+  } catch(e) {}
+
+  // ---- フォールバック: notesシートから#keepタグのものを返す ----
+  const notes = getSheetData('notes');
+  notes.filter(n => String(n['タグ(Obsidianタグ等)']).includes('#keep') || String(n['タグ(Obsidianタグ等)']).includes('keep'))
+    .reverse().slice(0, 30)
+    .forEach(n => {
+      results.push({
+        id:    String(n['ID']),
+        title: (String(n['メモ内容'] || '')).startsWith('【') ? String(n['メモ内容']).match(/【(.+?)】/)?.[1] || '' : '',
+        body:  String(n['メモ内容'] || ''),
+        color: n['Keepカラー'] || 'DEFAULT',
+        labels: String(n['Keepラベル'] || '').split(',').map(s=>s.trim()).filter(Boolean)
+      });
+    });
+  return results;
+}
+
+/**
+ * シートに指定列が存在しない場合は末尾に追加する
+ */
+function ensureColumns(sheetName, columnNames) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return;
+  const headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0];
+  columnNames.forEach(col => {
+    if (!headers.includes(col)) {
+      const newCol = sheet.getLastColumn() + 1;
+      sheet.getRange(1, newCol).setValue(col).setFontWeight('bold').setBackground('#1e293b').setFontColor('#ffffff');
+    }
+  });
+}

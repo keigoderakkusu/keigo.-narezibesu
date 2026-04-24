@@ -180,3 +180,275 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 </style>
+
+/* ==========================================
+   カレンダー・議事録・Keep連携 スタイル
+   ========================================== */
+
+/* ---- カレンダーヘッダー ---- */
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.cal-nav-btn {
+  background: none;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all .18s;
+  color: #334155;
+}
+.cal-nav-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+
+/* ---- 月表示グリッド ---- */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.cal-dow {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: #94a3b8;
+  padding: 6px 0 4px;
+  text-transform: uppercase;
+}
+.cal-dow.sun { color: #ef4444; }
+.cal-dow.sat { color: #3b82f6; }
+
+.cal-cell {
+  min-height: 82px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1.5px solid #f1f5f9;
+  padding: 6px 7px 5px;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+  position: relative;
+  overflow: hidden;
+}
+.cal-cell:hover { border-color: #3b82f6; box-shadow: 0 2px 10px rgba(59,130,246,.13); }
+.cal-cell.today { border-color: #3b82f6; background: #eff6ff; }
+.cal-cell.today .cal-day-num { background: #3b82f6; color: #fff; }
+.cal-cell.other-month { background: #f8fafc; opacity: .55; pointer-events: none; }
+.cal-cell.selected { border-color: #7c3aed; box-shadow: 0 0 0 2.5px rgba(124,58,237,.18); }
+
+.cal-day-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  font-size: .8rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 3px;
+}
+.cal-cell.sun-col .cal-day-num { color: #ef4444; }
+.cal-cell.sat-col .cal-day-num { color: #3b82f6; }
+
+/* ---- セル内予定チップ ---- */
+.cal-event-chip {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: opacity .13s;
+}
+.cal-event-chip:hover { opacity: .78; }
+.chip-meeting { background: #dbeafe; color: #1d4ed8; }
+.chip-note    { background: #d1fae5; color: #065f46; }
+.chip-keep    { background: #fef3c7; color: #92400e; }
+.chip-goal    { background: #ede9fe; color: #5b21b6; }
+
+.cal-add-btn {
+  position: absolute;
+  bottom: 4px; right: 5px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: .75rem;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transition: opacity .15s, background .15s;
+  cursor: pointer;
+  border: none;
+}
+.cal-cell:hover .cal-add-btn { opacity: 1; }
+.cal-add-btn:hover { background: #3b82f6; color: #fff; }
+
+/* ---- 週・日ビュー ---- */
+.week-view-grid {
+  display: grid;
+  grid-template-columns: 52px repeat(7, 1fr);
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.week-time-col {
+  background: #f8fafc;
+  border-right: 1.5px solid #e2e8f0;
+}
+.week-day-col {
+  border-right: 1px solid #f1f5f9;
+  position: relative;
+  min-height: 480px;
+}
+.week-day-col:last-child { border-right: none; }
+.week-day-header {
+  text-align: center;
+  padding: 8px 4px;
+  border-bottom: 1.5px solid #e2e8f0;
+  font-size: .75rem;
+  font-weight: 700;
+  color: #64748b;
+  background: #f8fafc;
+}
+.week-day-header.today-col { background: #eff6ff; color: #1d4ed8; }
+.week-hour-label {
+  font-size: .62rem;
+  color: #94a3b8;
+  text-align: right;
+  padding: 0 6px;
+  height: 40px;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 4px;
+}
+.week-hour-line {
+  height: 40px;
+  border-bottom: 1px solid #f1f5f9;
+  position: relative;
+}
+.week-event-block {
+  position: absolute;
+  left: 2px; right: 2px;
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: .68rem;
+  font-weight: 600;
+  cursor: pointer;
+  overflow: hidden;
+  z-index: 1;
+  transition: opacity .13s, box-shadow .13s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+.week-event-block:hover { opacity: .85; box-shadow: 0 3px 8px rgba(0,0,0,.15); }
+.wev-meeting { background: #3b82f6; color: #fff; }
+.wev-note    { background: #10b981; color: #fff; }
+.wev-keep    { background: #f59e0b; color: #fff; }
+
+/* ---- サイドパネル（日の詳細） ---- */
+.cal-side-panel {
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+/* ---- イベント詳細モーダル ---- */
+#modal-calendar .modal-dialog { max-width: 680px; }
+.event-type-tabs .nav-link {
+  font-size: .82rem;
+  padding: 6px 14px;
+  border-radius: 20px !important;
+  border: 1.5px solid #e2e8f0;
+  color: #64748b;
+  margin-right: 6px;
+  transition: all .15s;
+}
+.event-type-tabs .nav-link.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
+.quick-time-btn {
+  font-size: .75rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  cursor: pointer;
+  transition: all .13s;
+}
+.quick-time-btn:hover, .quick-time-btn.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+/* ---- Keep メモカード ---- */
+.keep-card {
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  padding: 12px 14px;
+  background: #fff;
+  transition: box-shadow .15s, border-color .15s;
+  cursor: pointer;
+  position: relative;
+}
+.keep-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); border-color: #94a3b8; }
+.keep-card.selected-keep { border-color: #f59e0b; background: #fffbeb; }
+.keep-card .keep-color-bar {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 4px;
+  border-radius: 10px 0 0 10px;
+}
+.keep-color-DEFAULT { background: #e2e8f0; }
+.keep-color-YELLOW  { background: #fbbf24; }
+.keep-color-GREEN   { background: #34d399; }
+.keep-color-BLUE    { background: #60a5fa; }
+.keep-color-RED     { background: #f87171; }
+.keep-color-PURPLE  { background: #a78bfa; }
+
+/* ---- ビュー切替ボタン ---- */
+.view-toggle .btn {
+  font-size: .8rem;
+  padding: 5px 14px;
+  border-radius: 20px !important;
+}
+
+/* ---- カレンダータブ内スクロール ---- */
+#tab-calendar { min-height: 600px; }
+
+/* ---- ミニカレンダー（サイドパネル用） ---- */
+.mini-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.mini-cal-cell {
+  text-align: center;
+  font-size: .72rem;
+  padding: 4px 2px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .12s;
+  color: #475569;
+}
+.mini-cal-cell:hover { background: #f1f5f9; }
+.mini-cal-cell.today { background: #3b82f6; color: #fff; border-radius: 50%; }
+.mini-cal-cell.has-event::after {
+  content: '';
+  display: block;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: #3b82f6;
+  margin: 2px auto 0;
+}
+.mini-cal-cell.other { color: #cbd5e1; }
