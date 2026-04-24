@@ -7,8 +7,8 @@
 :root {
   --font-base: 'Inter', 'Noto Sans JP', sans-serif;
   --bg-color: #f4f7f6;
-  --brand-color: #0f172a;       /* スレートダーク */
-  --accent-color: #3b82f6;      /* ブルー */
+  --brand-color: #0f172a; /* スレートダーク */
+  --accent-color: #3b82f6; /* ブルー */
   --card-bg: rgba(255, 255, 255, 0.95);
 }
 
@@ -24,18 +24,21 @@ body {
   background-color: var(--brand-color) !important;
   border-bottom: 3px solid var(--accent-color);
 }
+
 .brand-navbar .nav-link {
   font-weight: 500;
   color: #cbd5e1 !important;
   padding: 0.8rem 1rem;
   transition: all 0.3s ease;
 }
+
 .brand-navbar .nav-link:hover,
 .brand-navbar .nav-link.active {
   color: #ffffff !important;
   background-color: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
 }
+
 .text-accent {
   color: #60a5fa !important;
 }
@@ -44,11 +47,13 @@ body {
 .main-container {
   max-width: 1200px;
 }
+
 .glass-card {
   background: var(--card-bg);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
+
 .bg-gradient-brand {
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
 }
@@ -58,6 +63,7 @@ body {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   border: 1px solid #e2e8f0 !important;
 }
+
 .stat-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
@@ -69,7 +75,6 @@ body {
     background: #fff !important;
     color: #000 !important;
   }
-  /* メニューやボタンなど不要な要素を非表示 */
   .navbar, .btn, .d-print-none, .alert {
     display: none !important;
   }
@@ -89,16 +94,16 @@ body {
     padding: 0 !important;
     margin: 0 !important;
   }
-  /* テーブルの改頁制御 */
-  table { page-break-inside:auto }
-  tr    { page-break-inside:avoid; page-break-after:auto }
-  thead { display:table-header-group }
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; page-break-after: auto; }
+  thead { display: table-header-group; }
 }
 
 /* AI回答エリアの装飾 */
 .response-text p {
   margin-bottom: 0.8rem;
 }
+
 .response-text strong {
   background: linear-gradient(transparent 60%, rgba(59, 130, 246, 0.2) 60%);
 }
@@ -111,6 +116,7 @@ body {
   background-color: #f8fafc;
   transition: border-color 0.2s, background-color 0.2s;
 }
+
 .form-control:focus, .form-select:focus {
   background-color: #ffffff;
   border-color: var(--accent-color);
@@ -123,25 +129,31 @@ body {
   font-weight: 600;
   transition: all 0.2s;
 }
+
 .btn-primary {
   background-color: var(--accent-color);
   border: none;
 }
+
 .btn-primary:hover {
   background-color: #2563eb;
   transform: scale(1.02);
 }
+
 .btn-dark {
   background-color: var(--brand-color);
 }
+
 .btn-dark:hover {
   background-color: #1e293b;
   transform: scale(1.02);
 }
+
 .btn-check:checked + .btn-outline-primary {
   background-color: var(--accent-color);
   color: white;
 }
+
 .btn-check:checked + .btn-outline-warning {
   background-color: #fbbf24;
   color: #000;
@@ -162,6 +174,7 @@ body {
   right: 20px;
   z-index: 1050;
 }
+
 #alert-box {
   position: fixed;
   top: 20px;
@@ -175,11 +188,11 @@ body {
 .tab-content {
   animation: fadeIn 0.4s ease-out forwards;
 }
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-</style>
 
 /* ==========================================
    カレンダー・議事録・Keep連携 スタイル
@@ -192,6 +205,7 @@ body {
   justify-content: space-between;
   margin-bottom: 1rem;
 }
+
 .cal-nav-btn {
   background: none;
   border: 1.5px solid #e2e8f0;
@@ -202,6 +216,7 @@ body {
   transition: all .18s;
   color: #334155;
 }
+
 .cal-nav-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
 
 /* ---- 月表示グリッド ---- */
@@ -210,6 +225,7 @@ body {
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
 }
+
 .cal-dow {
   text-align: center;
   font-size: 0.72rem;
@@ -219,6 +235,7 @@ body {
   padding: 6px 0 4px;
   text-transform: uppercase;
 }
+
 .cal-dow.sun { color: #ef4444; }
 .cal-dow.sat { color: #3b82f6; }
 
@@ -233,6 +250,7 @@ body {
   position: relative;
   overflow: hidden;
 }
+
 .cal-cell:hover { border-color: #3b82f6; box-shadow: 0 2px 10px rgba(59,130,246,.13); }
 .cal-cell.today { border-color: #3b82f6; background: #eff6ff; }
 .cal-cell.today .cal-day-num { background: #3b82f6; color: #fff; }
@@ -250,6 +268,7 @@ body {
   color: #334155;
   margin-bottom: 3px;
 }
+
 .cal-cell.sun-col .cal-day-num { color: #ef4444; }
 .cal-cell.sat-col .cal-day-num { color: #3b82f6; }
 
@@ -267,7 +286,9 @@ body {
   cursor: pointer;
   transition: opacity .13s;
 }
+
 .cal-event-chip:hover { opacity: .78; }
+
 .chip-meeting { background: #dbeafe; color: #1d4ed8; }
 .chip-note    { background: #d1fae5; color: #065f46; }
 .chip-keep    { background: #fef3c7; color: #92400e; }
@@ -287,6 +308,7 @@ body {
   cursor: pointer;
   border: none;
 }
+
 .cal-cell:hover .cal-add-btn { opacity: 1; }
 .cal-add-btn:hover { background: #3b82f6; color: #fff; }
 
@@ -298,16 +320,20 @@ body {
   border-radius: 12px;
   overflow: hidden;
 }
+
 .week-time-col {
   background: #f8fafc;
   border-right: 1.5px solid #e2e8f0;
 }
+
 .week-day-col {
   border-right: 1px solid #f1f5f9;
   position: relative;
   min-height: 480px;
 }
+
 .week-day-col:last-child { border-right: none; }
+
 .week-day-header {
   text-align: center;
   padding: 8px 4px;
@@ -317,7 +343,9 @@ body {
   color: #64748b;
   background: #f8fafc;
 }
+
 .week-day-header.today-col { background: #eff6ff; color: #1d4ed8; }
+
 .week-hour-label {
   font-size: .62rem;
   color: #94a3b8;
@@ -328,11 +356,13 @@ body {
   align-items: flex-start;
   padding-top: 4px;
 }
+
 .week-hour-line {
   height: 40px;
   border-bottom: 1px solid #f1f5f9;
   position: relative;
 }
+
 .week-event-block {
   position: absolute;
   left: 2px; right: 2px;
@@ -346,7 +376,9 @@ body {
   transition: opacity .13s, box-shadow .13s;
   box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
+
 .week-event-block:hover { opacity: .85; box-shadow: 0 3px 8px rgba(0,0,0,.15); }
+
 .wev-meeting { background: #3b82f6; color: #fff; }
 .wev-note    { background: #10b981; color: #fff; }
 .wev-keep    { background: #f59e0b; color: #fff; }
@@ -361,6 +393,7 @@ body {
 
 /* ---- イベント詳細モーダル ---- */
 #modal-calendar .modal-dialog { max-width: 680px; }
+
 .event-type-tabs .nav-link {
   font-size: .82rem;
   padding: 6px 14px;
@@ -370,11 +403,13 @@ body {
   margin-right: 6px;
   transition: all .15s;
 }
+
 .event-type-tabs .nav-link.active {
   background: #0f172a;
   border-color: #0f172a;
   color: #fff;
 }
+
 .quick-time-btn {
   font-size: .75rem;
   padding: 3px 10px;
@@ -385,6 +420,7 @@ body {
   cursor: pointer;
   transition: all .13s;
 }
+
 .quick-time-btn:hover, .quick-time-btn.active {
   background: #3b82f6;
   border-color: #3b82f6;
@@ -401,14 +437,17 @@ body {
   cursor: pointer;
   position: relative;
 }
+
 .keep-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); border-color: #94a3b8; }
 .keep-card.selected-keep { border-color: #f59e0b; background: #fffbeb; }
+
 .keep-card .keep-color-bar {
   position: absolute;
   top: 0; left: 0; bottom: 0;
   width: 4px;
   border-radius: 10px 0 0 10px;
 }
+
 .keep-color-DEFAULT { background: #e2e8f0; }
 .keep-color-YELLOW  { background: #fbbf24; }
 .keep-color-GREEN   { background: #34d399; }
@@ -432,6 +471,7 @@ body {
   grid-template-columns: repeat(7, 1fr);
   gap: 2px;
 }
+
 .mini-cal-cell {
   text-align: center;
   font-size: .72rem;
@@ -441,8 +481,10 @@ body {
   transition: background .12s;
   color: #475569;
 }
+
 .mini-cal-cell:hover { background: #f1f5f9; }
 .mini-cal-cell.today { background: #3b82f6; color: #fff; border-radius: 50%; }
+
 .mini-cal-cell.has-event::after {
   content: '';
   display: block;
@@ -451,4 +493,17 @@ body {
   background: #3b82f6;
   margin: 2px auto 0;
 }
+
 .mini-cal-cell.other { color: #cbd5e1; }
+
+/* ---- スピンアニメーション ---- */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.spin {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+</style>
