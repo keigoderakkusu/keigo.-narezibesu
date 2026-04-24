@@ -1,0 +1,214 @@
+<!-- ==========================================
+  INDEX_ADDITION.html
+  Index.html に追加するナビゲーションと機種ツリータブ
+  
+  【追加場所1】 navbarNav の <ul> 内に挿入:
+  ==========================================-->
+
+<!-- ナビゲーション追加コード（既存のli要素の末尾に追加） -->
+<!--
+<li class="nav-item">
+  <a class="nav-link" id="nav-modeltree" href="#" onclick="showTab('modeltree')">
+    <i class="bi bi-diagram-3 text-info me-1"></i>機種・ドキュメント管理
+  </a>
+</li>
+-->
+
+<!-- ==========================================
+  【追加場所2】 .container.main-container の中、
+  他のタブdivの末尾に以下をまるごとコピー:
+  ==========================================-->
+
+<div id="tab-modeltree" class="tab-content d-none">
+
+  <!-- ヘッダー -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="fw-bold text-dark mb-1">
+        <i class="bi bi-diagram-3 text-info me-2"></i>機種・ドキュメント階層管理
+      </h3>
+      <p class="text-muted small mb-0">
+        DriveフォルダをスキャンしてPDF・構成表・見積書を自動分類。機種→基板→部品→見積書の階層で一元管理します。
+      </p>
+    </div>
+    <button class="btn btn-info text-white fw-bold rounded-pill px-4 shadow-sm" onclick="showScanModal()">
+      <i class="bi bi-cloud-arrow-down me-2"></i>Driveフォルダを取込む
+    </button>
+  </div>
+
+  <!-- 分類ルール説明バナー -->
+  <div class="alert border-0 rounded-4 mb-4" style="background: linear-gradient(135deg, #e0f2fe, #f0f9ff);">
+    <h6 class="fw-bold mb-2"><i class="bi bi-magic text-info me-2"></i>自動分類ルール</h6>
+    <div class="d-flex flex-wrap gap-2">
+      <span class="badge rounded-pill" style="background:#0ea5e9;">📋 製品仕様書</span>
+      <span class="badge rounded-pill" style="background:#8b5cf6;">🔧 基板設計仕様書</span>
+      <span class="badge rounded-pill" style="background:#10b981;">📦 構成表(BOM)</span>
+      <span class="badge rounded-pill" style="background:#f59e0b; color:#000;">💴 見積書</span>
+      <span class="badge rounded-pill" style="background:#ef4444;">📐 図面</span>
+      <span class="badge rounded-pill" style="background:#6b7280;">📖 マニュアル</span>
+      <span class="badge rounded-pill" style="background:#14b8a6;">🧪 試験・検査書</span>
+    </div>
+    <p class="small text-muted mt-2 mb-0">
+      ※ファイル名にキーワードが含まれる場合に自動判定。不明なファイルは「未分類」として登録し、後から手動変更できます。
+    </p>
+  </div>
+
+  <!-- 検索・フィルター -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-3">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-5">
+          <div class="input-group">
+            <span class="input-group-text border-0 bg-light"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" id="tree-search" class="form-control border-0 bg-light"
+              placeholder="機種名・ファイル名で検索..." oninput="filterModelTree()">
+          </div>
+        </div>
+        <div class="col-md-3">
+          <select id="tree-type-filter" class="form-select border-0 bg-light" onchange="filterModelTree()">
+            <option value="">すべての種別</option>
+            <option value="機種製品仕様書">📋 機種製品仕様書</option>
+            <option value="基板設計仕様書">🔧 基板設計仕様書</option>
+            <option value="構成表(BOM)">📦 構成表(BOM)</option>
+            <option value="見積書">💴 見積書</option>
+            <option value="【未分類】">⚠️ 未分類のみ</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-outline-secondary rounded-pill w-100" onclick="loadModelTree()">
+            <i class="bi bi-arrow-clockwise me-1"></i>更新
+          </button>
+        </div>
+        <div class="col-md-2 text-end">
+          <span class="badge bg-light text-dark border" id="tree-count-badge">0件</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 機種ツリー表示エリア -->
+  <div id="model-tree-container">
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-diagram-3 opacity-25" style="font-size: 3rem;"></i>
+      <p class="mt-3">「Driveフォルダを取込む」ボタンからフォルダをスキャンしてください</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- ==========================================
+  スキャン実行モーダル
+  （bodyの末尾 / 他のmodalと並べて配置）
+  ==========================================-->
+<div class="modal fade" id="modal-scan" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content rounded-4 border-0 shadow-lg">
+
+      <div class="modal-header border-0 rounded-top-4" style="background: linear-gradient(135deg, #0ea5e9, #6366f1);">
+        <h5 class="modal-title fw-bold text-white">
+          <i class="bi bi-cloud-arrow-down me-2"></i>Driveフォルダ 自動スキャン・分類
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body p-4">
+
+        <!-- ステップ1: フォルダID入力 -->
+        <div id="scan-step-1">
+          <h6 class="fw-bold mb-3">
+            <span class="badge bg-info me-2">Step 1</span>DriveフォルダのIDを入力
+          </h6>
+          <div class="bg-light rounded-3 p-3 mb-3 small text-muted">
+            <i class="bi bi-info-circle me-1"></i>
+            DriveのフォルダURLの末尾部分がIDです。<br>
+            例: <code>https://drive.google.com/drive/folders/<strong>ここがID</strong></code>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">機種名 <span class="text-danger">*</span></label>
+            <input type="text" id="scan-model-name" class="form-control rounded-3"
+              placeholder="例: Model-A2000, GT-100基板">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">DriveフォルダID <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <input type="text" id="scan-folder-id" class="form-control rounded-start-3"
+                placeholder="1AbCdEfGhIjKlMnOpQrStUvWxYz">
+              <button class="btn btn-outline-secondary" onclick="validateFolder()">
+                <i class="bi bi-check2-circle me-1"></i>検証
+              </button>
+            </div>
+            <div id="folder-validation-result" class="mt-2"></div>
+          </div>
+
+          <!-- フォルダ構成プレビュー -->
+          <div id="folder-preview" class="d-none">
+            <div class="alert alert-success border-0 rounded-3 py-2">
+              <i class="bi bi-folder-check me-2"></i>
+              <strong id="folder-preview-name"></strong>
+              <span class="text-muted ms-2 small" id="folder-preview-url"></span>
+            </div>
+          </div>
+
+          <div class="text-end mt-4">
+            <button class="btn btn-primary fw-bold rounded-pill px-5"
+              id="btn-start-scan" onclick="startScan()">
+              <i class="bi bi-play-circle me-2"></i>スキャン開始
+            </button>
+          </div>
+        </div>
+
+        <!-- ステップ2: スキャン中 -->
+        <div id="scan-step-2" class="d-none text-center py-4">
+          <div class="spinner-border text-info mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+          <h5 class="fw-bold">Driveをスキャン・分類中...</h5>
+          <p class="text-muted small">ファイル数によっては数十秒かかります。そのままお待ちください。</p>
+        </div>
+
+        <!-- ステップ3: 分類結果 -->
+        <div id="scan-step-3" class="d-none">
+          <div class="text-center mb-4">
+            <i class="bi bi-check-circle-fill text-success" style="font-size: 2.5rem;"></i>
+            <h5 class="fw-bold mt-2" id="scan-result-title">分類が完了しました</h5>
+          </div>
+
+          <div class="row g-3 mb-4">
+            <div class="col-6">
+              <div class="bg-success bg-opacity-10 rounded-3 p-3 text-center">
+                <h3 class="fw-bold text-success mb-0" id="scan-count-classified">0</h3>
+                <small class="text-muted">自動分類 成功</small>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="bg-warning bg-opacity-10 rounded-3 p-3 text-center">
+                <h3 class="fw-bold text-warning mb-0" id="scan-count-unclassified">0</h3>
+                <small class="text-muted">未分類 (要確認)</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- 分類済みファイル一覧 -->
+          <h6 class="fw-bold mb-2">✅ 自動分類されたファイル</h6>
+          <div id="scan-result-classified" class="mb-3" style="max-height: 200px; overflow-y: auto;"></div>
+
+          <!-- 未分類ファイル一覧 -->
+          <div id="scan-result-unclassified-area" class="d-none">
+            <h6 class="fw-bold mb-2 text-warning">⚠️ 未分類ファイル (手動で種別を設定してください)</h6>
+            <div id="scan-result-unclassified" style="max-height: 150px; overflow-y: auto;"></div>
+          </div>
+
+          <div class="d-flex gap-2 mt-4">
+            <button class="btn btn-outline-secondary rounded-pill flex-fill" data-bs-dismiss="modal">
+              閉じる
+            </button>
+            <button class="btn btn-info text-white fw-bold rounded-pill flex-fill" onclick="loadModelTree(); bootstrap.Modal.getInstance(document.getElementById('modal-scan')).hide();">
+              <i class="bi bi-diagram-3 me-2"></i>ツリーを表示する
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
