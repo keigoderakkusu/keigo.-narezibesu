@@ -1,3 +1,5 @@
+d08e4a934ce2ef3ff1ac5c570f8cc0e1784b728f
+---
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -53,6 +55,11 @@
     </a>
     <a class="nav-item" id="nav-quotes" onclick="showTab('quotes')">
       <i class="bi bi-receipt"></i><span>見積書台帳</span>
+    </a>
+
+    <div class="nav-group-label" style="margin-top:20px;">基板ナレッジ</div>
+    <a class="nav-item" id="nav-pcbknowledge" onclick="showTab('pcbknowledge')">
+      <i class="bi bi-cpu"></i><span>基板ナレッジ</span>
     </a>
 
     <div class="nav-group-label" style="margin-top:20px;">その他</div>
@@ -298,6 +305,32 @@
       </div>
     </div>
 
+    <!-- PCB KNOWLEDGE -->
+    <div id="tab-pcbknowledge" class="notion-page d-none">
+      <div class="page-body">
+        <div class="page-emoji">🔧</div>
+        <h1 class="page-h1">基板ナレッジ</h1>
+        <div class="callout-notion">
+          <span>💡</span>
+          <div>機種 → 基板 → 基板構成 → 部品 の階層でナレッジを管理。CSV・PDF・スプレッドシートから一括インポートできます。</div>
+        </div>
+
+        <div class="db-actions-bar" style="margin-top:16px;">
+          <input class="db-search-input" type="text" placeholder="🔍 機種名・基板名・部品番号..." id="pcb-search" oninput="filterPCBTree()">
+          <span class="db-row-count" id="pcb-count-badge"></span>
+          <div class="db-action-btns">
+            <button class="notion-btn-sm" onclick="showPCBModal('model',null,null)"><i class="bi bi-plus"></i> 機種追加</button>
+            <button class="notion-btn-sm ghost" onclick="showPCBImportModal()"><i class="bi bi-upload"></i> インポート</button>
+            <button class="notion-btn-sm ghost" onclick="loadPCBTree()"><i class="bi bi-arrow-clockwise"></i></button>
+          </div>
+        </div>
+
+        <div id="pcb-tree-container" style="margin-top:16px;">
+          <div class="empty-msg">読み込み中...</div>
+        </div>
+      </div>
+    </div>
+
     <!-- NOTEBOOKLM -->
     <div id="tab-notebooklm" class="notion-page d-none">
       <div class="page-body">
@@ -417,6 +450,117 @@
               ツリーを表示 →
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PCB ADD/EDIT MODAL ===== -->
+<div class="modal fade" id="modal-pcb" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content notion-modal-wrap">
+      <div class="notion-modal-head">
+        <span id="pcb-modal-icon">🔧</span>
+        <h5 id="pcb-modal-title">追加</h5>
+        <button data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="notion-modal-bd">
+        <div class="notion-form-card" id="pcb-modal-fields"></div>
+        <div style="text-align:right; margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+          <button class="notion-btn-sm ghost" data-bs-dismiss="modal">キャンセル</button>
+          <button class="notion-btn-sm" onclick="submitPCBModal()"><i class="bi bi-save me-1"></i> 保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PCB IMPORT MODAL ===== -->
+<div class="modal fade" id="modal-pcb-import" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content notion-modal-wrap">
+      <div class="notion-modal-head">
+        <span>📥</span>
+        <h5>データインポート</h5>
+        <button data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="notion-modal-bd">
+        <!-- タブ切替 -->
+        <div class="ai-mode-toggle" style="margin-bottom:16px;">
+          <button class="ai-mode-btn active" data-imp="csv"   onclick="setImportTab(this)">📄 CSV</button>
+          <button class="ai-mode-btn" data-imp="drive"  onclick="setImportTab(this)">☁️ Drive SS</button>
+          <button class="ai-mode-btn" data-imp="pdf"    onclick="setImportTab(this)">📑 PDF</button>
+          <button class="ai-mode-btn" data-imp="folder" onclick="setImportTab(this)">📂 フォルダ自動スキャン</button>
+        </div>
+
+        <!-- CSV タブ -->
+        <div id="imp-tab-csv">
+          <p class="prop-label-sm">CSVをペースト（または後でアップロード）</p>
+          <textarea id="imp-csv-text" class="form-prop-input" rows="6" style="font-family:monospace;font-size:12px;resize:vertical;" placeholder="部品番号,部品名,メーカー,仕様,数量&#10;C1-001,積層セラミックコンデンサ,TDK,100nF/50V,10&#10;R2-003,カーボン抵抗,KOA,10kΩ 1/4W,5"></textarea>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+            <div>
+              <p class="prop-label-sm">インポート先</p>
+              <select class="form-prop-input" id="imp-csv-type">
+                <option value="auto">🤖 自動判定</option>
+                <option value="bom">📦 部品表(BOM)</option>
+                <option value="models">🏷️ 機種マスタ</option>
+                <option value="boards">🔧 基板マスタ</option>
+              </select>
+            </div>
+            <div id="imp-csv-context-area">
+              <p class="prop-label-sm">登録先の基板ID（BOM時）</p>
+              <select class="form-prop-input" id="imp-csv-board-sel"><option value="">― 選択 ―</option></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Drive SS タブ -->
+        <div id="imp-tab-drive" class="d-none">
+          <p class="prop-label-sm">GoogleスプレッドシートのファイルID</p>
+          <input type="text" id="imp-drive-fileid" class="form-prop-input" placeholder="1AbCdEfGhIjKlMnOpQrStUvWxYz">
+          <p class="prop-label-sm" style="margin-top:10px;">シート名（空白=最初のシート）</p>
+          <input type="text" id="imp-drive-sheet" class="form-prop-input" placeholder="部品表">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+            <div>
+              <p class="prop-label-sm">インポート先</p>
+              <select class="form-prop-input" id="imp-drive-type">
+                <option value="auto">🤖 自動判定</option>
+                <option value="bom">📦 部品表(BOM)</option>
+                <option value="models">🏷️ 機種マスタ</option>
+                <option value="boards">🔧 基板マスタ</option>
+              </select>
+            </div>
+            <div>
+              <p class="prop-label-sm">登録先の基板</p>
+              <select class="form-prop-input" id="imp-drive-board-sel"><option value="">― 選択 ―</option></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- PDF タブ -->
+        <div id="imp-tab-pdf" class="d-none">
+          <div class="callout-notion"><span>🤖</span><div>Gemini AIがPDF内の部品表を自動抽出します。テキスト形式のPDFのみ対応（画像PDFは不可）。</div></div>
+          <p class="prop-label-sm" style="margin-top:12px;">PDFファイルのDrive ID</p>
+          <input type="text" id="imp-pdf-fileid" class="form-prop-input" placeholder="DriveのファイルID">
+          <p class="prop-label-sm" style="margin-top:10px;">登録先の基板</p>
+          <select class="form-prop-input" id="imp-pdf-board-sel"><option value="">― 選択 ―</option></select>
+        </div>
+
+        <!-- フォルダスキャン タブ -->
+        <div id="imp-tab-folder" class="d-none">
+          <div class="callout-notion"><span>📂</span><div>DriveフォルダをスキャンしてBOM/仕様書を自動分類・インポートします。</div></div>
+          <p class="prop-label-sm" style="margin-top:12px;">DriveフォルダID</p>
+          <input type="text" id="imp-folder-id" class="form-prop-input" placeholder="フォルダID">
+        </div>
+
+        <!-- 結果エリア -->
+        <div id="imp-result" class="d-none" style="margin-top:14px; padding:12px; border-radius:8px; background:var(--green-soft); color:var(--green); font-size:0.9em;"></div>
+        <div id="imp-error" class="d-none" style="margin-top:14px; padding:12px; border-radius:8px; background:var(--red-soft); color:var(--red); font-size:0.9em;"></div>
+
+        <div style="text-align:right; margin-top:16px; display:flex; gap:8px; justify-content:flex-end;">
+          <button class="notion-btn-sm ghost" data-bs-dismiss="modal">閉じる</button>
+          <button class="notion-btn-sm" onclick="submitImport()"><i class="bi bi-upload me-1"></i> インポート実行</button>
         </div>
       </div>
     </div>
