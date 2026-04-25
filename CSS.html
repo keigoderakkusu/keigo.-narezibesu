@@ -950,4 +950,184 @@ body {
   .page-body { padding: 20px; }
   .db-actions-bar, .db-add-row-btn { display: none !important; }
 }
+
+/* =============================================
+   PCB KNOWLEDGE TREE STYLES
+   ============================================= */
+
+/* ── ノード共通 ── */
+.pcb-node {
+  border-left: 2px solid var(--border);
+  margin-left: 4px;
+  margin-bottom: 4px;
+}
+.pcb-node-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s;
+  flex-wrap: wrap;
+}
+.pcb-node-header:hover { background: var(--bg-hover); }
+
+/* ── レベル別インデント & 左ボーダー ── */
+.pcb-model { border-left-color: #2383e2; }
+.pcb-board { margin-left: 20px; border-left-color: #16a34a; }
+.pcb-config { margin-left: 40px; border-left-color: #d97706; }
+.pcb-bom-direct, .pcb-bom-section { margin-left: 40px; border-left-color: #9ca3af; }
+
+/* ── アイコン類 ── */
+.pcb-toggle-icon {
+  font-size: 10px;
+  color: var(--text-muted);
+  min-width: 12px;
+  text-align: center;
+}
+.pcb-node-icon { font-size: 16px; }
+.pcb-node-name {
+  font-weight: 600;
+  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pcb-badge {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: var(--bg-selected);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pcb-badge.pcb-rev { background: #e8f1fb; color: #2383e2; }
+.pcb-badge.pcb-status { background: #f0fdf4; color: #16a34a; }
+.pcb-count-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: var(--amber-soft);
+  color: var(--amber);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pcb-reason {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.pcb-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 4px 12px 4px 28px;
+}
+.pcb-empty {
+  padding: 8px 28px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── アクションボタン ── */
+.pcb-node-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+.pcb-node-header:hover .pcb-node-actions { display: flex; }
+.pcb-node-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1;
+  transition: background 0.1s, color 0.1s;
+}
+.pcb-node-actions button:hover { background: var(--bg-selected); color: var(--text-primary); }
+.pcb-node-actions button.danger:hover { background: var(--red-soft); color: var(--red); }
+
+/* ── 子要素コンテナ ── */
+.pcb-children {
+  padding-left: 4px;
+  padding-bottom: 4px;
+}
+
+/* ── BOM テーブル ── */
+.pcb-bom-table-wrap, .pcb-bom-section { padding: 4px 8px 8px 12px; }
+.pcb-bom-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 6px 0 4px;
+  display: flex;
+  align-items: center;
+}
+.pcb-bom-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.pcb-bom-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  text-align: left;
+}
+.pcb-bom-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+.pcb-bom-table tr:hover td { background: var(--bg-hover); }
+.pcb-bom-table td.mono { font-family: var(--mono); font-size: 12px; color: #2383e2; }
+.pcb-bom-table td.pcb-spec {
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* ── ミニボタン ── */
+.pcb-mini-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 3px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.pcb-mini-btn:hover { background: var(--bg-selected); color: var(--text-primary); }
+.pcb-mini-btn.danger:hover { background: var(--red-soft); color: var(--red); }
+
+/* ── インポートモーダル結果 ── */
+#imp-result, #imp-error {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+#imp-result { background: var(--green-soft); color: var(--green); }
+#imp-error  { background: var(--red-soft);   color: var(--red); }
+
 </style>
