@@ -23,6 +23,7 @@ const PAGE_META = {
   analytics:  { label: '業務分析',       emoji: '📊' },
   career:     { label: 'キャリア目標',   emoji: '🎯' },
   notebooklm: { label: 'NotebookLM',    emoji: '📚' },
+  pcbknowledge: { label: '基板ナレッジ', emoji: '🔧' },
 };
 
 // DB schema definitions (label → GAS function mapping)
@@ -88,6 +89,7 @@ function showTab(id) {
 
   if (id === 'dashboard') loadDashboard();
   if (id === 'modeltree') loadModelTree();
+  if (id === 'pcbknowledge') loadPCBTree();
   if (id === 'quotes')    loadQuotesTable();
 }
 
@@ -122,6 +124,7 @@ function loadDashboard() {
       document.getElementById('stat-meetings').textContent  = data.meetingsCount;
       document.getElementById('stat-notes').textContent     = data.notesCount;
       document.getElementById('stat-notebooks').textContent = data.notebookLMs.length;
+      if (data.pcbModelsCount !== undefined) { const el = document.getElementById('stat-pcb'); if (el) el.textContent = data.pcbModelsCount + '機種 / ' + data.pcbBoardsCount + '基板 / ' + data.pcbPartsCount + '部品'; }
 
       // NotebookLM list
       const list = document.getElementById('notebooklm-list');
@@ -918,4 +921,313 @@ function esc(str) {
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// =============================================
+// PCB KNOWLEDGE TREE
+// =============================================
+let _pcbTree = [];
+let _pcbModalCtx = {};
+
+function loadPCBTree() {
+  showLoading();
+  google.script.run
+    .withSuccessHandler(data => {
+      hideLoading();
+      _pcbTree = data;
+      _populateBoardSelects();
+      renderPCBTree(data);
+    })
+    .withFailureHandler(err => { hideLoading(); showToast(err.message, true); })
+    .getPCBTree();
+}
+
+function renderPCBTree(tree) {
+  const q   = (document.getElementById('pcb-search') || {}).value || '';
+  const src = q ? tree.filter(m => JSON.stringify(m).toLowerCase().includes(q.toLowerCase())) : tree;
+  const el  = document.getElementById('pcb-tree-container');
+  if (!el) return;
+  document.getElementById('pcb-count-badge').textContent = src.length + '機種';
+  if (!src.length) {
+    el.innerHTML = '<div class="empty-msg">機種データがありません。「機種追加」またはインポートから始めてください。</div>';
+    return;
+  }
+  el.innerHTML = src.map(model => _renderModel(model)).join('');
+}
+
+function _renderModel(model) {
+  const mid = esc(model['機種ID']);
+  const boards = (model.boards || []).map(b => _renderBoard(b, model)).join('');
+  return `<div class="pcb-node pcb-model" data-id="${mid}">
+  <div class="pcb-node-header" onclick="togglePCBNode(this)">
+    <span class="pcb-toggle-icon">▶</span>
+    <span class="pcb-node-icon">🏭</span>
+    <span class="pcb-node-name">${esc(model['機種名'])}</span>
+    ${model['機種コード'] ? `<span class="pcb-badge">${esc(model['機種コード'])}</span>` : ''}
+    <span class="pcb-badge pcb-status">${esc(model['ステータス']||'')}</span>
+    <span class="pcb-count-pill">${model.boardCount||0}基板</span>
+    <div class="pcb-node-actions">
+      <button onclick="showPCBModal('board',null,{modelId:'${mid}'});event.stopPropagation();" title="基板追加"><i class="bi bi-plus"></i></button>
+      <button onclick="showPCBModal('model','${mid}',${_safeJson(model)});event.stopPropagation();" title="編集"><i class="bi bi-pencil"></i></button>
+      <button onclick="deletePCBNode('model','${mid}','${esc(model['機種名'])}');event.stopPropagation();" class="danger" title="削除"><i class="bi bi-trash3"></i></button>
+    </div>
+  </div>
+  <div class="pcb-children d-none">
+    ${boards || '<div class="pcb-empty">基板なし — 「+」で追加</div>'}
+    ${model['説明'] ? `<div class="pcb-desc">${esc(model['説明'])}</div>` : ''}
+  </div>
+</div>`;
+}
+
+function _renderBoard(board, model) {
+  const bid = esc(board['基板ID']);
+  const mid = esc(model['機種ID']);
+  const configs = (board.configs||[]).map(c => _renderConfig(c, board)).join('');
+  const directParts = (board.parts||[]);
+  return `<div class="pcb-node pcb-board">
+  <div class="pcb-node-header" onclick="togglePCBNode(this)">
+    <span class="pcb-toggle-icon">▶</span>
+    <span class="pcb-node-icon">🔧</span>
+    <span class="pcb-node-name">${esc(board['基板名'])}</span>
+    ${board['改版番号'] ? `<span class="pcb-badge pcb-rev">${esc(board['改版番号'])}</span>` : ''}
+    ${board['改版理由'] ? `<span class="pcb-reason" title="${esc(board['改版理由'])}">改版理由: ${esc(board['改版理由']).substring(0,25)}${board['改版理由'].length>25?'…':''}</span>` : ''}
+    <span class="pcb-count-pill">${board.configCount||0}構成 / ${board.totalParts||0}部品</span>
+    <div class="pcb-node-actions">
+      <button onclick="showPCBModal('config',null,{boardId:'${bid}'});event.stopPropagation();" title="構成追加"><i class="bi bi-plus"></i></button>
+      <button onclick="showPCBModal('part',null,{boardId:'${bid}'});event.stopPropagation();" title="部品直接追加"><i class="bi bi-list-ul"></i></button>
+      <button onclick="showPCBModal('board','${bid}',${_safeJson(board)});event.stopPropagation();" title="編集"><i class="bi bi-pencil"></i></button>
+      <button onclick="deletePCBNode('board','${bid}','${esc(board['基板名'])}');event.stopPropagation();" class="danger" title="削除"><i class="bi bi-trash3"></i></button>
+    </div>
+  </div>
+  <div class="pcb-children d-none">
+    ${configs}
+    ${directParts.length ? `<div class="pcb-bom-section"><div class="pcb-bom-label">📦 部品表 (${directParts.length}点)<button class="pcb-mini-btn" style="margin-left:8px;" onclick="showPCBModal('part',null,{boardId:'${bid}'});event.stopPropagation()"><i class="bi bi-plus"></i></button></div>${_renderPartsTable(directParts,bid,'')}</div>` : ''}
+    ${configs.length===0 && directParts.length===0 ? '<div class="pcb-empty">構成・部品なし — 「+」で追加</div>' : ''}
+  </div>
+</div>`;
+}
+
+function _renderConfig(cfg, board) {
+  const cid = esc(cfg['構成ID']);
+  const bid = esc(board['基板ID']);
+  const parts = cfg.parts||[];
+  return `<div class="pcb-node pcb-config">
+  <div class="pcb-node-header" onclick="togglePCBNode(this)">
+    <span class="pcb-toggle-icon">▶</span>
+    <span class="pcb-node-icon">⚙️</span>
+    <span class="pcb-node-name">${esc(cfg['構成名'])}</span>
+    ${cfg['構成バージョン'] ? `<span class="pcb-badge">${esc(cfg['構成バージョン'])}</span>` : ''}
+    ${cfg['層数'] ? `<span class="pcb-badge">${esc(cfg['層数'])}層</span>` : ''}
+    ${cfg['材質'] ? `<span class="pcb-badge">${esc(cfg['材質'])}</span>` : ''}
+    <span class="pcb-count-pill">${parts.length}部品</span>
+    <div class="pcb-node-actions">
+      <button onclick="showPCBModal('part',null,{boardId:'${bid}',configId:'${cid}'});event.stopPropagation();" title="部品追加"><i class="bi bi-plus"></i></button>
+      <button onclick="showPCBModal('config','${cid}',${_safeJson(cfg)});event.stopPropagation();" title="編集"><i class="bi bi-pencil"></i></button>
+      <button onclick="deletePCBNode('config','${cid}','${esc(cfg['構成名'])}');event.stopPropagation();" class="danger"><i class="bi bi-trash3"></i></button>
+    </div>
+  </div>
+  <div class="pcb-children d-none">
+    ${parts.length ? _renderPartsTable(parts,bid,cid) : '<div class="pcb-empty">部品なし — 「+」で追加</div>'}
+  </div>
+</div>`;
+}
+
+function _renderPartsTable(parts, boardId, configId) {
+  return `<table class="pcb-bom-table">
+  <thead><tr><th>参照番号</th><th>部品番号</th><th>部品名</th><th>メーカー</th><th>仕様</th><th>数量</th><th></th></tr></thead>
+  <tbody>${parts.map(p => `<tr>
+    <td class="mono">${esc(p['参照番号'])}</td>
+    <td class="mono">${esc(p['部品番号'])}</td>
+    <td>${esc(p['部品名'])}</td>
+    <td>${esc(p['メーカー'])}</td>
+    <td class="pcb-spec">${esc(p['仕様'])}</td>
+    <td style="text-align:center;white-space:nowrap;">${esc(String(p['数量']))}${esc(p['単位']||'')}</td>
+    <td style="white-space:nowrap;">
+      <button class="pcb-mini-btn" onclick="showPCBModal('part','${esc(p['部品ID'])}',${_safeJson(p)})"><i class="bi bi-pencil"></i></button>
+      <button class="pcb-mini-btn danger" onclick="deletePCBNode('part','${esc(p['部品ID'])}','${esc(p['部品名']||p['部品番号'])}')"><i class="bi bi-trash3"></i></button>
+    </td>
+  </tr>`).join('')}</tbody></table>`;
+}
+
+function _safeJson(obj) {
+  return JSON.stringify(obj).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+function togglePCBNode(header) {
+  const ch = header.nextElementSibling;
+  const ic = header.querySelector('.pcb-toggle-icon');
+  if (!ch) return;
+  const open = ch.classList.toggle('d-none');
+  if (ic) ic.textContent = open ? '▶' : '▼';
+}
+
+function filterPCBTree() { renderPCBTree(_pcbTree); }
+
+// =============================================
+// PCB ADD/EDIT MODAL
+// =============================================
+const PCB_FIELDS = {
+  model: [
+    { key:'code',        label:'機種コード',  ph:'CR-XX-001' },
+    { key:'name',        label:'機種名 *',    ph:'パチンコ CR○○', req:true },
+    { key:'series',      label:'シリーズ',    ph:'CRXXシリーズ' },
+    { key:'status',      label:'ステータス',  type:'select', opts:['現行','廃番','開発中','試作'] },
+    { key:'description', label:'説明',        type:'textarea' },
+    { key:'notes',       label:'メモ',        type:'textarea' },
+  ],
+  board: [
+    { key:'code',           label:'基板コード', ph:'MB-001' },
+    { key:'name',           label:'基板名 *',   ph:'主制御基板', req:true },
+    { key:'revision',       label:'改版番号',   ph:'Rev.3' },
+    { key:'revisionReason', label:'改版理由',   type:'textarea', ph:'電源回路改良、ノイズ対策強化' },
+    { key:'description',    label:'説明',       type:'textarea' },
+    { key:'notes',          label:'メモ',       type:'textarea' },
+  ],
+  config: [
+    { key:'name',     label:'構成名 *', ph:'標準構成', req:true },
+    { key:'version',  label:'バージョン', ph:'v1.0' },
+    { key:'layers',   label:'層数',      ph:'4' },
+    { key:'material', label:'材質',      ph:'FR-4' },
+    { key:'notes',    label:'メモ',      type:'textarea' },
+  ],
+  part: [
+    { key:'refNo',        label:'参照番号',   ph:'C1, R5, IC3' },
+    { key:'partNumber',   label:'部品番号',   ph:'GRM188R71H104KA93D' },
+    { key:'partName',     label:'部品名 *',   ph:'積層セラミックコンデンサ', req:true },
+    { key:'manufacturer', label:'メーカー',   ph:'TDK' },
+    { key:'spec',         label:'仕様・規格', ph:'100nF 50V X7R 0603' },
+    { key:'quantity',     label:'数量',       type:'number', ph:'1' },
+    { key:'unit',         label:'単位',       type:'select', opts:['個','pcs','m','g','セット','式'] },
+    { key:'leadTime',     label:'リードタイム', ph:'8週' },
+    { key:'notes',        label:'メモ',       type:'textarea' },
+  ],
+};
+
+const PCB_HDR_MAP = {
+  code:'機種コード', name:'機種名', series:'シリーズ', status:'ステータス',
+  description:'説明', notes:'メモ', revision:'改版番号', revisionReason:'改版理由',
+  version:'構成バージョン', layers:'層数', material:'材質',
+  refNo:'参照番号', partNumber:'部品番号', partName:'部品名',
+  manufacturer:'メーカー', spec:'仕様', quantity:'数量', unit:'単位', leadTime:'リードタイム',
+};
+
+function showPCBModal(type, editId, ctxOrEdit) {
+  _pcbModalCtx = { type, editId, ctx: ctxOrEdit || {} };
+  const icons  = { model:'🏭', board:'🔧', config:'⚙️', part:'🔩' };
+  const labels = { model:'機種', board:'基板', config:'基板構成', part:'部品' };
+  document.getElementById('pcb-modal-icon').textContent  = icons[type];
+  document.getElementById('pcb-modal-title').textContent = (editId ? '編集: ' : '追加: ') + labels[type];
+  const edit = editId ? ctxOrEdit : {};
+  document.getElementById('pcb-modal-fields').innerHTML = (PCB_FIELDS[type]||[]).map(f => {
+    const val = (edit && (edit[f.key] !== undefined ? edit[f.key] : (edit[PCB_HDR_MAP[f.key]] !== undefined ? edit[PCB_HDR_MAP[f.key]] : ''))) || '';
+    if (f.type === 'textarea') return `<div class="form-prop-row"><span class="form-prop-label">${f.label}</span><textarea class="form-prop-input" id="pcf-${f.key}" rows="3" placeholder="${f.ph||''}">${esc(String(val))}</textarea></div>`;
+    if (f.type === 'select')   return `<div class="form-prop-row"><span class="form-prop-label">${f.label}</span><select class="form-prop-input" id="pcf-${f.key}">${(f.opts||[]).map(o=>`<option value="${o}"${o==val?' selected':''}>${o}</option>`).join('')}</select></div>`;
+    if (f.type === 'number')   return `<div class="form-prop-row"><span class="form-prop-label">${f.label}</span><input type="number" class="form-prop-input" id="pcf-${f.key}" value="${esc(String(val))}" placeholder="${f.ph||''}"></div>`;
+    return `<div class="form-prop-row"><span class="form-prop-label">${f.label}</span><input type="text" class="form-prop-input" id="pcf-${f.key}" value="${esc(String(val))}" placeholder="${f.ph||''}"></div>`;
+  }).join('');
+  new bootstrap.Modal(document.getElementById('modal-pcb')).show();
+}
+
+function submitPCBModal() {
+  const { type, editId, ctx } = _pcbModalCtx;
+  const payload = {};
+  for (const f of (PCB_FIELDS[type]||[])) {
+    const el = document.getElementById('pcf-' + f.key);
+    if (!el) continue;
+    if (f.req && !el.value.trim()) { showToast(f.label.replace(' *','') + 'は必須です', true); return; }
+    payload[f.key] = el.value.trim();
+  }
+  if (type === 'board')  payload.modelId  = ctx.modelId  || '';
+  if (type === 'config') payload.boardId  = ctx.boardId  || '';
+  if (type === 'part')  { payload.boardId = ctx.boardId||''; payload.configId = ctx.configId||''; }
+  if (editId) payload.id = editId;
+  const fnMap = { model:'saveModel', board:'saveBoard', config:'saveConfig', part:'savePart' };
+  showLoading();
+  google.script.run
+    .withSuccessHandler(res => { hideLoading(); bootstrap.Modal.getInstance(document.getElementById('modal-pcb')).hide(); showToast(res.message||'保存しました'); loadPCBTree(); })
+    .withFailureHandler(err => { hideLoading(); showToast(err.message, true); })
+    [fnMap[type]](payload);
+}
+
+function deletePCBNode(type, id, name) {
+  if (!confirm(`「${name}」を削除しますか？\n※子データも全て削除されます`)) return;
+  const fnMap = { model:'deleteModel', board:'deleteBoard', config:'deleteConfig', part:'deletePart' };
+  showLoading();
+  google.script.run
+    .withSuccessHandler(() => { hideLoading(); showToast('削除しました'); loadPCBTree(); })
+    .withFailureHandler(err => { hideLoading(); showToast(err.message, true); })
+    [fnMap[type]](id);
+}
+
+// =============================================
+// PCB IMPORT MODAL
+// =============================================
+let _impTab = 'csv';
+
+function showPCBImportModal() {
+  _populateBoardSelects();
+  ['imp-result','imp-error'].forEach(id => document.getElementById(id).classList.add('d-none'));
+  new bootstrap.Modal(document.getElementById('modal-pcb-import')).show();
+}
+
+function setImportTab(btn) {
+  _impTab = btn.dataset.imp;
+  document.querySelectorAll('#modal-pcb-import .ai-mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ['csv','drive','pdf','folder'].forEach(t => {
+    const el = document.getElementById('imp-tab-' + t);
+    if (el) el.classList.toggle('d-none', t !== _impTab);
+  });
+}
+
+function _populateBoardSelects() {
+  const opts = ['<option value="">― 選択 ―</option>'];
+  (_pcbTree||[]).forEach(m => {
+    (m.boards||[]).forEach(b => {
+      opts.push(`<option value="${esc(b['基板ID'])}">[${esc(m['機種名'])}] ${esc(b['基板名'])} ${esc(b['改版番号']||'')}</option>`);
+    });
+  });
+  ['imp-csv-board-sel','imp-drive-board-sel','imp-pdf-board-sel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = opts.join('');
+  });
+}
+
+function submitImport() {
+  ['imp-result','imp-error'].forEach(id => document.getElementById(id).classList.add('d-none'));
+  showLoading();
+  const done = res => {
+    hideLoading();
+    const ok = res.status === 'ok' || (res.imported !== undefined && res.imported >= 0);
+    const el = document.getElementById(ok ? 'imp-result' : 'imp-error');
+    el.textContent = (ok ? '✅ ' : '⚠️ ') + (res.message||'エラーが発生しました');
+    el.classList.remove('d-none');
+    if (ok) loadPCBTree();
+  };
+  const fail = err => { hideLoading(); const el=document.getElementById('imp-error'); el.textContent='⚠️ '+err.message; el.classList.remove('d-none'); };
+
+  if (_impTab === 'csv') {
+    const csvText = document.getElementById('imp-csv-text').value.trim();
+    const itype   = document.getElementById('imp-csv-type').value;
+    const boardId = document.getElementById('imp-csv-board-sel').value;
+    if (!csvText) { hideLoading(); showToast('CSVテキストを入力してください', true); return; }
+    google.script.run.withSuccessHandler(done).withFailureHandler(fail).importCSV(csvText, itype, {boardId});
+  } else if (_impTab === 'drive') {
+    const fileId  = document.getElementById('imp-drive-fileid').value.trim();
+    const sheet   = document.getElementById('imp-drive-sheet').value.trim();
+    const itype   = document.getElementById('imp-drive-type').value;
+    const boardId = document.getElementById('imp-drive-board-sel').value;
+    if (!fileId) { hideLoading(); showToast('ファイルIDを入力してください', true); return; }
+    google.script.run.withSuccessHandler(done).withFailureHandler(fail).importFromDriveFile(fileId, sheet||null, itype, {boardId});
+  } else if (_impTab === 'pdf') {
+    const fileId  = document.getElementById('imp-pdf-fileid').value.trim();
+    const boardId = document.getElementById('imp-pdf-board-sel').value;
+    if (!fileId) { hideLoading(); showToast('ファイルIDを入力してください', true); return; }
+    google.script.run.withSuccessHandler(done).withFailureHandler(fail).importPDFtoBOM(fileId, {boardId});
+  } else if (_impTab === 'folder') {
+    const fid = document.getElementById('imp-folder-id').value.trim();
+    if (!fid) { hideLoading(); showToast('フォルダIDを入力してください', true); return; }
+    google.script.run.withSuccessHandler(done).withFailureHandler(fail).scanFolderAndClassifyPCB(fid);
+  }
+}
+
 </script>
