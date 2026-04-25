@@ -34,6 +34,14 @@ function doPost(e) {
       // payload = { query, mode }
       const result = processAIQuery(data.payload.query, data.payload.mode || 'clone');
       return ContentService.createTextOutput(JSON.stringify({status: 'success', response: result})).setMimeType(ContentService.MimeType.JSON);
+    } else if (action === 'saveModel')   { return _jsonOut(saveModel(data.payload));
+    } else if (action === 'saveBoard')   { return _jsonOut(saveBoard(data.payload));
+    } else if (action === 'saveConfig')  { return _jsonOut(saveConfig(data.payload));
+    } else if (action === 'savePart')    { return _jsonOut(savePart(data.payload));
+    } else if (action === 'deleteModel') { return _jsonOut({message: deleteModel(data.payload.id)});
+    } else if (action === 'deleteBoard') { return _jsonOut({message: deleteBoard(data.payload.id)});
+    } else if (action === 'importCSV')   { return _jsonOut(importCSV(data.payload.csvText, data.payload.importType, data.payload.context));
+    } else if (action === 'importPDF')   { return _jsonOut(importPDFtoBOM(data.payload.fileId, data.payload.context));
     } else {
       return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '不明なアクション: ' + action})).setMimeType(ContentService.MimeType.JSON);
     }
@@ -47,6 +55,10 @@ function doPost(e) {
  */
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+function _jsonOut(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
@@ -83,6 +95,7 @@ function setupDatabase() {
       sheet.setFrozenRows(1);
     }
   }
+  setupPCBSheets();
   return "データベースの初期化・構築が完了しました！シートを確認してください。";
 }
 
@@ -263,10 +276,13 @@ function getDashboardData() {
   const notebookLMs = getSheetData('notebooklm').reverse(); // 最新順
 
   return {
-    productsCount: getCount('products'),
-    meetingsCount: getCount('meetings'),
-    notesCount: getCount('notes'),
-    notebookLMs: notebookLMs
+    productsCount:  getCount('products'),
+    meetingsCount:  getCount('meetings'),
+    notesCount:     getCount('notes'),
+    notebookLMs:    notebookLMs,
+    pcbModelsCount: getCount('pcb_models'),
+    pcbBoardsCount: getCount('pcb_boards'),
+    pcbPartsCount:  getCount('pcb_bom'),
   };
 }
 
@@ -445,6 +461,7 @@ function processAIQuery(query, mode) {
   }
 
   // 最新の社内データをコンテキストとして抽出 (モデルのトークン上限・速度を考慮し最新データを取得)
+  const pcbCtx = getPCBContext(query);
   const products = getSheetData('products', 100); 
   const meetings = getSheetData('meetings', 30);
   const notes = getSheetData('notes', 30);
