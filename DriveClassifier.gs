@@ -4,6 +4,10 @@
 // ==========================================
 
 const CLASSIFIER_RULES = {
+  pcb_bom:      { patterns: ['BOM', '部品表', '構成表', 'parts_list', 'bill_of_material', 'partslist', '部品リスト', '実装表'],    label: '部品表(BOM)',    icon: '📦', pcbType: 'bom'    },
+  pcb_board:    { patterns: ['基板仕様', '基板設計', '回路設計', 'schematic', 'PCB_spec', '基板Rev', '基板改版', '基板構成'],       label: '基板仕様書',     icon: '🔧', pcbType: 'board'  },
+  pcb_model:    { patterns: ['機種仕様', '製品仕様', '機種概要', 'model_spec', '機番', '型式説明'],                                 label: '機種仕様書',     icon: '🏭', pcbType: 'model'  },
+  pcb_revision: { patterns: ['改版履歴', '変更履歴', 'revision_history', '改訂履歴', 'ECN', '設計変更'],                           label: '改版履歴',       icon: '📝', pcbType: 'revision'},
   model_spec:   { patterns: ['製品仕様', '機種仕様', 'spec', '仕様書'],                       label: '機種製品仕様書', icon: '📋' },
   board_design: { patterns: ['基板設計', '回路設計', '基板仕様', 'schematic', 'PCB'],          label: '基板設計仕様書', icon: '🔧' },
   bom:          { patterns: ['BOM', '構成表', 'bill_of_material', '部品表', 'parts_list'],     label: '構成表(BOM)',   icon: '📦' },
@@ -40,14 +44,28 @@ function scanAndClassifyDriveFolder(rootFolderId, folderType) {
       scanType1(ss, rootFolder, results);
     }
 
+    // PCBナレッジ自動インポート試行
+    let pcbImported = 0;
+    results.classified.forEach(doc => {
+      try {
+        const rule = Object.values(CLASSIFIER_RULES).find(r => r.label === doc.type);
+        if (rule && rule.pcbType === 'bom' && doc.fileId) {
+          const ctx = { modelId: '', boardId: '' };
+          const res = importFromDriveFile(doc.fileId, null, 'bom', ctx);
+          if (res && res.imported) pcbImported += res.imported;
+        }
+      } catch(e) {}
+    });
+
     return {
       status: 'success',
       classified:       results.classified.length,
       unclassified:     results.unclassified.length,
+      pcbImported:      pcbImported,
       details:          results.classified,
       unclassifiedFiles: results.unclassified,
       companies:        results.companies,
-      message: `✅ 分類完了: ${results.classified.length}件 自動分類 / ${results.unclassified.length}件 未分類`
+      message: `✅ 分類完了: ${results.classified.length}件 自動分類 / ${results.unclassified.length}件 未分類` + (pcbImported > 0 ? ` / 基板ナレッジ ${pcbImported}件インポート` : '')
     };
   } catch(e) {
     return { status: 'error', message: 'スキャンエラー: ' + e.message };
@@ -183,8 +201,9 @@ function classifyFile(fileName, mimeType) {
       }
     }
   }
-  if (mimeType === MimeType.GOOGLE_SHEETS || /\.xlsx?$/i.test(fileName)) {
-    return CLASSIFIER_RULES.bom;
+  // スプレッドシート/CSVはBOMの可能性が高い
+  if (mimeType === MimeType.GOOGLE_SHEETS || /\.xlsx?$/i.test(fileName) || mimeType === 'text/csv') {
+    return CLASSIFIER_RULES.pcb_bom || CLASSIFIER_RULES.bom;
   }
   return null;
 }
