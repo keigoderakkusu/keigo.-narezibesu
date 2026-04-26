@@ -1,0 +1,422 @@
+<script>
+// ==========================================
+// JS_ADDITION.html
+// JavaScript.html の末尾（</script>の直前）に追記
+// 機種・ドキュメント階層管理 フロントエンドロジック
+// ==========================================
+
+// グローバル: 全ツリーデータのキャッシュ
+let _modelTreeData = [];
+
+// ==========================================
+// モーダル制御
+// ==========================================
+
+function showScanModal() {
+  // モーダルをリセット
+  document.getElementById('scan-step-1').classList.remove('d-none');
+  document.getElementById('scan-step-2').classList.add('d-none');
+  document.getElementById('scan-step-3').classList.add('d-none');
+  document.getElementById('scan-folder-id').value = '';
+  document.getElementById('scan-model-name').value = '';
+  document.getElementById('folder-validation-result').innerHTML = '';
+  document.getElementById('folder-preview').classList.add('d-none');
+
+  const m = new bootstrap.Modal(document.getElementById('modal-scan'));
+  m.show();
+}
+
+// ==========================================
+// フォルダID検証
+// ==========================================
+
+function validateFolder() {
+  const folderId = document.getElementById('scan-folder-id').value.trim();
+  const resultDiv = document.getElementById('folder-validation-result');
+  const previewDiv = document.getElementById('folder-preview');
+
+  if (!folderId) {
+    resultDiv.innerHTML = '<span class="text-danger small"><i class="bi bi-exclamation-triangle me-1"></i>フォルダIDを入力してください</span>';
+    return;
+  }
+
+  resultDiv.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>検証中...</span>';
+
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.valid) {
+        resultDiv.innerHTML = `<span class="text-success small"><i class="bi bi-check-circle me-1"></i>フォルダが確認できました: <strong>${result.name}</strong></span>`;
+        document.getElementById('folder-preview-name').textContent = result.name;
+        document.getElementById('folder-preview-url').textContent = result.url;
+        previewDiv.classList.remove('d-none');
+        // 機種名が未入力なら自動でフォルダ名をセット
+        if (!document.getElementById('scan-model-name').value) {
+          document.getElementById('scan-model-name').value = result.name;
+        }
+      } else {
+        resultDiv.innerHTML = `<span class="text-danger small"><i class="bi bi-x-circle me-1"></i>${result.message}</span>`;
+        previewDiv.classList.add('d-none');
+      }
+    })
+    .withFailureHandler(err => {
+      resultDiv.innerHTML = `<span class="text-danger small">検証エラー: ${err.message}</span>`;
+    })
+    .validateDriveFolderId(folderId);
+}
+
+// ==========================================
+// スキャン実行
+// ==========================================
+
+function startScan() {
+  const folderId  = document.getElementById('scan-folder-id').value.trim();
+  const modelName = document.getElementById('scan-model-name').value.trim();
+
+  if (!folderId) {
+    alert('DriveフォルダIDを入力してください。');
+    return;
+  }
+
+  // Step1 → Step2（スキャン中）
+  document.getElementById('scan-step-1').classList.add('d-none');
+  document.getElementById('scan-step-2').classList.remove('d-none');
+
+  google.script.run
+    .withSuccessHandler(result => {
+      // Step2 → Step3（結果表示）
+      document.getElementById('scan-step-2').classList.add('d-none');
+      document.getElementById('scan-step-3').classList.remove('d-none');
+
+      if (result.status === 'error') {
+        document.getElementById('scan-result-title').textContent = 'エラーが発生しました';
+        document.getElementById('scan-result-title').className = 'fw-bold mt-2 text-danger';
+        document.getElementById('scan-count-classified').textContent = '0';
+        document.getElementById('scan-count-unclassified').textContent = '-';
+        document.getElementById('scan-result-classified').innerHTML =
+          `<div class="alert alert-danger small">${result.message}</div>`;
+        return;
+      }
+
+      // 結果を描画
+      document.getElementById('scan-count-classified').textContent   = result.classified;
+      document.getElementById('scan-count-unclassified').textContent = result.unclassified;
+      document.getElementById('scan-result-title').textContent =
+        `「${result.modelName}」の分類が完了しました`;
+
+      // 分類済みファイル一覧
+      const classifiedDiv = document.getElementById('scan-result-classified');
+      classifiedDiv.innerHTML = '';
+      if (result.details && result.details.length > 0) {
+        result.details.forEach(f => {
+          classifiedDiv.innerHTML +=
+            `<div class="d-flex align-items-center py-1 border-bottom small">
+              <span class="me-2" style="font-size:1.1em;">${f.icon}</span>
+              <span class="flex-fill text-truncate">${f.name}</span>
+              <span class="badge bg-secondary ms-2 text-truncate" style="max-width:100px;">${f.type}</span>
+            </div>`;
+        });
+      } else {
+        classifiedDiv.innerHTML = '<p class="text-muted small py-2">自動分類できたファイルがありませんでした。</p>';
+      }
+
+      // 未分類ファイル一覧
+      const unclassArea = document.getElementById('scan-result-unclassified-area');
+      const unclassDiv  = document.getElementById('scan-result-unclassified');
+      if (result.unclassifiedFiles && result.unclassifiedFiles.length > 0) {
+        unclassArea.classList.remove('d-none');
+        unclassDiv.innerHTML = '';
+        result.unclassifiedFiles.forEach(f => {
+          unclassDiv.innerHTML +=
+            `<div class="d-flex align-items-center py-1 border-bottom small">
+              <i class="bi bi-question-circle text-warning me-2"></i>
+              <span class="flex-fill text-truncate">${f.name}</span>
+              <a href="${f.url}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 ms-2">開く</a>
+            </div>`;
+        });
+      } else {
+        unclassArea.classList.add('d-none');
+      }
+    })
+    .withFailureHandler(err => {
+      document.getElementById('scan-step-2').classList.add('d-none');
+      document.getElementById('scan-step-3').classList.remove('d-none');
+      document.getElementById('scan-result-title').textContent = '通信エラーが発生しました';
+      document.getElementById('scan-count-classified').textContent = '-';
+      document.getElementById('scan-count-unclassified').textContent = '-';
+      document.getElementById('scan-result-classified').innerHTML =
+        `<div class="alert alert-danger small">${err.message}</div>`;
+    })
+    .scanAndClassifyDriveFolder(folderId, modelName);
+}
+
+// ==========================================
+// 機種ツリー 読み込み・描画
+// ==========================================
+
+function loadModelTree() {
+  const container = document.getElementById('model-tree-container');
+  container.innerHTML =
+    '<div class="text-center py-5"><div class="spinner-border text-info" role="status"></div><p class="mt-3 text-muted">ツリーを読み込み中...</p></div>';
+
+  google.script.run
+    .withSuccessHandler(treeData => {
+      _modelTreeData = treeData;
+      renderModelTree(treeData);
+    })
+    .withFailureHandler(err => {
+      container.innerHTML =
+        `<div class="alert alert-danger">ツリーの取得に失敗しました: ${err.message}</div>`;
+    })
+    .getModelTree();
+}
+
+function filterModelTree() {
+  const keyword  = document.getElementById('tree-search').value.toLowerCase();
+  const typeFilter = document.getElementById('tree-type-filter').value;
+
+  if (!_modelTreeData.length) return;
+
+  if (!keyword && !typeFilter) {
+    renderModelTree(_modelTreeData);
+    return;
+  }
+
+  // モデルをフィルタリング（docs・boards内も対象）
+  const filtered = _modelTreeData.filter(model => {
+    const nameMatch = model.name.toLowerCase().includes(keyword);
+    const docsMatch = model.docs.some(d =>
+      (d['ファイル名'] || '').toLowerCase().includes(keyword) &&
+      (!typeFilter || d['ファイル種別'] === typeFilter)
+    );
+    const boardMatch = model.boards.some(b =>
+      b.name.toLowerCase().includes(keyword) ||
+      b.docs.some(d =>
+        (d['ファイル名'] || '').toLowerCase().includes(keyword) &&
+        (!typeFilter || d['ファイル種別'] === typeFilter)
+      )
+    );
+    return nameMatch || docsMatch || boardMatch;
+  });
+
+  renderModelTree(filtered);
+}
+
+function renderModelTree(treeData) {
+  const container = document.getElementById('model-tree-container');
+  document.getElementById('tree-count-badge').textContent = `${treeData.length}件`;
+
+  if (!treeData || treeData.length === 0) {
+    container.innerHTML =
+      `<div class="text-center py-5 text-muted">
+        <i class="bi bi-inbox opacity-25" style="font-size:3rem;"></i>
+        <p class="mt-3">条件に一致する機種が見つかりません</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = treeData.map(model => renderModelCard(model)).join('');
+}
+
+function renderModelCard(model) {
+  // 機種直下のドキュメント（種別バッジ付き）
+  const modelDocsHtml = model.docs.length
+    ? model.docs.map(d => renderDocRow(d)).join('')
+    : '<p class="text-muted small ps-2 mb-0">（直下のドキュメントなし）</p>';
+
+  // 基板ツリー
+  const boardsHtml = model.boards.length
+    ? model.boards.map(board => renderBoardNode(board)).join('')
+    : '';
+
+  // 見積書サマリー
+  const quotesHtml = model.quotes.length
+    ? `<div class="ms-4 mt-2">
+        <div class="tree-label text-warning fw-bold small mb-1">
+          <i class="bi bi-folder2-open me-1"></i>見積書 (${model.quotes.length}件)
+        </div>
+        ${model.quotes.map(q => renderQuoteRow(q)).join('')}
+      </div>`
+    : '';
+
+  return `
+    <div class="card border-0 shadow-sm rounded-4 mb-3 overflow-hidden" data-model-id="${model.id}">
+      <!-- 機種ヘッダー -->
+      <div class="card-header border-0 py-3 px-4"
+        style="background: linear-gradient(135deg, #0f172a, #1e3a5f);"
+        role="button" data-bs-toggle="collapse"
+        data-bs-target="#model-body-${model.id}">
+        <div class="d-flex align-items-center">
+          <i class="bi bi-cpu text-info me-3" style="font-size:1.4rem;"></i>
+          <div class="flex-fill">
+            <h5 class="fw-bold text-white mb-0">${escapeHtml(model.name)}</h5>
+            <small class="text-info opacity-75">
+              基板 ${model.boards.length}件 ／ ドキュメント ${model.docs.length}件 ／ 見積 ${model.quotes.length}件
+            </small>
+          </div>
+          <div class="d-flex gap-2">
+            ${model.url
+              ? `<a href="${model.url}" target="_blank" class="btn btn-sm btn-outline-info rounded-pill px-3"
+                  onclick="event.stopPropagation();">
+                  <i class="bi bi-folder2-open me-1"></i>Drive
+                </a>`
+              : ''}
+            <i class="bi bi-chevron-down text-white opacity-50"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 機種ボディ (折りたたみ) -->
+      <div id="model-body-${model.id}" class="collapse show">
+        <div class="card-body p-3">
+
+          <!-- 機種直下ドキュメント -->
+          <div class="tree-section mb-3">
+            <div class="tree-label text-secondary fw-bold small mb-2">
+              <i class="bi bi-file-earmark-text me-1"></i>機種ドキュメント
+            </div>
+            <div class="ps-3">${modelDocsHtml}</div>
+          </div>
+
+          <!-- 基板ツリー -->
+          ${boardsHtml ? `<div class="tree-section mb-2">${boardsHtml}</div>` : ''}
+
+          <!-- 見積書 -->
+          ${quotesHtml}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderBoardNode(board) {
+  const boardDocsHtml = board.docs.length
+    ? board.docs.map(d => renderDocRow(d)).join('')
+    : '<p class="text-muted small ps-2 mb-1">（ドキュメントなし）</p>';
+
+  return `
+    <div class="ms-3 mb-2">
+      <div class="d-flex align-items-center py-2 px-3 rounded-3 mb-1"
+        style="background: rgba(99,102,241,0.08); border-left: 3px solid #6366f1;">
+        <i class="bi bi-cpu-fill me-2" style="color:#6366f1;"></i>
+        <span class="fw-bold small flex-fill">${escapeHtml(board.name)}</span>
+        ${board.url
+          ? `<a href="${board.url}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-2 ms-2 rounded-pill">
+              <i class="bi bi-folder2-open me-1"></i>Drive
+            </a>`
+          : ''}
+      </div>
+      <div class="ps-4">${boardDocsHtml}</div>
+    </div>`;
+}
+
+function renderDocRow(doc) {
+  const typeMeta = getTypeMeta(doc['ファイル種別']);
+  const isUnclassified = doc['ファイル種別'] === '【未分類】';
+
+  return `
+    <div class="d-flex align-items-center py-1 px-2 rounded-3 mb-1 small
+      ${isUnclassified ? 'bg-warning bg-opacity-10' : 'bg-light'}">
+      <span class="me-2">${typeMeta.icon}</span>
+      <span class="flex-fill text-truncate" title="${escapeHtml(doc['ファイル名'])}">
+        ${escapeHtml(doc['ファイル名'])}
+      </span>
+      <span class="badge me-2 text-white" style="background:${typeMeta.color}; font-size:0.65em;">
+        ${doc['ファイル種別']}
+      </span>
+      ${doc['Drive URL']
+        ? `<a href="${doc['Drive URL']}" target="_blank"
+            class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill"
+            style="font-size:0.75em;">
+            <i class="bi bi-box-arrow-up-right"></i>
+          </a>`
+        : ''}
+      ${isUnclassified
+        ? `<button class="btn btn-sm btn-warning py-0 px-2 ms-1 rounded-pill"
+            style="font-size:0.75em;"
+            onclick="showReclassifyModal('${doc['ドキュメントID']}', '${escapeHtml(doc['ファイル名'])}')">
+            分類する
+          </button>`
+        : ''}
+    </div>`;
+}
+
+function renderQuoteRow(q) {
+  return `
+    <div class="d-flex align-items-center py-1 px-3 rounded-3 mb-1 small bg-warning bg-opacity-10">
+      <span class="me-2">💴</span>
+      <span class="fw-bold me-2">${escapeHtml(q['見積番号'])}</span>
+      <span class="text-muted flex-fill">${q['顧客名'] || ''}</span>
+      <span class="badge ${q['ステータス'] === '確認済' ? 'bg-success' : 'bg-secondary'} me-2">
+        ${q['ステータス']}
+      </span>
+      ${q['Drive URL']
+        ? `<a href="${q['Drive URL']}" target="_blank"
+            class="btn btn-sm btn-outline-warning py-0 px-2 rounded-pill" style="font-size:0.75em;">
+            <i class="bi bi-box-arrow-up-right"></i>
+          </a>`
+        : ''}
+    </div>`;
+}
+
+// ==========================================
+// 手動再分類モーダル
+// ==========================================
+
+let _reclassifyDocId = null;
+
+function showReclassifyModal(docId, fileName) {
+  _reclassifyDocId = docId;
+  // シンプルなプロンプトで種別を選択
+  const types = ['機種製品仕様書', '基板設計仕様書', '構成表(BOM)', '見積書', '図面', 'マニュアル', '試験・検査書'];
+  const choice = prompt(
+    `「${fileName}」の種別を選んでください:\n\n` +
+    types.map((t, i) => `${i+1}. ${t}`).join('\n') +
+    '\n\n番号で入力してください:'
+  );
+  if (!choice) return;
+  const index = parseInt(choice, 10) - 1;
+  if (index < 0 || index >= types.length) {
+    alert('正しい番号を入力してください。');
+    return;
+  }
+  const newType = types[index];
+  showLoading();
+  google.script.run
+    .withSuccessHandler(msg => {
+      hideLoading();
+      showAlert(`✅ 「${fileName}」を「${newType}」に変更しました`);
+      loadModelTree();
+    })
+    .withFailureHandler(err => {
+      hideLoading();
+      showAlert('再分類エラー: ' + err.message);
+    })
+    .reclassifyDocument(docId, newType);
+}
+
+// ==========================================
+// ユーティリティ
+// ==========================================
+
+function getTypeMeta(type) {
+  const map = {
+    '機種製品仕様書': { icon: '📋', color: '#0ea5e9' },
+    '基板設計仕様書': { icon: '🔧', color: '#8b5cf6' },
+    '構成表(BOM)':   { icon: '📦', color: '#10b981' },
+    '見積書':        { icon: '💴', color: '#f59e0b' },
+    '図面':          { icon: '📐', color: '#ef4444' },
+    'マニュアル':    { icon: '📖', color: '#6b7280' },
+    '試験・検査書':  { icon: '🧪', color: '#14b8a6' },
+    '【未分類】':    { icon: '⚠️', color: '#9ca3af' },
+  };
+  return map[type] || { icon: '📄', color: '#6b7280' };
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+</script>

@@ -15,8 +15,10 @@ let productChartInst  = null;
 
 // ─── 初期化 ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  loadDashboardData();
-  loadManagementData();
+  loadDashboard();
+  loadTableData('products');
+  loadTableData('meetings');
+  loadTableData('notes');
   loadCareerData();
 });
 
@@ -651,10 +653,11 @@ function submitAnalytics() {
 function loadManagementData() {
   google.script.run
     .withSuccessHandler(data => {
-      renderManagementTable('table-products-head', 'table-products-body', data.products, 'products');
-      renderManagementTable('table-meetings-head', 'table-meetings-body', data.meetings, 'meetings');
-      renderCharts(data);
+      _tableCache[sheetName] = data;
+      renderTable(sheetName, data);
+      if (sheetName === 'products' || sheetName === 'meetings') renderCharts();
     })
+    .withFailureHandler(err => showToast(err.message, true))
     .getAllDataForTables();
 }
 
@@ -668,7 +671,8 @@ function renderManagementTable(headId, bodyId, sheetData, sheetName) {
   sheetData.headers.forEach(h => {
     const th = document.createElement('th');
     th.textContent = h;
-    thead.appendChild(th);
+    if (i === 0) th.style.width = '40px';
+    tr.appendChild(th);
   });
   const thAct = document.createElement('th');
   thAct.textContent = '操作';
@@ -703,7 +707,8 @@ function renderManagementTable(headId, bodyId, sheetData, sheetName) {
     tdAct.innerHTML = `<button class="btn btn-danger btn-sm" onclick="requestAudio('${(row[1] || 'ナレッジ').replace(/'/g, "\\'")}', \`${textContent.substring(0, 500).replace(/`/g, '\\`')}\`)">🎧</button>`;
     tr.appendChild(tdAct);
 
-    tbody.appendChild(tr);
+  rows.forEach(row => {
+    tbody.appendChild(buildRow(sheetName, row, headers));
   });
 }
 
@@ -812,7 +817,7 @@ function renderCharts(allData) {
 function loadCareerData() {
   google.script.run
     .withSuccessHandler(data => {
-      document.getElementById('career-stat-meetings').textContent = data.stats.recentMeetings;
+      document.getElementById('career-stat-meetings').textContent  = data.stats.recentMeetings;
       document.getElementById('career-stat-knowledge').textContent = data.stats.knowledgeCreated;
 
       const container = document.getElementById('goal-list-container');
@@ -844,12 +849,13 @@ function loadCareerData() {
 
 function submitGoal() {
   const data = {
-    title: document.getElementById('goal-title').value,
-    period: document.getElementById('goal-period').value,
-    kpi: document.getElementById('goal-kpi').value,
+    title:    document.getElementById('goal-title').value,
+    period:   document.getElementById('goal-period').value,
+    kpi:      document.getElementById('goal-kpi').value,
     progress: document.getElementById('goal-progress').value,
-    eval: document.getElementById('goal-eval').value
+    eval:     document.getElementById('goal-eval').value,
   };
+  if (!data.title) { showToast('タイトルは必須です', true); return; }
   showLoading();
   google.script.run
     .withSuccessHandler(msg => {
