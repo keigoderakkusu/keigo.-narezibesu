@@ -40,47 +40,47 @@
     <div class="sidebar-nav">
 
       <div class="sidebar-section-label">メイン</div>
-      <button class="sidebar-item active" id="nav-dashboard" onclick="showTab('dashboard')">
+      <button class="sidebar-item active" id="nav-dashboard" data-tab="dashboard" onclick="showTab('dashboard')">
         <span class="item-icon">⬜</span> ダッシュボード
       </button>
-      <button class="sidebar-item" id="nav-graph" onclick="showTab('graph')">
+      <button class="sidebar-item" id="nav-graph" data-tab="graph" onclick="showTab('graph')">
         <span class="item-icon">🕸️</span> ナレッジグラフ
         <span class="item-badge" id="badge-edges">0</span>
       </button>
 
       <div class="sidebar-section-label" style="margin-top:12px;">AI機能</div>
-      <button class="sidebar-item" id="nav-ai" onclick="showTab('ai')">
+      <button class="sidebar-item" id="nav-ai" data-tab="ai" onclick="showTab('ai')">
         <span class="item-icon">🤖</span> AI検索・ロープレ
       </button>
-      <button class="sidebar-item" id="nav-analytics" onclick="showTab('analytics')">
+      <button class="sidebar-item" id="nav-analytics" data-tab="analytics" onclick="showTab('analytics')">
         <span class="item-icon">⚡</span> 業務分析・Chat
       </button>
 
       <div class="sidebar-section-label" style="margin-top:12px;">データ登録</div>
-      <button class="sidebar-item" id="nav-product" onclick="showTab('product')">
+      <button class="sidebar-item" id="nav-product" data-tab="product" onclick="showTab('product')">
         <span class="item-icon" style="color:var(--accent-blue);">📦</span> 製品マスタ
       </button>
-      <button class="sidebar-item" id="nav-meeting" onclick="showTab('meeting')">
+      <button class="sidebar-item" id="nav-meeting" data-tab="meeting" onclick="showTab('meeting')">
         <span class="item-icon" style="color:var(--accent-orange);">📄</span> 議事録
       </button>
-      <button class="sidebar-item" id="nav-note" onclick="showTab('note')">
+      <button class="sidebar-item" id="nav-note" data-tab="note" onclick="showTab('note')">
         <span class="item-icon" style="color:var(--accent-green);">📝</span> メモ (Obsidian)
       </button>
-      <button class="sidebar-item" id="nav-drivesync" onclick="showTab('drivesync')">
+      <button class="sidebar-item" id="nav-drivesync" data-tab="drivesync" onclick="showTab('drivesync')">
         <span class="item-icon" style="color:var(--accent-purple);">☁️</span> Drive同期
       </button>
-      <button class="sidebar-item" id="nav-boardlinker" onclick="showTab('boardlinker')">
+      <button class="sidebar-item" id="nav-boardlinker" data-tab="boardlinker" onclick="showTab('boardlinker')">
         <span class="item-icon" style="color:#22d3ee;">🔩</span> 基板ファイルDB
       </button>
 
       <div class="sidebar-section-label" style="margin-top:12px;">管理</div>
-      <button class="sidebar-item" id="nav-management" onclick="showTab('management')">
+      <button class="sidebar-item" id="nav-management" data-tab="management" onclick="showTab('management')">
         <span class="item-icon">🗄️</span> データ管理
       </button>
-      <button class="sidebar-item" id="nav-career" onclick="showTab('career')">
+      <button class="sidebar-item" id="nav-career" data-tab="career" onclick="showTab('career')">
         <span class="item-icon">🏆</span> キャリア・評価
       </button>
-      <button class="sidebar-item" id="nav-notebooklm" onclick="showTab('notebooklm')">
+      <button class="sidebar-item" id="nav-notebooklm" data-tab="notebooklm" onclick="showTab('notebooklm')">
         <span class="item-icon">📚</span> NotebookLM台帳
       </button>
 

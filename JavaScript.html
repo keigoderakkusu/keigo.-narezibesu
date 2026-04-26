@@ -15,10 +15,18 @@ let productChartInst  = null;
 
 // ─── 初期化 ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  loadDashboard();
-  loadTableData('products');
-  loadTableData('meetings');
-  loadTableData('notes');
+  // u2605 u30bfu30d6u30d0u30a4u30f3u30c9 (GASu30b5u30f3u30c9u30dcu30c3u30afu30b9u5bfeu5fdc)
+  document.querySelectorAll('.sidebar-item[data-tab]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      showTab(this.getAttribute('data-tab'));
+    });
+  });
+  // u521du671fu30c7u30fcu30bf
+  try { loadDashboardData(); } catch(ex) { console.error(ex); }
+
+
+
   loadCareerData();
 });
 
