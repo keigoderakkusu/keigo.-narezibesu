@@ -1,0 +1,419 @@
+<!--
+  GAMING_PCB_UI.html
+  遊技機基板 ドキュメント管理 UI（Index.html に追加するタブとコンテンツ）
+
+  【組み込み手順】
+  1. Index.html のナビゲーション <ul class="navbar-nav"> に ① のリンクを追加
+  2. タブコンテンツ領域に ② の <div id="gaming-pcb-tab"> を追加
+  3. JavaScript.html の末尾に ③ の <script> ブロックをコピー
+-->
+
+<!-- ================================================================
+  ① Index.html のナビゲーションに追加するリンク
+================================================================ -->
+<!--
+<li class="nav-item">
+  <a class="nav-link" id="nav-gaming-pcb" href="#" onclick="showTab('gaming-pcb')">
+    <i class="bi bi-cpu me-1"></i>基板書類管理
+  </a>
+</li>
+-->
+
+<!-- ================================================================
+  ② タブコンテンツ領域に追加するパネル
+================================================================ -->
+<div id="tab-gaming-pcb" class="tab-content-panel" style="display:none;">
+  <div class="container-fluid py-3">
+
+    <!-- ─────────────────────────────────────────
+      セクション A: Web サイト URL から保存フォーム
+    ───────────────────────────────────────── -->
+    <div class="card mb-4 shadow-sm">
+      <div class="card-header bg-primary text-white fw-bold">
+        🌐 Web サイト URL から書類を保存
+      </div>
+      <div class="card-body">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-5">
+            <label class="form-label small">Web サイト URL</label>
+            <input type="url" id="pcb-url-input" class="form-control form-control-sm"
+                   placeholder="https://..." />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small">機種名（任意）</label>
+            <input type="text" id="pcb-model-input" class="form-control form-control-sm"
+                   placeholder="例: XX-1000" />
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-primary btn-sm w-100" onclick="pcbSaveWebURL()">
+              保存 &amp; 自動分類
+            </button>
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-outline-secondary btn-sm w-100"
+                    onclick="pcbSyncDrive()">
+              Drive 同期
+            </button>
+          </div>
+        </div>
+        <div id="pcb-url-result" class="mt-2 small text-muted"></div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────
+      セクション B: 階層フィルタ
+    ───────────────────────────────────────── -->
+    <div class="card mb-3 shadow-sm">
+      <div class="card-body py-2">
+        <div class="row g-2 align-items-center">
+          <div class="col-auto">
+            <label class="form-label mb-0 small fw-bold">機種名</label>
+          </div>
+          <div class="col-md-3">
+            <input type="text" id="pcb-filter-model" class="form-control form-control-sm"
+                   placeholder="機種名で絞り込み" oninput="pcbFilterTable()" />
+          </div>
+          <div class="col-auto">
+            <label class="form-label mb-0 small fw-bold">基板種類</label>
+          </div>
+          <div class="col-md-3">
+            <select id="pcb-filter-board" class="form-select form-select-sm"
+                    onchange="pcbFilterTable()">
+              <option value="">— すべて —</option>
+            </select>
+          </div>
+          <div class="col-auto">
+            <label class="form-label mb-0 small fw-bold">ドキュメント種別</label>
+          </div>
+          <div class="col-md-3">
+            <select id="pcb-filter-doctype" class="form-select form-select-sm"
+                    onchange="pcbFilterTable()">
+              <option value="">— すべて —</option>
+            </select>
+          </div>
+          <div class="col-auto">
+            <button class="btn btn-outline-secondary btn-sm"
+                    onclick="pcbClearFilters()">リセット</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────
+      セクション C: ドキュメント一覧テーブル
+    ───────────────────────────────────────── -->
+    <div class="card shadow-sm">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">📋 遊技機基板 ドキュメント一覧</span>
+        <span id="pcb-doc-count" class="badge bg-secondary">0 件</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive" style="max-height:60vh; overflow-y:auto;">
+          <table class="table table-sm table-hover table-bordered mb-0" id="pcb-doc-table">
+            <thead class="table-dark sticky-top">
+              <tr>
+                <th style="width:12%">機種名</th>
+                <th style="width:14%">基板種類</th>
+                <th style="width:14%">ドキュメント種別</th>
+                <th>ファイル名 / タイトル</th>
+                <th style="width:10%">登録日時</th>
+                <th style="width:6%">操作</th>
+              </tr>
+            </thead>
+            <tbody id="pcb-doc-tbody">
+              <tr>
+                <td colspan="6" class="text-center text-muted py-4">
+                  読み込み中…
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /container-fluid -->
+</div><!-- /#tab-gaming-pcb -->
+
+
+<!-- ================================================================
+  ③ JavaScript — JavaScript.html の末尾にコピーしてください
+================================================================ -->
+<script>
+// ────────────────────────────────────────────────────────
+//  遊技機基板 ドキュメント管理 フロントエンドロジック
+// ────────────────────────────────────────────────────────
+
+/** マスターデータ（基板種類 / ドキュメント種別リスト） */
+let _pcbMasters  = { boardTypes: [], docTypes: [] };
+/** 全ドキュメントキャッシュ */
+let _allPcbDocs  = [];
+/** 初期化済みフラグ（複数回実行防止） */
+let _pcbInitDone = false;
+
+/**
+ * ページロード完了後に基板書類管理タブが表示されている場合は即時初期化し、
+ * そうでない場合は showTab('gaming-pcb') が呼ばれたタイミングで初期化する。
+ * Index.html の showTab() 関数から pcbInitIfNeeded() を呼び出してください。
+ */
+document.addEventListener('DOMContentLoaded', () => {
+  // 既に基板書類管理タブが表示中ならロード
+  const panel = document.getElementById('tab-gaming-pcb');
+  if (panel && panel.style.display !== 'none') {
+    pcbInitIfNeeded();
+  }
+});
+
+/** タブ切り替え時に呼び出す初期化（Index.html の showTab 関数内で呼ぶ） */
+function pcbInitIfNeeded() {
+  if (_pcbInitDone) return;
+  _pcbInitDone = true;
+  _pcbLoadMasters();
+}
+
+/** マスターリストを取得してセレクトボックスを埋める */
+function _pcbLoadMasters() {
+  google.script.run
+    .withSuccessHandler(masters => {
+      if (!masters) return;
+      _pcbMasters = masters;
+      _pcbPopulateSelect('pcb-filter-board',   masters.boardTypes);
+      _pcbPopulateSelect('pcb-filter-doctype', masters.docTypes);
+      _pcbLoadDocuments();
+    })
+    .withFailureHandler(err => console.error('基板書類マスター取得エラー:', err.message))
+    .getGamingPCBMasters();
+}
+
+function _pcbPopulateSelect(id, items) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  const cur = sel.value;
+  while (sel.options.length > 1) sel.remove(1); // 「すべて」以外をリセット
+  (items || []).forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = v;
+    sel.appendChild(opt);
+  });
+  if (cur) sel.value = cur; // フィルタ選択を復元
+}
+
+/** ドキュメント一覧をバックエンドから取得して描画 */
+function _pcbLoadDocuments() {
+  google.script.run
+    .withSuccessHandler(docs => {
+      _allPcbDocs = docs || [];
+      _pcbRenderTable(_allPcbDocs);
+    })
+    .withFailureHandler(err => {
+      const tbody = document.getElementById('pcb-doc-tbody');
+      if (tbody) {
+        tbody.innerHTML =
+          `<tr><td colspan="6" class="text-danger text-center">取得エラー: ${_pcbEsc(err.message)}</td></tr>`;
+      }
+    })
+    .getDocuments({});
+}
+
+/** フィルタ条件でドキュメントを絞り込んで再描画 */
+function pcbFilterTable() {
+  const model   = (document.getElementById('pcb-filter-model')?.value || '').trim().toLowerCase();
+  const board   = document.getElementById('pcb-filter-board')?.value   || '';
+  const doctype = document.getElementById('pcb-filter-doctype')?.value || '';
+
+  const filtered = _allPcbDocs.filter(d => {
+    // null/undefined 安全な比較（Bug #2 修正）
+    if (model   && !(d.modelName || '').toLowerCase().includes(model)) return false;
+    if (board   && d.boardType !== board)   return false;
+    if (doctype && d.docType   !== doctype) return false;
+    return true;
+  });
+  _pcbRenderTable(filtered);
+}
+
+function pcbClearFilters() {
+  ['pcb-filter-model', 'pcb-filter-board', 'pcb-filter-doctype'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  _pcbRenderTable(_allPcbDocs);
+}
+
+/** テーブル描画 */
+function _pcbRenderTable(docs) {
+  const tbody = document.getElementById('pcb-doc-tbody');
+  const count = document.getElementById('pcb-doc-count');
+  if (!tbody) return;
+
+  if (count) count.textContent = (docs.length) + ' 件';
+
+  if (!docs.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">データがありません</td></tr>';
+    return;
+  }
+
+  // Bug #1 修正: onclick引数にシングルクォートが含まれると JS が壊れる問題を
+  // data-* 属性 + イベント委譲に変更してインジェクションを防止
+  tbody.innerHTML = docs.map((d, idx) => `
+    <tr>
+      <td class="text-truncate" style="max-width:120px"
+          title="${_pcbEsc(d.modelName)}">${_pcbEsc(d.modelName) || '<span class="text-muted">—</span>'}</td>
+      <td>${_pcbBoardBadge(d.boardType)}</td>
+      <td><span class="badge bg-light text-dark border">${_pcbEsc(d.docType)}</span></td>
+      <td>
+        ${d.url
+          ? `<a href="${_pcbEsc(d.url)}" target="_blank" rel="noopener" class="text-decoration-none">
+               📄 ${_pcbEsc(d.fileName)}
+             </a>`
+          : _pcbEsc(d.fileName)
+        }
+      </td>
+      <td class="text-muted small">${_pcbEsc(d.createdAt)}</td>
+      <td class="text-center">
+        <button class="btn btn-outline-secondary btn-sm py-0 px-1 pcb-edit-btn"
+                data-idx="${idx}"
+                title="分類を修正">✏️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// イベント委譲：tbody への click 一本で全行の編集ボタンを処理（Bug #1 修正）
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.pcb-edit-btn');
+  if (!btn) return;
+  const idx = parseInt(btn.dataset.idx, 10);
+  const d   = _allPcbDocs[idx];
+  if (!d) return;
+  _pcbOpenEditModal(d.id, d.modelName, d.boardType, d.docType);
+});
+
+/** 基板種類バッジの色分け */
+const _pcbBoardColors = {
+  '枠制御基板':   'bg-primary',
+  '主基板':        'bg-success',
+  '液晶制御基板': 'bg-warning text-dark',
+  '液晶基板':     'bg-info text-dark',
+  'サブ基板':     'bg-secondary',
+};
+function _pcbBoardBadge(boardType) {
+  const cls = _pcbBoardColors[boardType] || 'bg-secondary';
+  return boardType
+    ? `<span class="badge ${cls}">${_pcbEsc(boardType)}</span>`
+    : '<span class="text-muted">—</span>';
+}
+
+/** HTML エスケープ（& < > " を変換） */
+function _pcbEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ────────────────────────────────────────────────────────
+//  Web URL 保存
+// ────────────────────────────────────────────────────────
+
+function pcbSaveWebURL() {
+  const urlEl   = document.getElementById('pcb-url-input');
+  const modelEl = document.getElementById('pcb-model-input');
+  const result  = document.getElementById('pcb-url-result');
+
+  const url   = (urlEl?.value || '').trim();
+  const model = (modelEl?.value || '').trim();
+
+  if (!url) {
+    if (result) result.innerHTML = '<span class="text-danger">URLを入力してください</span>';
+    return;
+  }
+
+  if (result) result.innerHTML = '⏳ 保存中…';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!result) return;
+      if (res && res.success) {
+        result.innerHTML =
+          `✅ 保存完了 — <strong>${_pcbEsc(res.title)}</strong>` +
+          `　基板: ${_pcbBoardBadge(res.boardType)}` +
+          `　種別: <span class="badge bg-light text-dark border">${_pcbEsc(res.docType)}</span>`;
+        if (urlEl)   urlEl.value   = '';
+        if (modelEl) modelEl.value = '';
+        _pcbLoadDocuments();
+      } else {
+        result.innerHTML = '<span class="text-danger">エラー: ' + _pcbEsc((res && res.message) || '不明') + '</span>';
+      }
+    })
+    .withFailureHandler(err => {
+      if (result) result.innerHTML = '<span class="text-danger">通信エラー: ' + _pcbEsc(err.message) + '</span>';
+    })
+    .saveWebURLAsDocument(url, model);
+}
+
+// ────────────────────────────────────────────────────────
+//  Drive 同期
+// ────────────────────────────────────────────────────────
+
+function pcbSyncDrive() {
+  const folderId = prompt('同期する Google Drive フォルダ ID を入力してください\n（空白のままでマイドライブ全体を対象にします）');
+  if (folderId === null) return; // キャンセル
+
+  const result = document.getElementById('pcb-url-result');
+  if (result) result.innerHTML = '⏳ Drive を同期中…（大量ファイルがある場合、数分かかることがあります）';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (result) {
+        result.innerHTML =
+          `✅ 同期完了 — 追加: ${res.added || 0} 件 / スキップ（既登録）: ${res.skipped || 0} 件`;
+      }
+      _pcbLoadDocuments();
+    })
+    .withFailureHandler(err => {
+      if (result) result.innerHTML = '<span class="text-danger">同期エラー: ' + _pcbEsc(err.message) + '</span>';
+    })
+    .classifyDriveFiles(folderId.trim() || null);
+}
+
+// ────────────────────────────────────────────────────────
+//  分類編集モーダル
+// ────────────────────────────────────────────────────────
+
+function _pcbOpenEditModal(id, modelName, boardType, docType) {
+  const newModel = prompt('機種名', modelName || '');
+  if (newModel === null) return; // キャンセル
+
+  const boardList = (_pcbMasters.boardTypes || []).join('\n');
+  const newBoard  = prompt('基板種類（以下から選択）:\n' + boardList, boardType || '');
+  if (newBoard === null) return;
+
+  const docList    = (_pcbMasters.docTypes || []).join('\n');
+  const newDocType = prompt('ドキュメント種別（以下から選択）:\n' + docList, docType || '');
+  if (newDocType === null) return;
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res && res.success) {
+        _pcbInitDone = false; // キャッシュ無効化して再ロード
+        _pcbLoadDocuments();
+      } else {
+        alert('更新エラー: ' + ((res && res.message) || '不明'));
+      }
+    })
+    .withFailureHandler(err => alert('通信エラー: ' + err.message))
+    .updateDocumentCategory(id, newBoard, newDocType, newModel);
+}
+
+/*
+  ────────────────────────────────────────────────────────
+  Index.html の showTab() 関数への追記例:
+
+  function showTab(tabName) {
+    // ... 既存のタブ切り替えロジック ...
+    if (tabName === 'gaming-pcb') pcbInitIfNeeded();
+  }
+  ────────────────────────────────────────────────────────
+*/
+</script>
