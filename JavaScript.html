@@ -27,9 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 function _bindNavLinks() {
   document.querySelectorAll('[data-tab]').forEach(el => {
+    // onclick属性を削除してイベントリスナーに一本化（二重実行防止）
+    el.removeAttribute('onclick');
     el.addEventListener('click', function(e) {
       e.preventDefault();
-      e.stopPropagation();
       showTab(this.getAttribute('data-tab'));
     });
   });
@@ -39,19 +40,17 @@ function _bindNavLinks() {
 // タブ切り替え（核心部分）
 // =================================================================
 function showTab(tabId) {
-  // 全タブ非表示
-  document.querySelectorAll('.tab-content').forEach(el => {
-    el.classList.add('d-none');
-    el.classList.remove('active-tab');
+  // 全タブ非表示（.tab-pane の active クラスを外す）
+  document.querySelectorAll('.tab-pane').forEach(el => {
+    el.classList.remove('active');
   });
-  // ナビのアクティブ解除
-  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+  // ナビのアクティブ解除（.sidebar-item の active クラスを外す）
+  document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
 
   // 対象タブを表示
   const target = document.getElementById('tab-' + tabId);
   if (target) {
-    target.classList.remove('d-none');
-    target.classList.add('active-tab');
+    target.classList.add('active');
   }
 
   // ナビをアクティブ化

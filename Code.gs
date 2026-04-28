@@ -106,9 +106,7 @@ function setupDatabase() {
       sheet.setFrozenRows(1);
     }
   }
-  // 遊技機基板ドキュメント管理シートも同時に初期化
-  setupGamingDocDatabase();
-  return 'データベースの初期化・構築が完了しました！edges・board_files・documentsシートも追加されました。';
+  return 'データベースの初期化・構築が完了しました！edges・board_filesシートも追加されました。';
 }
 
 // ----------------------------------------------------
