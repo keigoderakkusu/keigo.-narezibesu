@@ -10,6 +10,32 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <?!= include('CSS'); ?>
+  <script>
+  // =====================================================
+  // showTab — GASサンドボックス対応のインライン定義
+  // JavaScript.htmlより先にロードされるため確実に動作する
+  // =====================================================
+  function showTab(tabId) {
+    var panes = document.querySelectorAll('.tab-pane');
+    for (var i = 0; i < panes.length; i++) {
+      panes[i].classList.remove('active');
+    }
+    var navItems = document.querySelectorAll('.sidebar-item');
+    for (var j = 0; j < navItems.length; j++) {
+      navItems[j].classList.remove('active');
+    }
+    var target = document.getElementById('tab-' + tabId);
+    if (target) { target.classList.add('active'); }
+    var navItem = document.getElementById('nav-' + tabId);
+    if (navItem) { navItem.classList.add('active'); }
+    try {
+      if (tabId === 'dashboard' && typeof loadDashboardData === 'function') loadDashboardData();
+      if (tabId === 'management' && typeof loadManagementData === 'function') loadManagementData();
+      if (tabId === 'career' && typeof loadCareerData === 'function') loadCareerData();
+    } catch(e) {}
+  }
+  window.showTab = showTab;
+  </script>
 </head>
 <body>
 
