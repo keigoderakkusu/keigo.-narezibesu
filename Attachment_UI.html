@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<!-- ============================================================
+  Attachment_UI.html
+  
+  このファイルには2つのブロックが含まれています。
+  
+  【ブロックA】Index.html の </body> 直前に追記するHTML
+    - 添付パネル（右スライドイン）
+    - CSS（<style>タグ内）
+  
+  【ブロックB】JavaScript.html の </script> 直前に追記するJS
+  ============================================================ -->
+
+<!-- ========================================================
+  ブロックA: Index.html の </body> 直前に追記
+  ======================================================== -->
+
+<style>
+/* ===== 添付パネル ===== */
+.attach-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  z-index: 600;
+  display: flex; justify-content: flex-end;
+  animation: overlayIn .15s ease;
+}
+.attach-panel {
+  width: 480px; max-width: 100vw;
+  height: 100%; background: var(--bg-card);
+  display: flex; flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  animation: panelIn .2s ease;
+}
+@keyframes panelIn { from{transform:translateX(30px);opacity:0} to{transform:none;opacity:1} }
+
+.attach-topbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.attach-title { font-weight: 700; font-size: 14.5px; flex: 1; }
+.attach-subtitle { font-size: 12px; color: var(--text-muted); }
+
+.attach-body { flex: 1; overflow-y: auto; padding: 20px; }
+
+/* ドロップゾーン */
+.dropzone {
+  border: 2px dashed var(--border-dark);
+  border-radius: var(--radius-lg);
+  padding: 28px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  background: var(--bg-hover);
+  margin-bottom: 20px;
+  position: relative;
+}
+.dropzone:hover, .dropzone.drag-over {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+.dropzone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.dropzone-icon { font-size: 2rem; margin-bottom: 8px; }
+.dropzone-text { font-size: 13.5px; color: var(--text-sub); font-weight: 500; }
+.dropzone-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+/* アップロード中キュー */
+.upload-queue { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.upload-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--bg-hover);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 13px;
+}
+.upload-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.upload-item-size { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+.upload-progress-bar {
+  height: 3px; background: var(--border); border-radius: 100px;
+  margin-top: 5px;
+}
+.upload-progress-fill {
+  height: 3px; background: var(--blue); border-radius: 100px;
+  transition: width .3s ease;
+}
+
+/* 添付済みリスト */
+.attach-list { display: flex; flex-direction: column; gap: 8px; }
+.attach-file-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  transition: box-shadow .12s;
+}
+.attach-file-card:hover { box-shadow: var(--shadow-sm); }
+.attach-file-icon {
+  width: 36px; height: 36px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; flex-shrink: 0;
+}
+.attach-file-info { flex: 1; min-width: 0; }
+.attach-file-name {
+  font-weight: 600; font-size: 13.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.attach-file-meta { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.attach-file-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* テーブル行の添付バッジ */
+.attach-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; color: var(--blue);
+  background: var(--blue-soft); border-radius: 100px;
+  padding: 2px 7px; cursor: pointer;
+  border: 1px solid #bfdbfe;
+  transition: background .1s;
+}
+.attach-badge:hover { background: #dbeafe; }
+
+/* 行のホバーで添付ボタンを表示 */
+.row-attach-btn {
+  opacity: 0; transition: opacity .15s;
+  background: none; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 2px 7px;
+  font-size: 11.5px; cursor: pointer; color: var(--text-muted);
+  font-family: var(--font); white-space: nowrap;
+}
+.row-attach-btn:hover { background: var(--blue-soft); color: var(--blue); border-color: var(--blue); }
+tr:hover .row-attach-btn { opacity: 1; }
+</style>
+
+<!-- 添付パネル（右スライドイン） -->
+<div id="attach-overlay" style="display:none;" onclick="closeAttachPanel(event)">
+  <div class="attach-overlay" onclick="event.stopPropagation()">
+    <div class="attach-panel">
+
+      <!-- トップバー -->
+      <div class="attach-topbar">
+        <button class="btn-icon" onclick="closeAttachPanel()"><i class="bi bi-x-lg"></i></button>
+        <div>
+          <div class="attach-title" id="attach-panel-title">添付ファイル</div>
+          <div class="attach-subtitle" id="attach-panel-subtitle"></div>
+        </div>
+        <span id="attach-count-badge" style="background:var(--blue);color:#fff;font-size:11px;padding:2px 8px;border-radius:100px;"></span>
+      </div>
+
+      <div class="attach-body">
+
+        <!-- ドロップゾーン -->
+        <div class="dropzone" id="attach-dropzone"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="handleAttachDrop(event)">
+          <input type="file" id="attach-file-input" multiple onchange="handleAttachFileSelect(event)">
+          <div class="dropzone-icon">📎</div>
+          <div class="dropzone-text">クリックまたはドラッグ＆ドロップ</div>
+          <div class="dropzone-hint">PDF / Excel / Word / 画像 など全形式対応</div>
+        </div>
+
+        <!-- アップロードキュー -->
+        <div id="attach-upload-queue" class="upload-queue"></div>
+
+        <!-- 添付済みファイル一覧 -->
+        <div id="attach-section-label" style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;display:none;">
+          添付済みファイル
+        </div>
+        <div id="attach-file-list" class="attach-list">
+          <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px;">
+            読み込み中...
+          </div>
+        </div>
+
+      </div><!-- /attach-body -->
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================
+  ブロックB: JavaScript.html の </script> 直前に追記
+  ======================================================== -->
+<script>
+// ============================================================
+// 添付ファイル管理 JS
+// ============================================================
+
+// ===== 状態 =====
+let _attachParentId   = null;
+let _attachParentType = null;
+let _attachParentName = null;
+let _attachCounts     = {}; // { sheetName: { id: count } }
+
+// MIMEタイプ → アイコン・色のマッピング
+const MIME_META = {
+  'application/pdf':                                                    { icon:'📄', color:'#ef4444', label:'PDF' },
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { icon:'📊', color:'#16a34a', label:'Excel' },
+  'application/vnd.ms-excel':                                          { icon:'📊', color:'#16a34a', label:'Excel' },
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': { icon:'📝', color:'#2563eb', label:'Word' },
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': { icon:'📊', color:'#d97706', label:'PPT' },
+  'image/jpeg':  { icon:'🖼️', color:'#7c3aed', label:'JPEG' },
+  'image/png':   { icon:'🖼️', color:'#7c3aed', label:'PNG' },
+  'image/gif':   { icon:'🖼️', color:'#7c3aed', label:'GIF' },
+  'text/plain':  { icon:'📃', color:'#64748b', label:'TXT' },
+  'text/csv':    { icon:'📋', color:'#0891b2', label:'CSV' },
+  'application/vnd.google-apps.spreadsheet': { icon:'📊', color:'#16a34a', label:'Gシート' },
+  'application/vnd.google-apps.document':    { icon:'📝', color:'#2563eb', label:'Gドキュメント' },
+};
+function getMimeMeta(mimeType, fileName) {
+  if (MIME_META[mimeType]) return MIME_META[mimeType];
+  const ext = (fileName || '').split('.').pop().toLowerCase();
+  const byExt = { pdf:'📄', xlsx:'📊', xls:'📊', docx:'📝', doc:'📝', pptx:'📊',
+    png:'🖼️', jpg:'🖼️', jpeg:'🖼️', gif:'🖼️', csv:'📋', txt:'📃' };
+  return { icon: byExt[ext] || '📎', color:'#64748b', label: ext.toUpperCase() || 'FILE' };
+}
+
+// ===== パネル開閉 =====
+function openAttachPanel(parentId, parentType, parentName) {
+  _attachParentId   = parentId;
+  _attachParentType = parentType;
+  _attachParentName = parentName || '';
+
+  const TYPE_LABELS = {
+    meeting:'商談議事録', note:'ナレッジメモ', product:'製品マスタ',
+    model:'機種マスタ', board:'基板マスタ', kb:'KB記事'
+  };
+  document.getElementById('attach-panel-title').textContent    = '📎 添付ファイル';
+  document.getElementById('attach-panel-subtitle').textContent = `${TYPE_LABELS[parentType]||parentType}: ${parentName || parentId}`;
+  document.getElementById('attach-upload-queue').innerHTML     = '';
+  document.getElementById('attach-file-input').value           = '';
+
+  // パネル表示
+  const overlay = document.getElementById('attach-overlay');
+  overlay.style.display = 'flex';
+  overlay.style.position = 'fixed';
+  overlay.style.inset = '0';
+  overlay.style.zIndex = '600';
+
+  // 添付一覧を読み込む
+  loadAttachList();
+}
+
+function closeAttachPanel(event) {
+  if (event && event.target !== document.getElementById('attach-overlay') &&
+      !event.target.classList.contains('attach-overlay')) return;
+  document.getElementById('attach-overlay').style.display = 'none';
+  _attachParentId = _attachParentType = _attachParentName = null;
+  // テーブルの添付バッジを更新
+  refreshAttachBadges();
+}
+
+// ===== 添付一覧読み込み =====
+function loadAttachList() {
+  const listEl  = document.getElementById('attach-file-list');
+  const labelEl = document.getElementById('attach-section-label');
+  const badge   = document.getElementById('attach-count-badge');
+  listEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px;"><div class="dot-loader show" style="justify-content:center;margin-bottom:8px;"><span></span><span></span><span></span></div>読み込み中...</div>';
+
+  google.script.run
+    .withSuccessHandler(files => {
+      badge.textContent = files.length ? files.length + '件' : '';
+      badge.style.display = files.length ? '' : 'none';
+      if (!files.length) {
+        labelEl.style.display = 'none';
+        listEl.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-muted);"><div style="font-size:2rem;margin-bottom:8px;">📭</div>添付ファイルはありません</div>';
+        return;
+      }
+      labelEl.style.display = 'block';
+      listEl.innerHTML = files.map(f => buildAttachCard(f)).join('');
+    })
+    .withFailureHandler(e => {
+      listEl.innerHTML = `<div style="color:var(--red);padding:16px;">読込エラー: ${esc(e.message)}</div>`;
+    })
+    .getAttachments(_attachParentId, _attachParentType);
+}
+
+function buildAttachCard(f) {
+  const meta = getMimeMeta(f.mimeType, f.name);
+  const date = String(f.date || '').split(' ')[0];
+  return `
+    <div class="attach-file-card">
+      <div class="attach-file-icon" style="background:${meta.color}18;">
+        <span>${meta.icon}</span>
+      </div>
+      <div class="attach-file-info">
+        <div class="attach-file-name" title="${esc(f.name)}">${esc(f.name)}</div>
+        <div class="attach-file-meta">
+          <span style="background:var(--bg-hover);padding:1px 6px;border-radius:4px;">${meta.label}</span>
+          ${f.sizeKB ? `<span style="margin-left:6px;">${f.sizeKB}KB</span>` : ''}
+          <span style="margin-left:6px;">${date}</span>
+        </div>
+      </div>
+      <div class="attach-file-actions">
+        <a href="${f.url}" target="_blank" class="btn-icon" title="Driveで開く" style="text-decoration:none;">
+          <i class="bi bi-box-arrow-up-right"></i>
+        </a>
+        <button class="btn-icon" style="color:var(--red);" title="削除"
+          onclick="deleteAttachFile('${f.id}','${esc(f.name)}')">
+          <i class="bi bi-trash3"></i>
+        </button>
+      </div>
+    </div>`;
+}
+
+// ===== ファイル選択 / ドロップ =====
+function handleAttachFileSelect(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+  uploadAttachFiles(files);
+  event.target.value = ''; // リセット
+}
+
+function handleAttachDrop(event) {
+  event.preventDefault();
+  document.getElementById('attach-dropzone').classList.remove('drag-over');
+  const files = Array.from(event.dataTransfer.files);
+  if (!files.length) return;
+  uploadAttachFiles(files);
+}
+
+// ===== アップロード処理（複数ファイル対応） =====
+async function uploadAttachFiles(files) {
+  if (!_attachParentId) { toast('添付先が未選択です', 'error'); return; }
+  const queue = document.getElementById('attach-upload-queue');
+
+  for (const file of files) {
+    // キューにアイテムを追加
+    const itemId  = 'uq-' + Math.random().toString(36).slice(2);
+    const meta    = getMimeMeta(file.type, file.name);
+    const sizeKB  = Math.round(file.size / 1024);
+
+    queue.insertAdjacentHTML('beforeend', `
+      <div class="upload-item" id="${itemId}">
+        <span style="font-size:1.2rem;">${meta.icon}</span>
+        <div style="flex:1;min-width:0;">
+          <div class="upload-item-name">${esc(file.name)}</div>
+          <div class="upload-progress-bar">
+            <div class="upload-progress-fill" id="${itemId}-bar" style="width:0%"></div>
+          </div>
+        </div>
+        <span class="upload-item-size">${sizeKB}KB</span>
+        <span id="${itemId}-status" style="font-size:12px;color:var(--text-muted);">準備中...</span>
+      </div>`);
+
+    const barEl    = document.getElementById(`${itemId}-bar`);
+    const statusEl = document.getElementById(`${itemId}-status`);
+
+    // ファイルサイズチェック（10MB超は警告）
+    if (file.size > 10 * 1024 * 1024) {
+      statusEl.textContent = '⚠️ 10MB超';
+      statusEl.style.color = 'var(--amber)';
+      barEl.style.width = '100%';
+      barEl.style.background = 'var(--amber)';
+      continue;
+    }
+
+    try {
+      // base64エンコード
+      statusEl.textContent = '変換中...';
+      barEl.style.width = '20%';
+
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = e => resolve(e.target.result.split(',')[1]);
+        reader.onerror = () => reject(new Error('読み込みエラー'));
+        reader.readAsDataURL(file);
+      });
+
+      barEl.style.width = '50%';
+      statusEl.textContent = 'アップロード中...';
+
+      // GASに送信
+      const result = await new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .uploadAttachmentFull(
+            _attachParentId,
+            _attachParentType,
+            file.name,
+            base64,
+            file.type || 'application/octet-stream',
+            sizeKB
+          );
+      });
+
+      if (result.status === 'error') throw new Error(result.message);
+
+      // 成功
+      barEl.style.width = '100%';
+      barEl.style.background = 'var(--green)';
+      statusEl.textContent = '✓ 完了';
+      statusEl.style.color = 'var(--green)';
+
+      // 少し待ってからキューアイテムを消す
+      await new Promise(r => setTimeout(r, 1500));
+      document.getElementById(itemId)?.remove();
+
+    } catch(e) {
+      barEl.style.width = '100%';
+      barEl.style.background = 'var(--red)';
+      statusEl.textContent = '❌ 失敗';
+      statusEl.style.color = 'var(--red)';
+      console.error('Upload error:', e);
+    }
+  }
+
+  // 全件完了後にリスト更新
+  loadAttachList();
+  refreshAttachBadgesForCurrent();
+}
+
+// ===== 削除 =====
+function deleteAttachFile(attachId, fileName) {
+  if (!confirm(`「${fileName}」をDriveから削除しますか？`)) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.status === 'error') { toast(res.message, 'error'); return; }
+      toast(res.message);
+      loadAttachList();
+      refreshAttachBadgesForCurrent();
+    })
+    .withFailureHandler(e => toast(e.message, 'error'))
+    .deleteAttachment(attachId);
+}
+
+// ===== テーブル行への添付ボタン挿入 =====
+/**
+ * buildMasterRow を拡張して添付ボタンを各行に追加する
+ * 既存の buildMasterRow 関数の最後（tdActを追加する直前）に以下を呼ぶ:
+ *   addAttachButtonToRow(tr, sheetName, row[0], row[1] || row[0])
+ */
+function addAttachButtonToRow(tr, sheetType, recordId, recordName) {
+  // 既存の最後のtd（操作列）を取得して添付ボタンを追加
+  const lastTd = tr.querySelector('td:last-child');
+  if (!lastTd) return;
+
+  const btn = document.createElement('button');
+  btn.className = 'row-attach-btn';
+  btn.innerHTML = '<i class="bi bi-paperclip"></i>';
+  btn.title = 'ファイルを添付';
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    openAttachPanel(recordId, sheetType, recordName);
+  };
+  lastTd.prepend(btn);
+
+  // 添付件数バッジ（件数ロード後に更新）
+  const badge = document.createElement('span');
+  badge.className = 'attach-badge';
+  badge.id = `attach-badge-${sheetType}-${recordId}`;
+  badge.style.display = 'none';
+  badge.innerHTML = '<i class="bi bi-paperclip"></i><span>0</span>';
+  badge.onclick = (e) => {
+    e.stopPropagation();
+    openAttachPanel(recordId, sheetType, recordName);
+  };
+  lastTd.prepend(badge);
+}
+
+// ===== 添付バッジ更新 =====
+function refreshAttachBadgesForCurrent() {
+  if (!_attachParentId || !_attachParentType) return;
+  // 現在のパネルに対応する行バッジを更新
+  google.script.run
+    .withSuccessHandler(files => {
+      const badge = document.getElementById(`attach-badge-${_attachParentType}-${_attachParentId}`);
+      if (!badge) return;
+      if (files.length > 0) {
+        badge.style.display = 'inline-flex';
+        badge.querySelector('span').textContent = files.length;
+      } else {
+        badge.style.display = 'none';
+      }
+    })
+    .getAttachments(_attachParentId, _attachParentType);
+}
+
+function refreshAttachBadges() {
+  // 表示中のテーブルの全バッジを更新
+  const sheetTypes = ['meeting', 'note', 'product', 'model', 'board'];
+  sheetTypes.forEach(type => {
+    document.querySelectorAll(`[id^="attach-badge-${type}-"]`).forEach(badge => {
+      const id = badge.id.replace(`attach-badge-${type}-`, '');
+      google.script.run
+        .withSuccessHandler(files => {
+          if (files.length > 0) {
+            badge.style.display = 'inline-flex';
+            badge.querySelector('span').textContent = files.length;
+          } else {
+            badge.style.display = 'none';
+          }
+        })
+        .getAttachments(id, type);
+    });
+  });
+}
+
+// ===== buildMasterRow のオーバーライド =====
+// 既存の buildMasterRow を拡張して添付ボタンを追加する
+(function() {
+  const _orig = window.buildMasterRow;
+  if (typeof _orig !== 'function') return;
+
+  window.buildMasterRow = function(tbody, name, row, headers) {
+    _orig(tbody, name, row, headers);
+    // 追加した行（最後の tr）に添付ボタンを注入
+    const tr = tbody.querySelector('tr:last-child');
+    if (!tr) return;
+
+    // sheetName → parentType マッピング
+    const typeMap = {
+      products: 'product',
+      meetings: 'meeting',
+      notes:    'note',
+      models:   'model',
+      boards:   'board',
+    };
+    const parentType = typeMap[name] || name;
+    const recordId   = row[0];
+    // 表示名（列2が主要テキスト）
+    const recordName = row[1] || String(row[0]).substring(0, 12);
+
+    addAttachButtonToRow(tr, parentType, recordId, recordName);
+
+    // 件数バッジを非同期で更新
+    setTimeout(() => {
+      google.script.run
+        .withSuccessHandler(files => {
+          const badge = document.getElementById(`attach-badge-${parentType}-${recordId}`);
+          if (!badge) return;
+          if (files.length > 0) {
+            badge.style.display = 'inline-flex';
+            badge.querySelector('span').textContent = files.length;
+          }
+        })
+        .getAttachments(recordId, parentType);
+    }, 100);
+  };
+})();
+
+// ===== 機種・基板ツリーへの添付ボタン追加 =====
+// renderModelTree のレンダリング後に呼ぶ
+function addAttachToModelTree() {
+  document.querySelectorAll('[data-model-id]').forEach(card => {
+    const modelId = card.dataset.modelId;
+    if (!modelId || card.querySelector('.attach-badge')) return;
+    // 機種ヘッダーに添付バッジを追加
+    const hd = card.querySelector('.model-card-hd');
+    if (hd) {
+      const badge = document.createElement('span');
+      badge.className = 'attach-badge';
+      badge.id = `attach-badge-model-${modelId}`;
+      badge.style.display = 'none';
+      badge.innerHTML = '<i class="bi bi-paperclip"></i><span>0</span>';
+      badge.onclick = (e) => {
+        e.stopPropagation();
+        openAttachPanel(modelId, 'model', card.querySelector('.model-card-name')?.textContent || modelId);
+      };
+      hd.insertBefore(badge, hd.querySelector('.row-btn'));
+    }
+  });
+}
+</script>
