@@ -1,0 +1,673 @@
+// ============================================================
+// JS_Features.html
+// JavaScript.html の </script> 直前に追記
+// ⑪ ベクトル検索 / ⑫ 承認ワークフロー / ⑧ インポート / ⑨ KPI
+// ============================================================
+
+// PAGE_LABELS拡張（既存のPAGE_LABELSオブジェクトに追加）
+Object.assign(typeof PAGE_LABELS !== 'undefined' ? PAGE_LABELS : {}, {
+  vector:   '意味検索',
+  approval: '承認ワークフロー',
+  import:   '一括インポート',
+  kpi:      'KPI ダッシュボード',
+});
+
+// CSS追加（ai-mode-btn流用でvec-type-btn / approval-tab / import-tabも対応）
+document.addEventListener('DOMContentLoaded', () => {
+  injectFeatureStyles();
+  // 月選択のデフォルトを今月に
+  const monthEl = document.getElementById('kpi-month');
+  if (monthEl) {
+    const now = new Date();
+    monthEl.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
+  const targetMonthEl = document.getElementById('kpi-target-month');
+  if (targetMonthEl) {
+    const now = new Date();
+    targetMonthEl.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
+  // 承認待ち件数をサイドバーに反映
+  loadPendingCount();
+});
+
+function injectFeatureStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .vec-type-btn, .approval-tab, .import-tab {
+      padding:6px 13px;font-size:12.5px;font-family:var(--font);
+      background:none;border:none;border-radius:var(--radius-sm);
+      color:var(--text-muted);cursor:pointer;transition:all .1s;white-space:nowrap;
+    }
+    .vec-type-btn.active, .approval-tab.active, .import-tab.active {
+      background:var(--bg-card);color:var(--text);font-weight:600;box-shadow:var(--shadow-sm);
+    }
+    .approval-tab, .import-tab {
+      border-radius:0;border-bottom:2px solid transparent;padding:10px 18px;
+      background:none!important;box-shadow:none!important;
+    }
+    .approval-tab.active, .import-tab.active { border-bottom-color:var(--blue);color:var(--blue); }
+
+    .kpi-card {
+      background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);
+      padding:20px;transition:box-shadow .15s;position:relative;overflow:hidden;
+    }
+    .kpi-card:hover { box-shadow:var(--shadow); }
+    .kpi-card-achieved { border-color:var(--green);background:var(--green-soft); }
+    .kpi-card-behind   { border-color:var(--red); }
+    .kpi-ring {
+      width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+      font-size:1.3rem;font-weight:800;flex-shrink:0;
+    }
+    .approval-card {
+      background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);
+      padding:16px 20px;margin-bottom:10px;
+    }
+    .vec-result-card {
+      background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);
+      padding:16px 20px;margin-bottom:10px;cursor:pointer;transition:box-shadow .15s, border-color .15s;
+    }
+    .vec-result-card:hover { box-shadow:var(--shadow-sm);border-color:var(--border-dark); }
+    .score-bar {
+      height:4px;background:var(--border);border-radius:100px;margin-top:8px;
+    }
+    .score-bar-fill { height:4px;border-radius:100px;background:var(--blue);transition:width .4s ease; }
+  `;
+  document.head.appendChild(style);
+}
+
+// ============================================================
+// ⑪ ベクトル検索
+// ============================================================
+let _vecType = 'all';
+
+function setVecType(btn) {
+  document.querySelectorAll('.vec-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _vecType = btn.dataset.type;
+}
+
+function loadVectorIndexStatus() {
+  google.script.run
+    .withSuccessHandler(stats => {
+      const statusEl  = document.getElementById('vector-index-status');
+      const detailEl  = document.getElementById('vector-coverage-detail');
+      if (!stats) return;
+      const items = Object.entries(stats.coverage)
+        .map(([k,v]) => `${k}: ${v}%（${stats.indexed[k]||0}/${stats.total[k]}件）`).join(' ／ ');
+      if (detailEl) detailEl.textContent = items;
+      const total   = Object.values(stats.indexed).reduce((s,v)=>s+v,0);
+      const titleEl = statusEl?.querySelector('div > div:first-child');
+      if (titleEl) titleEl.textContent = `インデックス済み: ${total}件`;
+    })
+    .withFailureHandler(() => {})
+    .getVectorIndexStats();
+}
+
+function buildIndex() {
+  const btn = document.getElementById('btn-build-index');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span style="animation:dl .9s ease-in-out infinite;">⚙️</span> 構築中...'; }
+  showLoad();
+  google.script.run
+    .withSuccessHandler(res => {
+      hideLoad();
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-lightning-charge me-1"></i>インデックスを構築'; }
+      toast(res.message || 'インデックスを構築しました');
+      loadVectorIndexStatus();
+    })
+    .withFailureHandler(e => {
+      hideLoad();
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-lightning-charge me-1"></i>インデックスを構築'; }
+      toast(e.message, 'error');
+    })
+    .buildVectorIndex();
+}
+
+function doSemanticSearch() {
+  const query = document.getElementById('vector-query').value.trim();
+  if (!query) { toast('検索クエリを入力してください', 'error'); return; }
+
+  const resultsEl = document.getElementById('vector-results');
+  resultsEl.innerHTML = `
+    <div style="text-align:center;padding:40px;color:var(--text-muted);">
+      <div class="dot-loader show" style="justify-content:center;margin-bottom:12px;"><span></span><span></span><span></span></div>
+      意味ベクトルを計算中...
+    </div>`;
+
+  showLoad();
+  google.script.run
+    .withSuccessHandler(res => {
+      hideLoad();
+      renderVectorResults(res, query);
+    })
+    .withFailureHandler(e => {
+      hideLoad();
+      resultsEl.innerHTML = `<div style="color:var(--red);padding:20px;">エラー: ${esc(e.message)}</div>`;
+    })
+    .semanticSearch(query, 8, _vecType);
+}
+
+function renderVectorResults(res, query) {
+  const el = document.getElementById('vector-results');
+
+  if (res.status === 'empty') {
+    el.innerHTML = `
+      <div style="text-align:center;padding:60px;color:var(--text-muted);">
+        <div style="font-size:2.5rem;margin-bottom:12px;">📭</div>
+        <div style="font-weight:600;margin-bottom:8px;">インデックスが空です</div>
+        <div style="font-size:13px;">「インデックスを構築」ボタンを押してからお試しください。</div>
+      </div>`;
+    return;
+  }
+  if (res.status === 'error') {
+    el.innerHTML = `<div style="color:var(--red);padding:20px;">エラー: ${esc(res.message)}</div>`;
+    return;
+  }
+  if (!res.results.length) {
+    el.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);">「${esc(query)}」に関連する情報が見つかりませんでした。</div>`;
+    return;
+  }
+
+  const TYPE_ICONS = { kb:'📚', meeting:'📝', note:'💡', product:'📦' };
+  const TYPE_LABELS= { kb:'KB記事', meeting:'商談議事録', note:'ナレッジメモ', product:'製品マスタ' };
+
+  el.innerHTML = `
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+      「<strong>${esc(query)}</strong>」に意味的に近い情報 ${res.results.length}件
+    </div>` +
+    res.results.map((r, i) => {
+      const pct   = Math.round(r.score * 100);
+      const col   = pct >= 80 ? 'var(--green)' : pct >= 60 ? 'var(--blue)' : 'var(--amber)';
+      return `
+        <div class="vec-result-card" onclick="openVecResult('${r.type}','${esc(r.id||'')}')">
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <div style="font-size:1.6rem;flex-shrink:0;">${TYPE_ICONS[r.type]||'📄'}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <span style="font-size:11px;background:var(--bg-hover);border:1px solid var(--border);padding:1px 7px;border-radius:100px;color:var(--text-muted);">${TYPE_LABELS[r.type]||r.type}</span>
+                ${r.category ? `<span style="font-size:11px;color:var(--text-muted);">${esc(r.category)}</span>` : ''}
+                <span style="margin-left:auto;font-size:12px;font-weight:700;color:${col};">類似度 ${pct}%</span>
+              </div>
+              <div style="font-weight:600;font-size:14.5px;margin-bottom:6px;">${esc(r.title||'')}</div>
+              <div style="font-size:13px;color:var(--text-sub);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${esc(r.excerpt||'')}</div>
+              ${r.tags ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;"># ${esc(r.tags)}</div>` : ''}
+              <div class="score-bar"><div class="score-bar-fill" style="width:${pct}%;background:${col};"></div></div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+}
+
+function openVecResult(type, id) {
+  if (!id) return;
+  if (type === 'kb') { openKbArticle(id); }
+  // 他のタイプは該当ページに遷移してハイライト（拡張可能）
+}
+
+// ============================================================
+// ⑫ 承認ワークフロー
+// ============================================================
+let _currentReqId = null;
+
+function loadPendingCount() {
+  google.script.run
+    .withSuccessHandler(list => {
+      const cnt = document.getElementById('sb-approval-cnt');
+      if (cnt) { cnt.textContent = list.length; cnt.style.display = list.length ? '' : 'none'; }
+    })
+    .withFailureHandler(() => {})
+    .getPendingApprovals();
+}
+
+function loadApprovalPage() {
+  loadPendingList();
+}
+
+function loadPendingList() {
+  google.script.run
+    .withSuccessHandler(list => {
+      const el = document.getElementById('pending-list');
+      const cntEl = document.getElementById('pending-cnt');
+      if (cntEl) cntEl.textContent = list.length;
+      if (!list.length) {
+        el.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:2.5rem;margin-bottom:10px;">✅</div>承認待ちリクエストはありません</div>`;
+        return;
+      }
+      el.innerHTML = list.map(r => `
+        <div class="approval-card">
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <div style="flex:1;">
+              <div style="font-weight:700;font-size:14.5px;margin-bottom:4px;">${esc(r['記事タイトル'])}</div>
+              <div style="font-size:12.5px;color:var(--text-muted);">
+                <i class="bi bi-person me-1"></i>${esc(r['申請者'])} ・
+                <i class="bi bi-clock me-1"></i>${esc(String(r['申請日時']).split(' ')[0])}
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+              <button class="btn-primary-fill" style="background:var(--green);padding:6px 12px;font-size:12px;"
+                onclick="openApproveModal('${r['リクエストID']}','${esc(r['記事タイトル'])}')">
+                <i class="bi bi-check-circle me-1"></i>承認 / 差し戻し
+              </button>
+            </div>
+          </div>
+        </div>`).join('');
+    })
+    .getPendingApprovals();
+}
+
+function loadHistoryList() {
+  google.script.run
+    .withSuccessHandler(list => {
+      const el = document.getElementById('history-list');
+      if (!list.length) { el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">履歴がありません</div>'; return; }
+      const STATUS_STYLE = {
+        approved: 'background:var(--green-soft);color:var(--green);',
+        rejected: 'background:var(--red-soft);color:var(--red);',
+        pending:  'background:var(--amber-soft);color:var(--amber);',
+      };
+      const STATUS_LABEL = { approved:'承認済', rejected:'差し戻し', pending:'承認待ち' };
+      el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13.5px;">
+        <thead><tr style="background:var(--bg-hover);">
+          <th style="padding:9px 12px;text-align:left;font-size:11.5px;color:var(--text-muted);font-weight:700;">記事タイトル</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11.5px;color:var(--text-muted);font-weight:700;">申請者</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11.5px;color:var(--text-muted);font-weight:700;">ステータス</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11.5px;color:var(--text-muted);font-weight:700;">日時</th>
+        </tr></thead>
+        <tbody>
+          ${list.slice(0,30).map(r => {
+            const st = r['ステータス(pending/approved/rejected)'];
+            return `<tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:9px 12px;font-weight:600;">${esc(r['記事タイトル'])}</td>
+              <td style="padding:9px 12px;color:var(--text-sub);">${esc(r['申請者'])}</td>
+              <td style="padding:9px 12px;"><span style="${STATUS_STYLE[st]||''}padding:2px 9px;border-radius:100px;font-size:12px;font-weight:600;">${STATUS_LABEL[st]||st}</span></td>
+              <td style="padding:9px 12px;font-size:12.5px;color:var(--text-muted);">${esc(String(r['申請日時']).split(' ')[0])}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+    })
+    .getApprovalHistory(30);
+}
+
+function switchApprovalTab(btn) {
+  document.querySelectorAll('.approval-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const tab = btn.dataset.tab;
+  ['pending','history','my'].forEach(t => {
+    const p = document.getElementById('approval-panel-' + t);
+    if (p) p.style.display = t === tab ? 'block' : 'none';
+  });
+  if (tab === 'pending') loadPendingList();
+  if (tab === 'history') loadHistoryList();
+  if (tab === 'my')      loadMyRequests();
+}
+
+function loadMyRequests() {
+  const el = document.getElementById('my-requests-list');
+  el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">自分の申請を読み込み中...</div>';
+  // メールアドレスで絞込（実装上は全件取得してフロントでフィルタ）
+  google.script.run
+    .withSuccessHandler(list => {
+      if (!list.length) { el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">申請履歴がありません</div>'; return; }
+      el.innerHTML = list.map(r => `
+        <div class="approval-card">
+          <div style="font-weight:700;margin-bottom:4px;">${esc(r['記事タイトル'])}</div>
+          <div style="font-size:12.5px;color:var(--text-muted);">${esc(String(r['申請日時']).split(' ')[0])} ・ ${r['ステータス(pending/approved/rejected)']}</div>
+          ${r['コメント'] ? `<div style="margin-top:6px;font-size:13px;background:var(--bg-hover);padding:8px 10px;border-radius:var(--radius-sm);">${esc(r['コメント'])}</div>` : ''}
+        </div>`).join('');
+    })
+    .getApprovalHistory(50);
+}
+
+function openApproveModal(reqId, title) {
+  _currentReqId = reqId;
+  document.getElementById('approve-req-id').value = reqId;
+  document.getElementById('approve-article-title').textContent = title;
+  document.getElementById('approve-comment').value = '';
+  showModal('modal-approve');
+}
+
+function doApprove() {
+  const reqId   = document.getElementById('approve-req-id').value;
+  const comment = document.getElementById('approve-comment').value;
+  showLoad();
+  google.script.run
+    .withSuccessHandler(res => {
+      hideLoad(); closeModal('modal-approve'); toast(res.message);
+      loadPendingList(); loadPendingCount();
+    })
+    .withFailureHandler(e => { hideLoad(); toast(e.message, 'error'); })
+    .approveRequest(reqId, '自分', comment);
+}
+
+function doReject() {
+  const reqId  = document.getElementById('approve-req-id').value;
+  const reason = document.getElementById('approve-comment').value;
+  if (!reason) { toast('差し戻し理由を入力してください', 'error'); return; }
+  showLoad();
+  google.script.run
+    .withSuccessHandler(res => {
+      hideLoad(); closeModal('modal-approve'); toast(res.message);
+      loadPendingList(); loadPendingCount();
+    })
+    .withFailureHandler(e => { hideLoad(); toast(e.message, 'error'); })
+    .rejectRequest(reqId, '自分', reason);
+}
+
+// KB記事の承認申請（KB詳細パネルから呼ぶ）
+function requestArticleApproval(articleId, title) {
+  showLoad();
+  google.script.run
+    .withSuccessHandler(res => { hideLoad(); toast(res.message); loadPendingCount(); })
+    .withFailureHandler(e  => { hideLoad(); toast(e.message, 'error'); })
+    .requestApproval(articleId, '自分');
+}
+
+// ============================================================
+// ⑧ 一括インポート
+// ============================================================
+function switchImportTab(btn) {
+  document.querySelectorAll('.import-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const tab = btn.dataset.tab;
+  ['url','folder','logs'].forEach(t => {
+    const p = document.getElementById('import-panel-' + t);
+    if (p) p.style.display = t === tab ? 'block' : 'none';
+  });
+  if (tab === 'logs') loadImportLogs();
+}
+
+function previewImportUrl() {
+  const url = document.getElementById('import-url').value.trim();
+  if (!url) { toast('URLを入力してください', 'error'); return; }
+  const preview = document.getElementById('import-preview');
+  preview.classList.add('d-none');
+  showLoad();
+  google.script.run
+    .withSuccessHandler(res => {
+      hideLoad();
+      if (res.status !== 'success') { toast(res.message, 'error'); return; }
+      // バッジ
+      document.getElementById('preview-type-badge').textContent = res.detectedType;
+      document.getElementById('preview-row-cnt').textContent     = `${res.totalRows} 行検出`;
+      // テーブル
+      const tbl = document.getElementById('preview-table');
+      const thead = `<thead style="background:var(--bg-hover);"><tr>${res.headers.map(h=>`<th style="padding:7px 10px;font-size:11.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap;">${esc(h)}</th>`).join('')}</tr></thead>`;
+      const tbody = `<tbody>${(res.sampleRows||[]).map(row=>`<tr style="border-bottom:1px solid var(--border);">${row.map(c=>`<td style="padding:7px 10px;font-size:13px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;">${esc(String(c))}</td>`).join('')}</tr>`).join('')}</tbody>`;
+      tbl.innerHTML = thead + tbody;
+      preview.classList.remove('d-none');
+      toast(res.message);
+    })
+    .withFailureHandler(e => { hideLoad(); toast(e.message, 'error'); })
+    .previewImport(url);
+}
+
+function executeImportUrl() {
+  const url  = document.getElementById('import-url').value.trim();
+  const type = document.getElementById('import-type').value;
+  if (!url) { toast('URLを入力してください', 'error'); return; }
+  if (!confirm(`このスプレッドシートをインポートしますか？\n種別: ${type || 'AI自動判定'}`)) return;
+  showLoad();
+  google.script.run
+    .withSuccessHandler(res => {
+      hideLoad();
+      if (res.status === 'error') { toast(res.message, 'error'); return; }
+      toast(`✅ ${res.message}（種別: ${res.detectedType}）`);
+      document.getElementById('import-url').value = '';
+      document.getElementById('import-preview').classList.add('d-none');
+    })
+    .withFailureHandler(e => { hideLoad(); toast(e.message, 'error'); })
+    .importFromSpreadsheetUrl(url, type);
+}
+
+function executeFolderImport() {
+  const folderId = document.getElementById('import-folder-id').value.trim();
+  if (!folderId) { toast('フォルダIDを入力してください', 'error'); return; }
+  if (!confirm('フォルダ内のすべてのスプレッドシートをインポートしますか？')) return;
+  const prog = document.getElementById('folder-import-progress');
+  prog.classList.remove('d-none');
+  prog.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg-hover);border-radius:var(--radius-lg);"><div class="dot-loader show"><span></span><span></span><span></span></div>フォルダをスキャン中...</div>`;
+  showLoad();
+  google.script.run
+    .withSuccessHandler(res => {
+      hideLoad();
+      if (res.status === 'error') { toast(res.message, 'error'); prog.classList.add('d-none'); return; }
+      const resultHtml = (res.results||[]).map(r => `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span>${r.status==='success'?'✅':'⚠️'}</span>
+          <span style="flex:1;font-weight:500;">${esc(r.file||'')}</span>
+          <span style="font-size:12px;color:var(--text-muted);">${esc(r.detectedType||'')} / ${r.imported||0}件</span>
+        </div>`).join('');
+      prog.innerHTML = `
+        <div style="border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">
+          <div style="background:var(--green-soft);border-bottom:1px solid var(--border);padding:10px 16px;font-weight:700;font-size:13.5px;">✅ ${esc(res.message)}</div>
+          <div style="padding:12px 16px;max-height:300px;overflow-y:auto;">${resultHtml}</div>
+        </div>`;
+      toast(res.message);
+    })
+    .withFailureHandler(e => { hideLoad(); prog.innerHTML = `<div style="color:var(--red);">エラー: ${esc(e.message)}</div>`; })
+    .importFromDriveFolder(folderId);
+}
+
+function loadImportLogs() {
+  const el = document.getElementById('import-logs-table');
+  google.script.run
+    .withSuccessHandler(logs => {
+      if (!logs.length) { el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">インポート履歴がありません</div>'; return; }
+      el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:var(--bg-hover);">
+          <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);">日時</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);">ファイル名</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);">判定種別</th>
+          <th style="padding:9px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);">取込件数</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);">ステータス</th>
+        </tr></thead>
+        <tbody>
+          ${logs.map(l => `<tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:9px 12px;color:var(--text-muted);">${esc(String(l['実行日時']).split(' ')[0])}</td>
+            <td style="padding:9px 12px;font-weight:500;">${esc(l['ファイル名'])}</td>
+            <td style="padding:9px 12px;">${esc(l['判定種別'])}</td>
+            <td style="padding:9px 12px;text-align:right;font-weight:700;">${l['取込件数']}</td>
+            <td style="padding:9px 12px;"><span style="background:${l['ステータス']==='success'?'var(--green-soft)':'var(--amber-soft)'};color:${l['ステータス']==='success'?'var(--green)':'var(--amber)'};padding:2px 8px;border-radius:100px;font-size:12px;">${esc(l['ステータス'])}</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+    })
+    .getImportLogs(30);
+}
+
+// ============================================================
+// ⑨ KPI ダッシュボード
+// ============================================================
+let _kpiTrendChart, _kpiDailyChart;
+
+function loadKpiDashboard() {
+  const monthInput = document.getElementById('kpi-month');
+  const ym = monthInput?.value?.replace('-','/') || '';
+  showLoad();
+  google.script.run
+    .withSuccessHandler(data => { hideLoad(); renderKpiDashboard(data); })
+    .withFailureHandler(e    => { hideLoad(); toast(e.message, 'error'); })
+    .getKpiDashboard(ym);
+}
+
+function renderKpiDashboard(data) {
+  // KPIカード
+  const cardsEl = document.getElementById('kpi-cards');
+  if (cardsEl) {
+    const STATUS_COLORS = {
+      achieved:  { bg:'var(--green-soft)', border:'var(--green)',  ring:'#bbf7d0', text:'var(--green)' },
+      on_track:  { bg:'var(--blue-soft)',  border:'var(--blue)',   ring:'#bfdbfe', text:'var(--blue)' },
+      behind:    { bg:'var(--red-soft)',   border:'var(--red)',    ring:'#fecaca', text:'var(--red)' },
+      normal:    { bg:'var(--bg-card)',    border:'var(--border)', ring:'#e2e8f0', text:'var(--text-sub)' },
+      no_target: { bg:'var(--bg-hover)',   border:'var(--border)', ring:'#e2e8f0', text:'var(--text-muted)' },
+    };
+    cardsEl.innerHTML = data.kpiCards.map(k => {
+      const s  = STATUS_COLORS[k.status] || STATUS_COLORS.normal;
+      const icon = k.status==='achieved'?'🏆':k.status==='on_track'?'📈':k.status==='behind'?'⚠️':'📊';
+      return `
+        <div class="kpi-card" style="border-color:${s.border};background:${s.bg};">
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+            <div style="flex:1;">
+              <div style="font-size:11.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;">${esc(k.category||'')}</div>
+              <div style="font-size:13.5px;font-weight:600;">${esc(k.name)}</div>
+            </div>
+            <div style="font-size:1.3rem;">${icon}</div>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:8px;">
+            <span style="font-size:2rem;font-weight:800;color:${s.text};font-variant-numeric:tabular-nums;">${k.actual}</span>
+            <span style="font-size:13px;color:var(--text-muted);">${esc(k.unit)}</span>
+            ${k.target>0?`<span style="font-size:12px;color:var(--text-muted);margin-left:4px;">/ ${k.target}${esc(k.unit)}</span>`:''}
+          </div>
+          ${k.target>0 ? `
+            <div style="height:5px;background:${s.ring};border-radius:100px;">
+              <div style="height:5px;background:${s.text};border-radius:100px;width:${Math.min(k.rate,100)}%;transition:width .6s ease;"></div>
+            </div>
+            <div style="font-size:12px;color:${s.text};font-weight:700;margin-top:4px;">${k.rate}%</div>
+          ` : `<div style="font-size:12px;color:var(--text-muted);">目標未設定</div>`}
+          ${k.id ? `<button class="row-btn danger" style="position:absolute;top:10px;right:10px;opacity:0;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'" onclick="deleteKpiTarget('${k.id}')"><i class="bi bi-trash3"></i></button>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  // カレンダー予定
+  const upcoming = document.getElementById('kpi-upcoming-cnt');
+  const completed = document.getElementById('kpi-completed-cnt');
+  if (upcoming)  upcoming.textContent  = data.upcomingCount;
+  if (completed) completed.textContent = data.completedCount;
+
+  const upList = document.getElementById('kpi-upcoming-list');
+  if (upList) {
+    const list = (data.summary?.upcomingMeetings||[]).slice(0,5);
+    upList.innerHTML = list.length
+      ? list.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12.5px;"><i class="bi bi-calendar3" style="color:var(--blue);"></i><span style="flex:1;">${esc(e.title)}</span><span style="color:var(--text-muted);">${esc(e.start)}</span></div>`).join('')
+      : '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">今後の予定はありません</div>';
+  }
+
+  // 日別ペースグラフ
+  if (data.dailyPace) {
+    if (_kpiDailyChart) _kpiDailyChart.destroy();
+    const ctx = document.getElementById('chart-daily-pace');
+    if (ctx) {
+      _kpiDailyChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: data.dailyPace.labels, datasets: [{ data: data.dailyPace.values, backgroundColor: 'rgba(37,99,235,.7)', borderRadius: 3 }] },
+        options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{stepSize:1}}} }
+      });
+    }
+  }
+
+  // 6ヶ月トレンド
+  if (data.trend) {
+    if (_kpiTrendChart) _kpiTrendChart.destroy();
+    const ctx = document.getElementById('chart-kpi-trend');
+    if (ctx) {
+      _kpiTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.trend.labels,
+          datasets: [
+            { label:'商談',       data:data.trend.meetings,  borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.08)',  tension:.4, fill:true },
+            { label:'ナレッジ',   data:data.trend.knowledge, borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,.08)',  tension:.4, fill:false },
+            { label:'タスク(h)',  data:data.trend.taskHours, borderColor:'#d97706', backgroundColor:'rgba(217,119,6,.08)',  tension:.4, fill:false },
+          ]
+        },
+        options: { responsive:true, plugins:{ legend:{ position:'bottom', labels:{font:{size:12},boxWidth:14} } } }
+      });
+    }
+  }
+
+  // 目標一覧テーブル
+  const tblEl = document.getElementById('kpi-targets-table');
+  if (tblEl) {
+    const targets = data.kpiCards.filter(k => k.id);
+    if (!targets.length) {
+      tblEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">目標が設定されていません。「目標を設定」ボタンから追加してください。</div>`;
+    } else {
+      tblEl.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13.5px;">
+        <thead><tr style="background:var(--bg-hover);">
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);">KPI名</th>
+          <th style="padding:9px 14px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);">目標</th>
+          <th style="padding:9px 14px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);">実績</th>
+          <th style="padding:9px 14px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);">達成率</th>
+          <th style="padding:9px 14px;width:40px;"></th>
+        </tr></thead>
+        <tbody>
+          ${targets.map(k => `<tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:10px 14px;font-weight:600;">${esc(k.name)}</td>
+            <td style="padding:10px 14px;text-align:right;">${k.target} ${esc(k.unit)}</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;">${k.actual} ${esc(k.unit)}</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;color:${k.rate>=100?'var(--green)':k.rate>=70?'var(--blue)':'var(--red)'};">${k.rate}%</td>
+            <td style="padding:10px 8px;"><button class="btn-icon" style="width:26px;height:26px;font-size:12px;" onclick="deleteKpiTarget('${k.id}')"><i class="bi bi-trash3"></i></button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+    }
+  }
+}
+
+function submitKpiTarget() {
+  const monthVal = document.getElementById('kpi-target-month')?.value?.replace('-','/') || '';
+  const d = {
+    yearMonth: monthVal,
+    name:     document.getElementById('kpi-target-name')?.value,
+    target:   document.getElementById('kpi-target-val')?.value,
+    unit:     document.getElementById('kpi-target-unit')?.value || '件',
+    category: document.getElementById('kpi-target-cat')?.value,
+  };
+  if (!d.name || !d.target) { toast('KPI名と目標値は必須です', 'error'); return; }
+  showLoad();
+  google.script.run
+    .withSuccessHandler(res => {
+      hideLoad(); closeModal('modal-kpi-target'); toast(res.message);
+      loadKpiDashboard();
+    })
+    .withFailureHandler(e => { hideLoad(); toast(e.message, 'error'); })
+    .saveKpiTarget(d);
+}
+
+function deleteKpiTarget(id) {
+  if (!confirm('この目標を削除しますか？')) return;
+  showLoad();
+  google.script.run
+    .withSuccessHandler(msg => { hideLoad(); toast(msg); loadKpiDashboard(); })
+    .withFailureHandler(e  => { hideLoad(); toast(e.message, 'error'); })
+    .deleteKpiTarget(id);
+}
+
+function sendKpiReport() {
+  showLoad();
+  google.script.run
+    .withSuccessHandler(msg => { hideLoad(); toast(msg); })
+    .withFailureHandler(e  => { hideLoad(); toast(e.message, 'error'); })
+    .sendMonthlyKpiReport();
+}
+
+// showPage拡張（既存のshowPageに追加ページ対応）
+const _origShowPage = typeof showPage === 'function' ? showPage : null;
+function showPage(id) {
+  const newPages = ['vector','approval','import','kpi'];
+  if (_origShowPage && !newPages.includes(id)) {
+    _origShowPage(id);
+    return;
+  }
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  const pg = document.getElementById('page-' + id);
+  if (pg) pg.classList.add('active');
+  const sb = document.getElementById('sb-' + id);
+  if (sb) sb.classList.add('active');
+
+  const labels = { vector:'意味検索', approval:'承認ワークフロー', import:'一括インポート', kpi:'KPI ダッシュボード', ...PAGE_LABELS };
+  const bcEl = document.getElementById('bc-cur');
+  if (bcEl) bcEl.textContent = labels[id] || id;
+
+  // ページ固有の初期化
+  if (id === 'vector')   { loadVectorIndexStatus(); }
+  if (id === 'approval') { loadApprovalPage(); }
+  if (id === 'import')   { /* 初期表示は不要 */ }
+  if (id === 'kpi')      { loadKpiDashboard(); }
+
+  // 既存ページの場合は _origShowPage に委譲
+  if (_origShowPage && !newPages.includes(id)) _origShowPage(id);
+}

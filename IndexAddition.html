@@ -1,0 +1,298 @@
+<!-- ============================================================
+  IndexAddition.html
+  Index.html に追記する4機能のUIパーツ
+
+  追記場所:
+  1. サイドバー <nav class="sb-nav"> 内 — sb-itemを追加
+  2. <main id="page-area"> 内 — pageブロックを追加
+  3. </body>直前 — モーダルを追加
+  ============================================================ -->
+
+<!-- ===== [1] サイドバー追記部分 =====
+  既存の <div class="sb-section">その他</div> の直前に追記
+-->
+<!--
+  <div class="sb-section" style="margin-top:16px;">高度な機能</div>
+  <div class="sb-item" id="sb-vector"   onclick="showPage('vector')"><i class="bi bi-search-heart"></i><span>意味検索</span></div>
+  <div class="sb-item" id="sb-approval" onclick="showPage('approval')"><i class="bi bi-shield-check"></i><span>承認ワークフロー</span><span class="sb-badge" id="sb-approval-cnt">0</span></div>
+  <div class="sb-item" id="sb-import"   onclick="showPage('import')"><i class="bi bi-cloud-upload"></i><span>一括インポート</span></div>
+  <div class="sb-item" id="sb-kpi"      onclick="showPage('kpi')"><i class="bi bi-graph-up-arrow"></i><span>KPI ダッシュボード</span></div>
+-->
+
+<!-- ===== [2] ページブロック（<main>内の末尾に追記） ===== -->
+
+<!-- ⑪ 意味検索ページ -->
+<div class="page" id="page-vector">
+  <div class="page-body">
+    <div class="page-emoji">🔮</div>
+    <h1 class="page-h1">意味的ナレッジ検索</h1>
+    <p class="page-lead">キーワード一致ではなく「意味・文脈」で社内ナレッジを検索します。Gemini Embedding APIを使用します。</p>
+
+    <!-- インデックス状況バナー -->
+    <div id="vector-index-status" style="background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px;">
+      <div style="font-size:1.3rem;">⚙️</div>
+      <div style="flex:1;">
+        <div style="font-weight:600;font-size:13.5px;">インデックス状況を確認中...</div>
+        <div id="vector-coverage-detail" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
+      </div>
+      <button class="btn-ghost" onclick="buildIndex()" id="btn-build-index" style="white-space:nowrap;">
+        <i class="bi bi-lightning-charge me-1"></i>インデックスを構築
+      </button>
+    </div>
+
+    <!-- 検索バー -->
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <input class="kb-search-input" type="text" id="vector-query"
+        placeholder="例: 省エネ基板の設計上の注意点は？ / A社との商談で出た課題"
+        style="flex:1;" onkeydown="if(event.key==='Enter')doSemanticSearch()">
+      <div style="display:flex;gap:4px;background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius);padding:3px;">
+        <button class="vec-type-btn active" data-type="all"     onclick="setVecType(this)">すべて</button>
+        <button class="vec-type-btn" data-type="kb"       onclick="setVecType(this)">KB記事</button>
+        <button class="vec-type-btn" data-type="meeting"  onclick="setVecType(this)">議事録</button>
+        <button class="vec-type-btn" data-type="note"     onclick="setVecType(this)">メモ</button>
+        <button class="vec-type-btn" data-type="product"  onclick="setVecType(this)">製品</button>
+      </div>
+      <button class="btn-primary-fill" onclick="doSemanticSearch()"><i class="bi bi-search me-1"></i>検索</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:24px;">
+      <i class="bi bi-info-circle me-1"></i>AIがクエリの「意味」を理解して類似度の高い情報を返します。初回はインデックス構築が必要です。
+    </p>
+
+    <!-- 検索結果 -->
+    <div id="vector-results"></div>
+  </div>
+</div>
+
+<!-- ⑫ 承認ワークフローページ -->
+<div class="page" id="page-approval">
+  <div class="page-body">
+    <div class="page-emoji">✅</div>
+    <h1 class="page-h1">承認ワークフロー</h1>
+    <p class="page-lead">ナレッジ記事の「申請 → 承認 / 差し戻し → 公開」フローを管理します。</p>
+
+    <!-- 設定バナー -->
+    <div class="callout" style="margin-bottom:20px;">
+      <span>⚙️</span>
+      <div style="font-size:13px;">
+        スクリプトプロパティ <code>APPROVER_EMAIL</code>（承認者のGmail）と <code>APP_URL</code>（Webアプリの公開URL）を設定すると承認通知メールが送信されます。
+      </div>
+    </div>
+
+    <!-- タブ切替 -->
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;">
+      <button class="approval-tab active" data-tab="pending" onclick="switchApprovalTab(this)">
+        承認待ち <span id="pending-cnt" style="background:var(--red);color:#fff;font-size:11px;padding:1px 7px;border-radius:100px;margin-left:6px;">0</span>
+      </button>
+      <button class="approval-tab" data-tab="history" onclick="switchApprovalTab(this)">承認履歴</button>
+      <button class="approval-tab" data-tab="my" onclick="switchApprovalTab(this)">自分の申請</button>
+    </div>
+
+    <!-- 承認待ち一覧 -->
+    <div id="approval-panel-pending">
+      <div id="pending-list"><div style="text-align:center;padding:40px;color:var(--text-muted);">読み込み中...</div></div>
+    </div>
+
+    <!-- 承認履歴 -->
+    <div id="approval-panel-history" style="display:none;">
+      <div id="history-list"><div style="text-align:center;padding:40px;color:var(--text-muted);">読み込み中...</div></div>
+    </div>
+
+    <!-- 自分の申請 -->
+    <div id="approval-panel-my" style="display:none;">
+      <div id="my-requests-list"><div style="text-align:center;padding:40px;color:var(--text-muted);">読み込み中...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ⑧ 一括インポートページ -->
+<div class="page" id="page-import">
+  <div class="page-body">
+    <div class="page-emoji">📥</div>
+    <h1 class="page-h1">スプレッドシート 一括インポート</h1>
+    <p class="page-lead">既存のExcel / Google スプレッドシートをAIが自動解析してDB（製品・議事録・機種・メモ）に振り分けます。</p>
+
+    <!-- インポート方法タブ -->
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:24px;">
+      <button class="import-tab active" data-tab="url" onclick="switchImportTab(this)">URLで指定</button>
+      <button class="import-tab" data-tab="folder" onclick="switchImportTab(this)">Driveフォルダ一括</button>
+      <button class="import-tab" data-tab="logs" onclick="switchImportTab(this)">インポート履歴</button>
+    </div>
+
+    <!-- URL指定 -->
+    <div id="import-panel-url">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;">
+        <h5 style="font-weight:700;margin-bottom:16px;">スプレッドシートURLからインポート</h5>
+        <div class="prop-wrap" style="margin-bottom:16px;">
+          <div class="prop-row">
+            <span class="prop-label">スプレッドシートURL</span>
+            <input type="url" id="import-url" class="prop-input" placeholder="https://docs.google.com/spreadsheets/d/...">
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">種別（任意）</span>
+            <select id="import-type" class="prop-input" style="border:none;outline:none;font-family:var(--font);">
+              <option value="">AIが自動判定</option>
+              <option value="products">製品マスタ</option>
+              <option value="meetings">商談議事録</option>
+              <option value="notes">ナレッジメモ</option>
+              <option value="models">機種マスタ</option>
+              <option value="customers">顧客データ</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-ghost" onclick="previewImportUrl()"><i class="bi bi-eye me-1"></i>プレビュー確認</button>
+          <button class="btn-primary-fill" onclick="executeImportUrl()"><i class="bi bi-cloud-download me-1"></i>インポート実行</button>
+        </div>
+
+        <!-- プレビュー表示 -->
+        <div id="import-preview" class="d-none" style="margin-top:20px;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">
+          <div style="background:var(--bg-hover);padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+            <span style="font-weight:700;font-size:13.5px;">📊 プレビュー</span>
+            <span id="preview-type-badge" style="background:var(--blue);color:#fff;font-size:11px;padding:2px 8px;border-radius:100px;"></span>
+            <span id="preview-row-cnt"   style="font-size:12px;color:var(--text-muted);margin-left:auto;"></span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table id="preview-table" style="width:100%;border-collapse:collapse;font-size:13px;"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Driveフォルダ一括 -->
+    <div id="import-panel-folder" style="display:none;">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;">
+        <h5 style="font-weight:700;margin-bottom:16px;">Driveフォルダ内のファイルを一括インポート</h5>
+        <div class="callout" style="margin-bottom:16px;">
+          <span>💡</span>
+          <div style="font-size:13px;">フォルダ内のGoogle Sheets / Excel / CSV を全て自動解析します。AIが各ファイルの種別を判定して振り分けます。</div>
+        </div>
+        <div class="prop-wrap" style="margin-bottom:16px;">
+          <div class="prop-row">
+            <span class="prop-label">DriveフォルダID</span>
+            <input type="text" id="import-folder-id" class="prop-input" placeholder="1AbCdEfGhIjKlMnOpQrStUvWxYz">
+          </div>
+        </div>
+        <button class="btn-primary-fill" onclick="executeFolderImport()"><i class="bi bi-folder2-open me-1"></i>フォルダ一括インポート</button>
+        <div id="folder-import-progress" class="d-none" style="margin-top:16px;"></div>
+      </div>
+    </div>
+
+    <!-- インポート履歴 -->
+    <div id="import-panel-logs" style="display:none;">
+      <div id="import-logs-table"><div style="text-align:center;padding:40px;color:var(--text-muted);">読み込み中...</div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ⑨ KPIダッシュボードページ -->
+<div class="page" id="page-kpi">
+  <div class="page-body">
+    <div class="page-emoji">🎯</div>
+    <h1 class="page-h1">KPI ダッシュボード</h1>
+
+    <!-- 月選択 & アクション -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
+      <input type="month" id="kpi-month" class="kb-search-input" style="width:160px;"
+        onchange="loadKpiDashboard()">
+      <button class="btn-ghost" onclick="loadKpiDashboard()"><i class="bi bi-arrow-clockwise me-1"></i>更新</button>
+      <button class="btn-ghost" onclick="showModal('modal-kpi-target')"><i class="bi bi-plus me-1"></i>目標を設定</button>
+      <button class="btn-ghost" onclick="sendKpiReport()" style="margin-left:auto;"><i class="bi bi-send me-1"></i>レポートをメール送信</button>
+    </div>
+
+    <!-- KPIカードグリッド -->
+    <div id="kpi-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:32px;"></div>
+
+    <!-- カレンダー予定商談 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:32px;">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;">
+        <h6 style="font-weight:700;margin-bottom:4px;"><i class="bi bi-calendar-check me-2" style="color:var(--green);"></i>今月の商談予定</h6>
+        <div style="display:flex;gap:16px;margin-bottom:12px;">
+          <div style="text-align:center;"><div id="kpi-upcoming-cnt" style="font-size:2rem;font-weight:700;color:var(--blue);">—</div><div style="font-size:12px;color:var(--text-muted);">今後の予定</div></div>
+          <div style="text-align:center;"><div id="kpi-completed-cnt" style="font-size:2rem;font-weight:700;color:var(--green);">—</div><div style="font-size:12px;color:var(--text-muted);">実施済み</div></div>
+        </div>
+        <div id="kpi-upcoming-list" style="font-size:13px;max-height:150px;overflow-y:auto;"></div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;">
+        <h6 style="font-weight:700;margin-bottom:12px;"><i class="bi bi-activity me-2" style="color:var(--blue);"></i>今月の日別商談ペース</h6>
+        <canvas id="chart-daily-pace" height="140"></canvas>
+      </div>
+    </div>
+
+    <!-- 6ヶ月トレンド -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:24px;">
+      <h6 style="font-weight:700;margin-bottom:16px;"><i class="bi bi-graph-up me-2" style="color:var(--purple);"></i>6ヶ月トレンド</h6>
+      <canvas id="chart-kpi-trend" height="140"></canvas>
+    </div>
+
+    <!-- 目標一覧テーブル -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:700;">📋 KPI目標一覧</div>
+      <div id="kpi-targets-table" style="overflow-x:auto;"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== [3] 追加モーダル ===== -->
+
+<!-- 承認モーダル -->
+<div class="modal fade" id="modal-approve" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header-dark d-flex align-items-center gap-2">
+      <span>✅</span><h5 class="modal-title text-white mb-0 fw-bold">承認 / 差し戻し</h5>
+      <button class="btn-close ms-auto" data-bs-dismiss="modal" style="filter:invert(1);"></button>
+    </div>
+    <div class="modal-body p-4">
+      <input type="hidden" id="approve-req-id">
+      <div id="approve-article-title" style="font-weight:700;font-size:1.1rem;margin-bottom:16px;"></div>
+      <div class="prop-wrap">
+        <div class="prop-row"><span class="prop-label">コメント</span><textarea id="approve-comment" class="prop-input" rows="3" style="resize:vertical;" placeholder="承認コメントや差し戻し理由を入力..."></textarea></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button class="btn-primary-fill" style="flex:1;justify-content:center;background:var(--green);" onclick="doApprove()"><i class="bi bi-check-circle me-1"></i>承認して公開</button>
+        <button class="btn-primary-fill" style="flex:1;justify-content:center;background:var(--red);" onclick="doReject()"><i class="bi bi-x-circle me-1"></i>差し戻し</button>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- KPI目標設定モーダル -->
+<div class="modal fade" id="modal-kpi-target" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header-dark d-flex align-items-center gap-2">
+      <span>🎯</span><h5 class="modal-title text-white mb-0 fw-bold">KPI目標を設定</h5>
+      <button class="btn-close ms-auto" data-bs-dismiss="modal" style="filter:invert(1);"></button>
+    </div>
+    <div class="modal-body p-4">
+      <div class="prop-wrap">
+        <div class="prop-row">
+          <span class="prop-label">対象年月</span>
+          <input type="month" id="kpi-target-month" class="prop-input">
+        </div>
+        <div class="prop-row">
+          <span class="prop-label">KPI名 *</span>
+          <select id="kpi-target-name" class="prop-input" style="border:none;outline:none;font-family:var(--font);">
+            <option>商談件数</option>
+            <option>ナレッジ作成数</option>
+            <option>KB記事公開数</option>
+            <option>タスク稼働時間(h)</option>
+            <option>マニュアル作成数</option>
+            <option>カレンダー商談予定</option>
+          </select>
+        </div>
+        <div class="prop-row"><span class="prop-label">目標値 *</span><input type="number" id="kpi-target-val" class="prop-input" placeholder="例: 10"></div>
+        <div class="prop-row"><span class="prop-label">単位</span><input type="text" id="kpi-target-unit" class="prop-input" placeholder="件 / h / 本"></div>
+        <div class="prop-row">
+          <span class="prop-label">カテゴリ</span>
+          <select id="kpi-target-cat" class="prop-input" style="border:none;outline:none;font-family:var(--font);">
+            <option>商談</option><option>ナレッジ</option><option>タスク</option><option>売上</option><option>その他</option>
+          </select>
+        </div>
+      </div>
+      <div style="text-align:right;margin-top:14px;">
+        <button class="btn-primary-fill" onclick="submitKpiTarget()"><i class="bi bi-save me-1"></i>設定する</button>
+      </div>
+    </div>
+  </div></div>
+</div>

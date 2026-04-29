@@ -1,102 +1,125 @@
-# Drive自動分類システム 組み込み手順
+# 4機能 追加手順書
 
-## 追加されるファイル
+## 追加されるファイル一覧
 
-| ファイル名 | 追記先 | 役割 |
-|---|---|---|
-| `DriveClassifier.gs` | GASに新規ファイルとして追加 | バックエンド：Drive自動スキャン・分類ロジック |
-| `INDEX_ADDITION.html` | `Index.html` に組み込む | UI：機種ツリータブ＆スキャンモーダル |
-| `JS_ADDITION.html` | `JavaScript.html` に組み込む | フロント：ツリー描画・モーダル制御 |
-
----
-
-## Step 1: GAS に DriveClassifier.gs を追加
-
-1. GASエディタを開く
-2. 左側の「+」ボタン → 「スクリプト」を選択
-3. ファイル名を `DriveClassifier` にする
-4. `DriveClassifier.gs` の内容を全てコピーして貼り付け
-5. 保存（Ctrl+S）
+| ファイル名 | 役割 |
+|---|---|
+| `Feature_Vector.gs` | ⑪ Gemini Embedding APIによる意味検索エンジン |
+| `Feature_Approval.gs` | ⑫ 記事承認ワークフロー（Gmail通知付き） |
+| `Feature_Import.gs` | ⑧ スプレッドシート一括インポート（AI自動種別判定） |
+| `Feature_KPI.gs` | ⑨ KPIダッシュボード（カレンダー連動・月次レポート） |
+| `IndexAddition.html` | 4機能のUIパーツ（Indexに追記） |
+| `JS_Features.html` | 4機能のJS（JavaScript.htmlに追記） |
 
 ---
 
-## Step 2: Index.html にタブとモーダルを追加
+## Step 1: GASに4つの.gsファイルを追加
 
-### 2-1. ナビゲーションに追加
+GASエディタで「新しいスクリプトファイル」を4つ作成し、それぞれの内容を貼り付けます。
 
-```html
-<!-- navbarNav の <ul> 内、最後の </ul> の直前に追記 -->
-<li class="nav-item">
-  <a class="nav-link" id="nav-modeltree" href="#" onclick="showTab('modeltree')">
-    <i class="bi bi-diagram-3 text-info me-1"></i>機種・ドキュメント管理
-  </a>
-</li>
+```
+Feature_Vector
+Feature_Approval
+Feature_Import
+Feature_KPI
 ```
 
-### 2-2. タブ本体を追加
+---
 
-`INDEX_ADDITION.html` の中の `<div id="tab-modeltree" ...>` から
-最初の `</div>` （タブ終わり）までを、
-他のタブdiv（例: `tab-notebooklm`）の **直後** にコピー
+## Step 2: DBシートを初期化
 
-### 2-3. モーダルを追加
+GASエディタで以下の関数を順番に手動実行します：
 
-`INDEX_ADDITION.html` の中の `<div class="modal fade" id="modal-scan" ...>` から
-末尾の `</div>` までを、
-他のモーダル（例: `modal-goal`）の **直後** にコピー
+```javascript
+setupVectorDB()    // vector_index シートを作成
+setupApprovalDB()  // approval_requests, approval_logs シートを作成
+setupImportDB()    // import_logs シートを作成
+setupKpiDB()       // kpi_targets, kpi_snapshots シートを作成
+```
 
 ---
 
-## Step 3: JavaScript.html に JS を追加
+## Step 3: Index.html に UIパーツを追記
 
-`JS_ADDITION.html` の内容（`<script>` タグの中身）を、
-`JavaScript.html` の `</script>` の **直前** にコピー
+### 3-1. サイドバーにナビ項目を追加
+
+`IndexAddition.html` 冒頭のコメントアウトされた `sb-item` 4つを、
+既存 Index.html の `<div class="sb-section">その他</div>` の **直前** に追記します：
+
+```html
+<div class="sb-section" style="margin-top:16px;">高度な機能</div>
+<div class="sb-item" id="sb-vector"   onclick="showPage('vector')"><i class="bi bi-search-heart"></i><span>意味検索</span></div>
+<div class="sb-item" id="sb-approval" onclick="showPage('approval')"><i class="bi bi-shield-check"></i><span>承認ワークフロー</span><span class="sb-badge" id="sb-approval-cnt">0</span></div>
+<div class="sb-item" id="sb-import"   onclick="showPage('import')"><i class="bi bi-cloud-upload"></i><span>一括インポート</span></div>
+<div class="sb-item" id="sb-kpi"      onclick="showPage('kpi')"><i class="bi bi-graph-up-arrow"></i><span>KPI ダッシュボード</span></div>
+```
+
+### 3-2. ページブロックを追加
+
+`IndexAddition.html` の `[2] ページブロック` セクション（4つの `<div class="page">` ブロック）を、
+`</main>` の **直前** にまるごとコピーします。
+
+### 3-3. モーダルを追加
+
+`IndexAddition.html` の `[3] 追加モーダル` セクション（承認モーダル・KPI目標モーダル）を、
+既存モーダルの末尾（`</body>` の直前）にコピーします。
 
 ---
 
-## Step 4: シートの自動生成を確認
+## Step 4: JavaScript.html に JS を追記
 
-1. GASエディタで `ensureClassifierSheets` を手動実行
-   （または初回スキャン時に自動生成されます）
-2. スプレッドシートに以下のシートが追加されることを確認：
-   - `models`（機種マスタ）
-   - `boards`（基板マスタ）
-   - `parts`（部品マスタ）
-   - `quotes`（見積書台帳）
-   - `doc_hierarchy`（ドキュメント階層）
+`JS_Features.html` の `<script>` タグの **中身だけ** を、
+`JavaScript.html` の既存 `</script>` の **直前** にコピーします。
 
 ---
 
-## 使い方
+## Step 5: スクリプトプロパティの設定
 
-### Driveフォルダのスキャン
+GASエディタ → 「プロジェクトの設定」→「スクリプトプロパティ」で以下を追加：
 
-1. 「機種・ドキュメント管理」タブを開く
-2. 「Driveフォルダを取込む」ボタンをクリック
-3. **機種名**と **DriveフォルダのID** を入力
-   - フォルダIDは Drive URL の末尾部分
-   - `https://drive.google.com/drive/folders/` **← ここがID**
-4. 「検証」ボタンでフォルダの存在確認
-5. 「スキャン開始」→ 自動分類が実行される
+| キー | 値 | 用途 |
+|---|---|---|
+| `GEMINI_API_KEY` | Gemini APIキー | ⑪⑧ 必須 |
+| `APPROVER_EMAIL` | 承認者のGmailアドレス | ⑫ 承認通知メール |
+| `APP_URL` | WebアプリのURL | ⑫ メール内リンク |
 
-### 自動分類ルール
+---
 
-| ファイル名キーワード | 分類先 |
-|---|---|
-| 製品仕様, spec, 仕様書 | 📋 機種製品仕様書 |
-| 基板設計, 回路設計, PCB, schematic | 🔧 基板設計仕様書 |
-| BOM, 構成表, 部品表, bill_of_material | 📦 構成表(BOM) |
-| 見積, quote, QUOTE, estimate | 💴 見積書 |
-| 図面, drawing, DWG, CAD | 📐 図面 |
-| マニュアル, manual, 取扱説明 | 📖 マニュアル |
-| 試験, テスト, test, 検査 | 🧪 試験・検査書 |
+## Step 6: 定期トリガーの設定（任意）
 
-- **サブフォルダ名に「基板」「PCB」「board」が含まれる場合**: 基板ノードとして自動認識
-- **Excelファイル (.xlsx)**: 構成表(BOM)として自動分類
-- **上記にマッチしないファイル**: 「未分類」として登録 → 後から手動で種別変更可能
+GASエディタ → 「トリガー」で以下を設定すると自動化が完了します：
 
-### 未分類ファイルの種別変更
+| 関数名 | 頻度 | 用途 |
+|---|---|---|
+| `buildVectorIndex` | 毎日 午前2時 | ⑪ インデックス自動更新 |
+| `sendApprovalReminders` | 毎日 午前9時 | ⑫ 承認忘れリマインダー |
+| `sendMonthlyKpiReport` | 毎月1日 午前8時 | ⑨ 月次KPIレポート自動送信 |
 
-1. ツリー上の「⚠️ 未分類」ファイルの「分類する」ボタンをクリック
-2. 種別番号を入力して確定
-3. ツリーが自動更新される
+---
+
+## 各機能の使い方
+
+### ⑪ 意味検索
+1. サイドバー「意味検索」を開く
+2. 「インデックスを構築」ボタンを押す（初回のみ、数分かかります）
+3. 検索バーに自然な質問文を入力 → 検索
+   - 例: 「省エネ基板の設計上の注意点は？」
+   - 例: 「A社との商談で出た価格に関する課題」
+
+### ⑫ 承認ワークフロー
+- **記事作成者**: KB記事を書いた後、記事詳細パネルの「承認申請」ボタンを押す
+- **承認者**: サイドバー「承認ワークフロー」→「承認待ち」タブで確認・承認/差し戻し
+- `APPROVER_EMAIL` を設定するとGmailで通知が届きます
+
+### ⑧ 一括インポート
+1. サイドバー「一括インポート」を開く
+2. 「URLで指定」タブ → スプレッドシートのURLを貼り付け
+3. 「プレビュー確認」で内容を確認してから「インポート実行」
+   - 種別はAIが自動判定（手動指定も可能）
+
+### ⑨ KPIダッシュボード
+1. サイドバー「KPI ダッシュボード」を開く
+2. 「目標を設定」ボタンでKPIを登録
+   - 例: 商談件数 目標10件/月
+3. ダッシュボードがリアルタイムで実績と比較を表示
+4. Googleカレンダーの予定（「商談」「訪問」などが含まれるもの）が自動連携
