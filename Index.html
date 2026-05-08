@@ -5,6 +5,75 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sales Knowledge Hub v3</title>
   <?!= include('CSS'); ?>
+  <style>
+    /* 入力フォーム（テキストボックス、テキストエリア、プルダウン） */
+    .input, input, textarea, select {
+      background-color: #ffffff !important;
+      color: #333333 !important;
+      border: 1px solid #d1d5db !important; /* 薄いグレーの枠線 */
+      border-radius: 4px !important; /* 角を少し丸くする */
+    }
+
+    /* プレースホルダー（入力前の薄いヒント文字） */
+    .input::placeholder, input::placeholder, textarea::placeholder {
+      color: #9ca3af !important;
+    }
+
+    /* 入力中（フォーカス時）のスタイル */
+    .input:focus, input:focus, textarea:focus, select:focus {
+      outline: none !important;
+      border-color: #3b82f6 !important; /* 入力中は枠線を青くする */
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+    }
+    /* 全体の背景と基本の文字色 */
+    body, #app, .main-content {
+      background-color: #f3f4f6 !important; /* ほんのり薄いグレーで目に優しく */
+      color: #333333 !important; /* 基本の文字色は濃いグレー */
+    }
+
+    /* サイドバー */
+    .sidebar {
+      background-color: #ffffff !important;
+      border-right: 1px solid #e5e7eb !important;
+      color: #333333 !important;
+    }
+    /* サイドバーのロゴ部分 */
+    .sidebar-logo .logo-text, .logo-icon {
+      color: #111827 !important;
+    }
+    /* サイドバーのメニュー項目 */
+    .sidebar-nav .nav-item {
+      color: #4b5563 !important;
+    }
+    .sidebar-nav .nav-item:hover, .sidebar-nav .nav-item.active {
+      background-color: #f3f4f6 !important;
+      color: #2563eb !important; /* アクティブ時は少し青くして見やすく */
+    }
+
+    /* 各種カード（ダッシュボードの四角い要素） */
+    .card, .stat-card {
+      background-color: #ffffff !important;
+      border: 1px solid #e5e7eb !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important; /* 軽い影をつける */
+      color: #333333 !important;
+    }
+
+    /* 見出し（h1, h3など）の文字色 */
+    .page-header h1, .card h3 {
+      color: #1f2937 !important;
+    }
+
+    /* テーブルのヘッダーと罫線 */
+    .data-table th {
+      background-color: #f9fafb !important;
+      color: #374151 !important;
+      border-bottom: 2px solid #e5e7eb !important;
+    }
+    .data-table td {
+      border-bottom: 1px solid #e5e7eb !important;
+      color: #4b5563 !important;
+    }
+  </style>
 </head>
 <body>
   <div id="app">
