@@ -3,761 +3,523 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Obsidianライクなグラフナレッジベース — 製品・議事録・メモをネットワーク可視化するGAS製SaaS">
-  <title>ナレッジグラフ Hub v2</title>
-  <!-- vis-network (グラフ描画ライブラリ) -->
-  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>Sales Knowledge Hub v3</title>
   <?!= include('CSS'); ?>
-  <script>
-  // =====================================================
-  // showTab — GASサンドボックス対応のインライン定義
-  // JavaScript.htmlより先にロードされるため確実に動作する
-  // =====================================================
-  function showTab(tabId) {
-    var panes = document.querySelectorAll('.tab-pane');
-    for (var i = 0; i < panes.length; i++) {
-      panes[i].classList.remove('active');
-    }
-    var navItems = document.querySelectorAll('.sidebar-item');
-    for (var j = 0; j < navItems.length; j++) {
-      navItems[j].classList.remove('active');
-    }
-    var target = document.getElementById('tab-' + tabId);
-    if (target) { target.classList.add('active'); }
-    var navItem = document.getElementById('nav-' + tabId);
-    if (navItem) { navItem.classList.add('active'); }
-    try {
-      if (tabId === 'dashboard' && typeof loadDashboardData === 'function') loadDashboardData();
-      if (tabId === 'management' && typeof loadManagementData === 'function') loadManagementData();
-      if (tabId === 'career' && typeof loadCareerData === 'function') loadCareerData();
-    } catch(e) {}
-  }
-  window.showTab = showTab;
-  </script>
 </head>
 <body>
-
-<!-- ローディングバー -->
-<div id="global-loader"></div>
-
-<!-- トースト通知コンテナ -->
-<div id="toast-container"></div>
-
-<!-- モバイルメニューボタン -->
-<button id="mobile-toggle" class="btn btn-secondary btn-icon" onclick="toggleSidebar()" style="display:none;">
-  <i>☰</i>
-</button>
-
-<!-- ─── アプリシェル ─── -->
-<div id="app-shell">
-
-  <!-- ─── サイドバー ─── -->
-  <nav id="sidebar">
-    <div class="sidebar-brand">
-      <div class="brand-icon">🕸️</div>
-      <div>
-        <div class="brand-name">Knowledge Graph</div>
-        <div class="brand-version">Hub v2.0 — GAS</div>
+  <div id="app">
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">⬡</span>
+        <span class="logo-text">SKH v3</span>
       </div>
-    </div>
-
-    <div class="sidebar-nav">
-
-      <div class="sidebar-section-label">メイン</div>
-      <button class="sidebar-item active" id="nav-dashboard" data-tab="dashboard" onclick="showTab('dashboard')">
-        <span class="item-icon">⬜</span> ダッシュボード
-      </button>
-      <button class="sidebar-item" id="nav-graph" data-tab="graph" onclick="showTab('graph')">
-        <span class="item-icon">🕸️</span> ナレッジグラフ
-        <span class="item-badge" id="badge-edges">0</span>
-      </button>
-
-      <div class="sidebar-section-label" style="margin-top:12px;">AI機能</div>
-      <button class="sidebar-item" id="nav-ai" data-tab="ai" onclick="showTab('ai')">
-        <span class="item-icon">🤖</span> AI検索・ロープレ
-      </button>
-      <button class="sidebar-item" id="nav-analytics" data-tab="analytics" onclick="showTab('analytics')">
-        <span class="item-icon">⚡</span> 業務分析・Chat
-      </button>
-
-      <div class="sidebar-section-label" style="margin-top:12px;">データ登録</div>
-      <button class="sidebar-item" id="nav-product" data-tab="product" onclick="showTab('product')">
-        <span class="item-icon" style="color:var(--accent-blue);">📦</span> 製品マスタ
-      </button>
-      <button class="sidebar-item" id="nav-meeting" data-tab="meeting" onclick="showTab('meeting')">
-        <span class="item-icon" style="color:var(--accent-orange);">📄</span> 議事録
-      </button>
-      <button class="sidebar-item" id="nav-note" data-tab="note" onclick="showTab('note')">
-        <span class="item-icon" style="color:var(--accent-green);">📝</span> メモ (Obsidian)
-      </button>
-      <button class="sidebar-item" id="nav-drivesync" data-tab="drivesync" onclick="showTab('drivesync')">
-        <span class="item-icon" style="color:var(--accent-purple);">☁️</span> Drive同期
-      </button>
-      <button class="sidebar-item" id="nav-boardlinker" data-tab="boardlinker" onclick="showTab('boardlinker')">
-        <span class="item-icon" style="color:#22d3ee;">🔩</span> 基板ファイルDB
-      </button>
-
-      <div class="sidebar-section-label" style="margin-top:12px;">管理</div>
-      <button class="sidebar-item" id="nav-management" data-tab="management" onclick="showTab('management')">
-        <span class="item-icon">🗄️</span> データ管理
-      </button>
-      <button class="sidebar-item" id="nav-career" data-tab="career" onclick="showTab('career')">
-        <span class="item-icon">🏆</span> キャリア・評価
-      </button>
-      <button class="sidebar-item" id="nav-notebooklm" data-tab="notebooklm" onclick="showTab('notebooklm')">
-        <span class="item-icon">📚</span> NotebookLM台帳
-      </button>
-
-    </div>
-
-    <div class="sidebar-footer">
-      <button class="sidebar-item" onclick="runAutoExtract()" style="color:var(--accent-green)">
-        <span class="item-icon">🔗</span> 自動エッジ抽出
-      </button>
-    </div>
-  </nav>
-
-  <!-- ─── メインコンテンツ ─── -->
-  <main id="main-content">
-
-    <!-- ══════════════════════════════════════════
-         タブ: ダッシュボード
-    ══════════════════════════════════════════ -->
-    <div id="tab-dashboard" class="tab-pane active">
-      <div class="page-header">
-        <h1>⬜ ダッシュボード</h1>
-        <div class="page-desc">ナレッジベース全体の状態をひと目で確認</div>
+      <ul class="sidebar-nav">
+        <li class="nav-item active" data-tab="dashboard">
+          <span class="nav-icon">◈</span><span>ダッシュボード</span>
+        </li>
+        <li class="nav-item" data-tab="ocr">
+          <span class="nav-icon">◉</span><span>OCR・ナレッジ化</span>
+        </li>
+        <li class="nav-item" data-tab="bom">
+          <span class="nav-icon">◆</span><span>BOM管理</span>
+        </li>
+        <li class="nav-item" data-tab="crm">
+          <span class="nav-icon">◇</span><span>CRM</span>
+        </li>
+        <li class="nav-item" data-tab="ai">
+          <span class="nav-icon">◎</span><span>AI検索・分析</span>
+        </li>
+        <li class="nav-item" data-tab="graph">
+          <span class="nav-icon">◈</span><span>ナレッジグラフ</span>
+        </li>
+        <li class="nav-item" data-tab="meetings">
+          <span class="nav-icon">◻</span><span>商談議事録</span>
+        </li>
+        <li class="nav-item" data-tab="import">
+          <span class="nav-icon">◼</span><span>インポート</span>
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <button class="btn-setup" onclick="setupDB()">⚙ DB初期化</button>
       </div>
-      <div class="page-body">
+    </nav>
 
-        <!-- 統計カード -->
-        <div class="stat-grid" id="stat-grid">
-          <div class="stat-card" style="--stat-color: var(--accent-blue)">
-            <div class="stat-label">製品マスタ</div>
-            <div class="stat-value" id="stat-products">—</div>
-            <div class="stat-sub">登録製品数</div>
+    <!-- Main content -->
+    <main class="main-content" id="main-content">
+      <!-- Toast -->
+      <div id="toast" class="toast"></div>
+
+      <!-- DASHBOARD -->
+      <div class="tab-panel active" id="tab-dashboard">
+        <div class="page-header">
+          <h1>ダッシュボード</h1>
+          <button class="btn-primary" onclick="loadDashboard()">↻ 更新</button>
+        </div>
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card loading">読み込み中…</div>
+        </div>
+        <div class="dashboard-row">
+          <div class="card" id="crm-funnel-card">
+            <h3>案件パイプライン</h3>
+            <div id="crm-funnel"></div>
           </div>
-          <div class="stat-card" style="--stat-color: var(--accent-orange)">
-            <div class="stat-label">商談議事録</div>
-            <div class="stat-value" id="stat-meetings">—</div>
-            <div class="stat-sub">蓄積件数</div>
-          </div>
-          <div class="stat-card" style="--stat-color: var(--accent-green)">
-            <div class="stat-label">ナレッジメモ</div>
-            <div class="stat-value" id="stat-notes">—</div>
-            <div class="stat-sub">メモ登録数</div>
-          </div>
-          <div class="stat-card" style="--stat-color: var(--accent-purple)">
-            <div class="stat-label">グラフエッジ</div>
-            <div class="stat-value" id="stat-edges">—</div>
-            <div class="stat-sub">ノード間の関係性</div>
+          <div class="card" id="sales-stats-card">
+            <h3>担当別実績</h3>
+            <div id="sales-stats"></div>
           </div>
         </div>
-
-        <!-- グラフプレビュー + NotebookLM -->
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:20px;">
-          <div class="glass-card">
-            <div class="card-head">
-              <h2>📈 商談登録推移</h2>
-            </div>
-            <div class="card-body"><div class="chart-wrapper"><canvas id="chart-meetings"></canvas></div></div>
-          </div>
-          <div class="glass-card">
-            <div class="card-head">
-              <h2>🥧 製品ステータス</h2>
-            </div>
-            <div class="card-body"><div class="chart-wrapper"><canvas id="chart-products"></canvas></div></div>
-          </div>
+        <div class="card" style="margin-top:16px">
+          <h3>最近の活動</h3>
+          <div id="recent-activities"></div>
         </div>
-
-        <!-- NotebookLM一覧 -->
-        <div class="glass-card">
-          <div class="card-head">
-            <h2>📚 連携済み NotebookLM</h2>
-            <button class="btn btn-secondary btn-sm" onclick="showTab('notebooklm')">台帳へ</button>
-          </div>
-          <div class="card-body">
-            <ul class="item-list" id="notebooklm-list">
-              <li class="item-list-item"><span style="color:var(--text-muted); font-size:12px;">読み込み中...</span></li>
-            </ul>
-          </div>
-        </div>
-
       </div>
-    </div>
 
-    <!-- ══════════════════════════════════════════
-         タブ: ナレッジグラフ (vis-network)
-    ══════════════════════════════════════════ -->
-    <div id="tab-graph" class="tab-pane">
-      <div id="graph-container">
-
-        <!-- グラフキャンバス -->
-        <div id="graph-canvas-wrapper">
-
-          <!-- ツールバー -->
-          <div id="graph-toolbar">
-            <button class="graph-control-btn" onclick="fitGraph()">🔍 全体表示</button>
-            <button class="graph-control-btn filter-btn active" data-type="product" onclick="toggleFilter(this, 'product')">
-              <span style="width:8px;height:8px;background:#1d5bd4;border-radius:50%;display:inline-block;"></span> 製品
-            </button>
-            <button class="graph-control-btn filter-btn active" data-type="meeting" onclick="toggleFilter(this, 'meeting')">
-              <span style="width:8px;height:8px;background:#c96d1b;border-radius:50%;display:inline-block;"></span> 議事録
-            </button>
-            <button class="graph-control-btn filter-btn active" data-type="note" onclick="toggleFilter(this, 'note')">
-              <span style="width:8px;height:8px;background:#1a7f37;border-radius:50%;display:inline-block;"></span> メモ
-            </button>
-            <button class="graph-control-btn filter-btn active" data-type="source" onclick="toggleFilter(this, 'source')">
-              <span style="width:8px;height:8px;background:#7e45c2;border-radius:50%;display:inline-block;"></span> PDF
-            </button>
-            <input type="text" id="graph-search" placeholder="🔎 ノード検索..." style="background:rgba(13,17,23,0.8);border:1px solid rgba(255,255,255,0.12);color:#f0f6fc;padding:6px 12px;border-radius:6px;font-size:12px;outline:none;width:160px;" oninput="searchGraph(this.value)">
-            <button class="graph-control-btn" onclick="showAddEdgeModal()">＋ エッジ追加</button>
-            <button class="graph-control-btn" onclick="reloadGraph()">🔄 再読込</button>
-          </div>
-
-          <!-- グラフ本体 -->
-          <div id="knowledge-graph">
-            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);flex-direction:column;gap:12px;">
-              <div style="font-size:48px;">🕸️</div>
-              <div style="font-size:14px;">グラフを読み込んでいます...</div>
-            </div>
-          </div>
-
-          <!-- 凡例 -->
-          <div id="graph-legend">
-            <div class="legend-item"><div class="legend-dot" style="background:#1d5bd4;"></div> 製品</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#c96d1b;"></div> 議事録</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#1a7f37;"></div> メモ</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#7e45c2;"></div> PDF</div>
-          </div>
+      <!-- OCR / KNOWLEDGE -->
+      <div class="tab-panel" id="tab-ocr">
+        <div class="page-header">
+          <h1>OCR・ナレッジ化</h1>
         </div>
-
-        <!-- ノード詳細パネル -->
-        <div id="node-detail-panel">
-          <div class="panel-header">
-            <div>
-              <div class="panel-node-type" id="panel-node-type">ノード</div>
-              <div style="font-size:15px; font-weight:700; color:var(--text-primary);" id="panel-node-title">ノードを選択</div>
-            </div>
-            <button class="panel-close-btn" onclick="closeDetailPanel()">✕</button>
+        <div class="two-col">
+          <div class="card">
+            <h3>📁 Driveフォルダ一括同期</h3>
+            <p class="hint">スクリプトプロパティ <code>KNOWLEDGE_FOLDER_ID</code> のフォルダを再帰スキャンし、PDF・画像・GoogleDocsをOCR＋AI要約してナレッジ化します。</p>
+            <button class="btn-primary full-width" onclick="syncDrive()">▶ 今すぐ同期</button>
           </div>
-          <div class="panel-body" id="panel-body">
-            <p style="font-size:12px;color:var(--text-muted);">グラフ上のノードをクリックすると詳細が表示されます。</p>
-          </div>
-          <div id="edge-form-panel" style="display:none;">
-            <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;">このノードからエッジを追加</div>
-            <select class="form-control" id="edge-target-select" style="margin-bottom:8px;"></select>
-            <input type="text" class="form-control" id="edge-relation-input" placeholder="関係の種類 (例: 商談で言及)" style="margin-bottom:8px;">
-            <button class="btn btn-success btn-block btn-sm" onclick="submitEdgeFromPanel()">🔗 エッジを追加</button>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════
-         タブ: AI検索・ロープレ
-    ══════════════════════════════════════════ -->
-    <div id="tab-ai" class="tab-pane">
-      <div class="page-header">
-        <h1>🤖 Gemini ナレッジ検索 & ロープレ</h1>
-        <div class="page-desc">社内データを横断検索 / 顧客ロープレ / クローンAI</div>
-      </div>
-      <div class="page-body">
-        <div class="glass-card" style="margin-bottom:16px;">
-          <div class="card-body">
+          <div class="card">
+            <h3>📄 単一ファイル指定</h3>
             <div class="form-group">
-              <label class="form-label">動作モード</label>
-              <div class="mode-btn-group">
-                <button class="mode-btn active" data-mode="search" onclick="setAiMode(this)">🔍 社内検索</button>
-                <button class="mode-btn" data-mode="roleplay" onclick="setAiMode(this)">🎭 顧客ロープレ</button>
-                <button class="mode-btn" data-mode="clone" onclick="setAiMode(this)">👤 クローンAI</button>
-              </div>
-              <input type="hidden" id="ai-mode-value" value="search">
+              <label>Google Drive ファイルID</label>
+              <input type="text" id="ocr-file-id" placeholder="1aBcD..." class="input">
             </div>
             <div class="form-group">
-              <label class="form-label">質問・発言内容</label>
-              <textarea id="ai-query" class="form-control" rows="4" placeholder="例: XB-2200Aが廃番になった理由は？&#10;（ロープレ）その製品、ウチの設備に組み込めるの？値段が高すぎる。"></textarea>
+              <label>追加コンテキスト（任意）</label>
+              <input type="text" id="ocr-context" placeholder="例: A製品の仕様書" class="input">
             </div>
-            <button class="btn btn-primary btn-block" onclick="submitAIQuery()">
-              ➤ AIに送信する
-            </button>
+            <button class="btn-primary full-width" onclick="importSingleFile()">▶ OCR & ナレッジ化</button>
           </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <h3>ナレッジ一覧</h3>
+          <div class="toolbar">
+            <input type="text" id="sources-search" placeholder="検索…" class="input" style="width:240px" oninput="filterTable('sources-table', this.value)">
+          </div>
+          <div class="table-wrap">
+            <table id="sources-table" class="data-table">
+              <thead><tr><th>ファイル名</th><th>カテゴリ</th><th>タグ</th><th>AI要約</th><th>連携日時</th><th>操作</th></tr></thead>
+              <tbody id="sources-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOM -->
+      <div class="tab-panel" id="tab-bom">
+        <div class="page-header"><h1>BOM管理</h1></div>
+
+        <!-- Tabs within BOM -->
+        <div class="sub-tabs">
+          <button class="sub-tab active" data-sub="bom-models">機種マスタ</button>
+          <button class="sub-tab" data-sub="bom-boards">基板マスタ</button>
+          <button class="sub-tab" data-sub="bom-parts">部品マスタ</button>
+          <button class="sub-tab" data-sub="bom-quotes">見積書</button>
+          <button class="sub-tab" data-sub="bom-tree">BOMツリー</button>
+          <button class="sub-tab" data-sub="bom-scan">ファイルスキャン</button>
         </div>
 
-        <div id="ai-response-container" style="display:none;">
-          <div class="glass-card">
-            <div class="card-head">
-              <h2>💬 AIからの回答</h2>
-            </div>
-            <div class="card-body ai-response-area" id="ai-response"></div>
-          </div>
-        </div>
-        <div id="analytics-result" class="ai-response-box d-none" style="margin-top:20px;"></div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════
-         タブ: 業務分析・Chat
-    ══════════════════════════════════════════ -->
-    <div id="tab-analytics" class="tab-pane">
-      <div class="page-header">
-        <h1>⚡ Google Workspace 自動業務分析</h1>
-        <div class="page-desc">Gmail + カレンダーからAIが傾向分析してChatに通知</div>
-      </div>
-      <div class="page-body">
-        <div class="glass-card" style="margin-bottom:16px;">
-          <div class="card-body" style="text-align:center; padding:32px;">
-            <div style="font-size:48px; margin-bottom:16px;">📧</div>
-            <div style="font-size:15px; font-weight:600; margin-bottom:8px;">最新のメール・予定を分析する</div>
-            <div style="font-size:13px; color:var(--text-muted); margin-bottom:24px;">GASがGmailとカレンダーを読み込み、Geminiがレポートを作成します。<br>Webhook URLが設定されていればGoogle Chatへ同時送信されます。</div>
-            <button id="btn-analytics" class="btn btn-primary" onclick="submitAnalytics()">
-              ⚡ 分析を実行する
-            </button>
-          </div>
-        </div>
-        <div id="analytics-result-container" style="display:none;">
-          <div class="glass-card">
-            <div class="card-head"><h2>📊 分析レポート</h2></div>
-            <div class="card-body ai-response-area" id="analytics-result"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════
-         タブ: 製品マスタ登録
-    ══════════════════════════════════════════ -->
-    <div id="tab-product" class="tab-pane">
-      <div class="page-header">
-        <h1>📦 製品マスタ登録</h1>
-        <div class="page-desc">製品仕様・改廃情報を登録してグラフのノードに</div>
-      </div>
-      <div class="page-body">
-        <div class="glass-card">
-          <div class="card-body">
-            <form id="form-product" onsubmit="event.preventDefault(); submitProduct();">
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                <div class="form-group" style="grid-column:1/2">
-                  <label class="form-label">製品名・型番 <span style="color:var(--accent-red)">*</span></label>
-                  <input type="text" id="prd-name" class="form-control" required>
-                </div>
-                <div class="form-group" style="grid-column:2/3">
-                  <label class="form-label">販売価格目安</label>
-                  <input type="text" id="prd-price" class="form-control" placeholder="例: 150,000円〜">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">ステータス</label>
-                  <select id="prd-status" class="form-select">
-                    <option value="現行品">現行品 (Active)</option>
-                    <option value="廃番予定">廃番予定 (Phasing Out)</option>
-                    <option value="廃番">廃番 (Obsolete)</option>
-                    <option value="新製品">新製品 (New)</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">後継機種</label>
-                  <input type="text" id="prd-successor" class="form-control" placeholder="廃番の場合は代替機種を入力">
-                </div>
-                <div class="form-group" style="grid-column:1/-1">
-                  <label class="form-label">改廃理由</label>
-                  <textarea id="prd-reason" class="form-control" rows="2" placeholder="例: 部品調達難のため。機能拡張を行った後継機へ切り替え。"></textarea>
-                </div>
-                <div class="form-group" style="grid-column:1/-1">
-                  <label class="form-label">競合優位性</label>
-                  <textarea id="prd-advantage" class="form-control" rows="3" placeholder="耐久性が従来比1.5倍。〇〇基板との親和性が高い。"></textarea>
-                </div>
-              </div>
-              <div style="text-align:right; margin-top:8px;">
-                <button type="submit" class="btn btn-primary">💾 データベースに登録</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════
-         タブ: 議事録登録
-    ══════════════════════════════════════════ -->
-    <div id="tab-meeting" class="tab-pane">
-      <div class="page-header">
-        <h1>📄 商談議事録 登録</h1>
-        <div class="page-desc">商談内容を集約・AIが顧客の関心事や断り文句を学習</div>
-      </div>
-      <div class="page-body">
-        <div class="glass-card">
-          <div class="card-body">
-            <form id="form-meeting" onsubmit="event.preventDefault(); submitMeeting();">
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                <div class="form-group">
-                  <label class="form-label">顧客名・社名 <span style="color:var(--accent-red)">*</span></label>
-                  <input type="text" id="mtg-client" class="form-control" required placeholder="株式会社〇〇">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">関連する基板・機種</label>
-                  <input type="text" id="mtg-related" class="form-control" placeholder="対象製品タグ">
-                </div>
-                <div class="form-group" style="grid-column:1/-1">
-                  <label class="form-label">内容サマリ (AIが最も重視する1行要約) <span style="color:var(--accent-red)">*</span></label>
-                  <input type="text" id="mtg-summary" class="form-control" required placeholder="価格ネックで一旦保留だが、耐久性には興味あり">
-                </div>
-                <div class="form-group" style="grid-column:1/-1">
-                  <label class="form-label">議事録全文</label>
-                  <textarea id="mtg-fulltext" class="form-control" rows="6" placeholder="ここにテキストを貼り付け"></textarea>
-                </div>
-              </div>
-              <div style="text-align:right; margin-top:8px;">
-                <button type="submit" class="btn btn-primary">💾 データベースに登録</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════
-         タブ: メモ (Obsidian形式)
-    ══════════════════════════════════════════ -->
-    <div id="tab-note" class="tab-pane">
-      <div class="page-header">
-        <h1>📝 ナレッジメモ (Obsidian形式)</h1>
-        <div class="page-desc"><code>[[製品名]]</code> 形式で書くと自動エッジが生成されます</div>
-      </div>
-      <div class="page-body">
-        <div class="glass-card">
-          <div class="card-body">
-            <form id="form-note" onsubmit="event.preventDefault(); submitNote();">
-              <div class="form-group">
-                <label class="form-label">タグ (ハッシュタグ等) <span style="color:var(--accent-red)">*</span></label>
-                <input type="text" id="nt-tags" class="form-control" required placeholder="#ナレッジ #営業トーク #競合情報">
+        <!-- 機種マスタ -->
+        <div class="sub-panel active" id="sub-bom-models">
+          <div class="two-col">
+            <div class="card">
+              <h3>機種登録</h3>
+              <div class="form-group"><label>機種名 *</label><input id="m-name" class="input"></div>
+              <div class="form-group"><label>型番</label><input id="m-partno" class="input"></div>
+              <div class="form-group"><label>カテゴリ</label><input id="m-cat" class="input" placeholder="例: 制御ボード"></div>
+              <div class="form-group"><label>説明</label><textarea id="m-desc" class="input" rows="2"></textarea></div>
+              <div class="form-row">
+                <div class="form-group half"><label>販売価格</label><input id="m-price" class="input" type="number"></div>
+                <div class="form-group half"><label>原価</label><input id="m-cost" class="input" type="number"></div>
               </div>
               <div class="form-group">
-                <label class="form-label">メモ本文 (Markdown形式可、[[製品名]]形式で自動リンク)</label>
-                <textarea id="nt-content" class="form-control" rows="12" style="font-family: 'Courier New', monospace; font-size:13px;" placeholder="# 競合の最新動向&#10;&#10;A社がリリースした[[XB-2200A]]の後継機は...&#10;&#10;## ポイント&#10;- 耐久性が従来比2倍&#10;- 価格は15%上昇"></textarea>
+                <label>ステータス</label>
+                <select id="m-status" class="input">
+                  <option>現行品</option><option>開発中</option><option>廃番</option><option>生産終了</option>
+                </select>
               </div>
-              <div style="text-align:right;">
-                <button type="submit" class="btn btn-primary">💾 データベースに登録</button>
+              <button class="btn-primary full-width" onclick="saveModel()">登録</button>
+            </div>
+            <div class="card">
+              <h3>機種一覧</h3>
+              <input type="text" placeholder="検索…" class="input" style="width:100%;margin-bottom:8px" oninput="filterTable('models-table',this.value)">
+              <div class="table-wrap">
+                <table id="models-table" class="data-table">
+                  <thead><tr><th>機種名</th><th>型番</th><th>販売価格</th><th>ステータス</th></tr></thead>
+                  <tbody id="models-tbody"></tbody>
+                </table>
               </div>
-            </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- 基板マスタ -->
+        <div class="sub-panel" id="sub-bom-boards">
+          <div class="two-col">
+            <div class="card">
+              <h3>基板登録</h3>
+              <div class="form-group"><label>基板名 *</label><input id="b-name" class="input"></div>
+              <div class="form-group"><label>リビジョン</label><input id="b-rev" class="input" placeholder="Rev.1"></div>
+              <div class="form-group"><label>説明</label><textarea id="b-desc" class="input" rows="2"></textarea></div>
+              <div class="form-row">
+                <div class="form-group half"><label>製造コスト</label><input id="b-cost" class="input" type="number"></div>
+                <div class="form-group half"><label>標準工数(h)</label><input id="b-hours" class="input" type="number"></div>
+              </div>
+              <div class="form-group">
+                <label>ステータス</label>
+                <select id="b-status" class="input"><option>設計中</option><option>量産中</option><option>廃止</option></select>
+              </div>
+              <button class="btn-primary full-width" onclick="saveBoard()">登録</button>
+            </div>
+            <div class="card">
+              <h3>基板一覧</h3>
+              <input type="text" placeholder="検索…" class="input" style="width:100%;margin-bottom:8px" oninput="filterTable('boards-table',this.value)">
+              <div class="table-wrap">
+                <table id="boards-table" class="data-table">
+                  <thead><tr><th>基板名</th><th>リビジョン</th><th>製造コスト</th><th>ステータス</th></tr></thead>
+                  <tbody id="boards-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 部品マスタ -->
+        <div class="sub-panel" id="sub-bom-parts">
+          <div class="two-col">
+            <div class="card">
+              <h3>部品登録</h3>
+              <div class="form-group"><label>部品名 *</label><input id="p-name" class="input"></div>
+              <div class="form-group"><label>部品番号</label><input id="p-no" class="input"></div>
+              <div class="form-group"><label>メーカー</label><input id="p-maker" class="input"></div>
+              <div class="form-group"><label>仕様</label><input id="p-spec" class="input"></div>
+              <div class="form-row">
+                <div class="form-group half"><label>単価(円)</label><input id="p-price" class="input" type="number"></div>
+                <div class="form-group half"><label>在庫数</label><input id="p-stock" class="input" type="number"></div>
+              </div>
+              <div class="form-group"><label>リードタイム(日)</label><input id="p-lead" class="input" type="number"></div>
+              <button class="btn-primary full-width" onclick="savePart()">登録</button>
+            </div>
+            <div class="card">
+              <h3>部品一覧</h3>
+              <input type="text" placeholder="検索…" class="input" style="width:100%;margin-bottom:8px" oninput="filterTable('parts-table',this.value)">
+              <div class="table-wrap">
+                <table id="parts-table" class="data-table">
+                  <thead><tr><th>部品名</th><th>部品番号</th><th>メーカー</th><th>単価</th><th>在庫</th></tr></thead>
+                  <tbody id="parts-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 見積書 -->
+        <div class="sub-panel" id="sub-bom-quotes">
+          <div class="two-col">
+            <div class="card">
+              <h3>見積書作成</h3>
+              <div class="form-group"><label>顧客名 *</label><input id="q-client" class="input"></div>
+              <div class="form-group"><label>件名</label><input id="q-subject" class="input"></div>
+              <div class="form-row">
+                <div class="form-group half"><label>作成日</label><input id="q-date" class="input" type="date"></div>
+                <div class="form-group half"><label>有効期限</label><input id="q-expiry" class="input" type="date"></div>
+              </div>
+              <div class="form-group"><label>担当営業</label><input id="q-rep" class="input"></div>
+              <div class="form-group"><label>備考</label><textarea id="q-note" class="input" rows="2"></textarea></div>
+              <button class="btn-primary full-width" onclick="saveQuote()">見積書を作成</button>
+            </div>
+            <div class="card">
+              <h3>見積一覧</h3>
+              <div class="table-wrap">
+                <table id="quotes-table" class="data-table">
+                  <thead><tr><th>見積番号</th><th>顧客名</th><th>件名</th><th>合計</th><th>ステータス</th></tr></thead>
+                  <tbody id="quotes-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BOMツリー -->
+        <div class="sub-panel" id="sub-bom-tree">
+          <div class="card">
+            <h3>BOMツリー表示</h3>
+            <div class="form-row" style="align-items:flex-end;gap:8px">
+              <div class="form-group" style="flex:1"><label>機種ID</label><input id="tree-model-id" class="input" placeholder="機種IDを入力"></div>
+              <button class="btn-primary" onclick="loadBOMTree()">展開</button>
+            </div>
+            <div id="bom-tree-view" style="margin-top:16px"></div>
+          </div>
+        </div>
+
+        <!-- ファイルスキャン -->
+        <div class="sub-panel" id="sub-bom-scan">
+          <div class="card">
+            <h3>Driveファイル自動スキャン</h3>
+            <p class="hint">フォルダID内のファイルを命名規則でスキャンし、基板-ファイル対応表を自動構築します。</p>
+            <div class="form-group"><label>フォルダID</label><input id="scan-folder-id" class="input" placeholder="Google DriveフォルダID"></div>
+            <div class="form-group"><label>命名規則 (正規表現)</label><input id="scan-regex" class="input" placeholder="([A-Z0-9\-]+)_(部品表|構成表|BOM|図面|仕様書)"></div>
+            <button class="btn-primary" onclick="scanDriveFiles()">▶ スキャン実行</button>
+            <div id="scan-result" class="result-box" style="display:none"></div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- ══════════════════════════════════════════
-         タブ: 基板ファイル自動スキャン (v3新機能)
-    ══════════════════════════════════════════ -->
-    <div id="tab-boardlinker" class="tab-pane">
-      <div class="page-header">
-        <h1>🔩 基板ファイル自動スキャン &amp; DB</h1>
-        <div class="page-desc">命名規則（正規表現）でDriveのファイルを判別し、基板ごとの部品表・構成表を自動紐付け</div>
-      </div>
-      <div class="page-body">
+      <!-- CRM -->
+      <div class="tab-panel" id="tab-crm">
+        <div class="page-header"><h1>CRM</h1></div>
+        <div class="sub-tabs">
+          <button class="sub-tab active" data-sub="crm-deals">案件管理</button>
+          <button class="sub-tab" data-sub="crm-companies">会社マスタ</button>
+          <button class="sub-tab" data-sub="crm-contacts">連絡先</button>
+          <button class="sub-tab" data-sub="crm-activities">活動履歴</button>
+        </div>
 
-        <!-- スキャン設定 -->
-        <div class="glass-card" style="margin-bottom:16px;">
-          <div class="card-head"><h2>⚙️ スキャン設定</h2></div>
-          <div class="card-body">
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-              <div class="form-group" style="grid-column:1/-1">
-                <label class="form-label">スキャン対象フォルダID <span style="color:var(--accent-red)">*</span></label>
-                <input type="text" id="bl-folder-id" class="form-control" placeholder="Google DriveのフォルダURL末尾の英数字">
-                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">例: https://drive.google.com/drive/folders/<strong>このID部分</strong></div>
+        <!-- 案件管理 -->
+        <div class="sub-panel active" id="sub-crm-deals">
+          <div class="two-col">
+            <div class="card">
+              <h3>案件登録</h3>
+              <div class="form-group"><label>件名 *</label><input id="d-subject" class="input"></div>
+              <div class="form-group"><label>会社ID</label><input id="d-company" class="input"></div>
+              <div class="form-group">
+                <label>フェーズ</label>
+                <select id="d-phase" class="input">
+                  <option>アプローチ</option><option>提案</option><option>見積提示</option>
+                  <option>交渉</option><option>受注</option><option>失注</option>
+                </select>
               </div>
-              <div class="form-group" style="grid-column:1/-1">
-                <label class="form-label">命名規則パターン (正規表現) — 空白でデフォルトを使用</label>
-                <input type="text" id="bl-regex" class="form-control" placeholder="例: ([A-Z0-9\-]+)_(部品表|構成表|BOM|図面|仕様書)">
-                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
-                  キャプチャグループ1=基板ID、グループ2=ファイル種類。デフォルトは上記パターンと同一。
+              <div class="form-row">
+                <div class="form-group half"><label>金額(円)</label><input id="d-amount" class="input" type="number"></div>
+                <div class="form-group half"><label>確度(%)</label><input id="d-prob" class="input" type="number" min="0" max="100"></div>
+              </div>
+              <div class="form-group"><label>受注予定日</label><input id="d-date" class="input" type="date"></div>
+              <div class="form-group"><label>担当営業</label><input id="d-rep" class="input"></div>
+              <div class="form-group"><label>関連見積ID</label><input id="d-quote" class="input"></div>
+              <div class="form-group"><label>備考</label><textarea id="d-note" class="input" rows="2"></textarea></div>
+              <button class="btn-primary full-width" onclick="saveDeal()">登録</button>
+            </div>
+            <div class="card">
+              <h3>案件一覧</h3>
+              <input type="text" placeholder="検索…" class="input" style="width:100%;margin-bottom:8px" oninput="filterTable('deals-table',this.value)">
+              <div class="table-wrap">
+                <table id="deals-table" class="data-table">
+                  <thead><tr><th>件名</th><th>フェーズ</th><th>金額</th><th>確度</th><th>担当</th><th>予定日</th></tr></thead>
+                  <tbody id="deals-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 会社マスタ -->
+        <div class="sub-panel" id="sub-crm-companies">
+          <div class="two-col">
+            <div class="card">
+              <h3>会社登録</h3>
+              <div class="form-group"><label>会社名 *</label><input id="co-name" class="input"></div>
+              <div class="form-group"><label>業種</label><input id="co-ind" class="input"></div>
+              <div class="form-row">
+                <div class="form-group half"><label>都道府県</label><input id="co-pref" class="input"></div>
+                <div class="form-group half"><label>ランク</label>
+                  <select id="co-rank" class="input"><option>S</option><option>A</option><option>B</option><option>C</option></select>
                 </div>
               </div>
+              <div class="form-group"><label>住所</label><input id="co-addr" class="input"></div>
+              <div class="form-group"><label>電話</label><input id="co-tel" class="input"></div>
+              <div class="form-group"><label>Webサイト</label><input id="co-url" class="input" type="url"></div>
+              <div class="form-group"><label>担当営業</label><input id="co-rep" class="input"></div>
+              <div class="form-group"><label>備考</label><textarea id="co-note" class="input" rows="2"></textarea></div>
+              <button class="btn-primary full-width" onclick="saveCompany()">登録</button>
             </div>
-
-            <!-- プリセットボタン -->
-            <div style="margin-bottom:14px;">
-              <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;">パターンプリセット</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="btn btn-secondary btn-sm" onclick="applyPreset('([A-Z0-9\\-]+)_(部品表|構成表|BOM|図面|仕様書)')">📋 標準（英数字型番）</button>
-                <button class="btn btn-secondary btn-sm" onclick="applyPreset('([A-Z]{2,4}\\d{3,6})[-_](.+)')">📋 英字2-4+数字3-6</button>
-                <button class="btn btn-secondary btn-sm" onclick="applyPreset('(\\d{4,8})[-_](BOM|parts|bom|PARTS)')">📋 数字型番（内部コード）</button>
+            <div class="card">
+              <h3>会社一覧</h3>
+              <input type="text" placeholder="検索…" class="input" style="width:100%;margin-bottom:8px" oninput="filterTable('companies-table',this.value)">
+              <div class="table-wrap">
+                <table id="companies-table" class="data-table">
+                  <thead><tr><th>会社名</th><th>業種</th><th>都道府県</th><th>ランク</th><th>担当</th></tr></thead>
+                  <tbody id="companies-tbody"></tbody>
+                </table>
               </div>
             </div>
-
-            <button id="btn-boardscan" class="btn btn-primary" onclick="submitBoardScan()">
-              🔍 スキャン実行
-            </button>
           </div>
         </div>
 
-        <!-- スキャン結果ログ -->
-        <div id="board-scan-result" style="display:none;" class="glass-card" style="margin-bottom:16px;">
-          <div class="card-head"><h2>📋 スキャン結果</h2></div>
-          <div class="card-body">
-            <pre id="board-scan-log" style="font-size:12px;color:var(--text-secondary);white-space:pre-wrap;line-height:1.7;"></pre>
-          </div>
-        </div>
-
-        <!-- 基板ファイル一覧テーブル -->
-        <div class="glass-card">
-          <div class="card-head">
-            <h2>📊 基板ファイルDB 一覧</h2>
-            <div style="display:flex;gap:8px;">
-              <button class="btn btn-secondary btn-sm" onclick="loadBoardFilesData()">🔄 再読込</button>
-              <button class="btn btn-secondary btn-sm" onclick="exportCSV('table-board-head','table-board-body','board_files.csv')">⬇ CSV</button>
+        <!-- 連絡先 -->
+        <div class="sub-panel" id="sub-crm-contacts">
+          <div class="two-col">
+            <div class="card">
+              <h3>連絡先登録</h3>
+              <div class="form-group"><label>氏名 *</label><input id="ct-name" class="input"></div>
+              <div class="form-group"><label>会社ID</label><input id="ct-co" class="input"></div>
+              <div class="form-group"><label>役職</label><input id="ct-title" class="input"></div>
+              <div class="form-group"><label>メール</label><input id="ct-email" class="input" type="email"></div>
+              <div class="form-group"><label>電話</label><input id="ct-tel" class="input"></div>
+              <div class="form-group"><label>担当営業</label><input id="ct-rep" class="input"></div>
+              <div class="form-group"><label>備考</label><textarea id="ct-note" class="input" rows="2"></textarea></div>
+              <button class="btn-primary full-width" onclick="saveContact()">登録</button>
             </div>
-          </div>
-          <div style="overflow-x:auto; max-height:420px; overflow-y:auto;">
-            <table class="data-table">
-              <thead>
-                <tr id="table-board-head">
-                  <th>基板ID</th>
-                  <th>部品表</th>
-                  <th>構成表</th>
-                  <th>その他</th>
-                  <th>スキャン日時</th>
-                </tr>
-              </thead>
-              <tbody id="table-board-body">
-                <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">スキャンを実行するか「再読込」してください</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════
-         タブ: Drive同期
-    ══════════════════════════════════════════ -->
-    <div id="tab-drivesync" class="tab-pane">
-      <div class="page-header">
-        <h1>☁️ Google Drive 自動テキスト抽出</h1>
-        <div class="page-desc">指定フォルダ内のPDF・ドキュメントをグラフノードに変換</div>
-      </div>
-      <div class="page-body">
-        <div class="glass-card">
-          <div class="card-body" style="padding:32px; text-align:center;">
-            <div style="background:rgba(240,136,62,0.1);border:1px solid rgba(240,136,62,0.3);border-radius:10px;padding:14px 16px;margin-bottom:24px;text-align:left;">
-              <div style="font-size:12px;font-weight:700;color:var(--accent-orange);margin-bottom:4px;">⚠️ 事前準備</div>
-              <div style="font-size:12px;color:var(--text-secondary);">スクリプトプロパティ <code style="background:var(--bg-hover);padding:1px 4px;border-radius:3px;">KNOWLEDGE_FOLDER_ID</code> にGoogle DriveのフォルダID（URLの"folders/"以降）を設定してください。</div>
-            </div>
-            <div style="font-size:48px; margin-bottom:16px;">🗂️</div>
-            <div style="font-size:15px; font-weight:600; margin-bottom:8px;">最新ドキュメントの同期を開始</div>
-            <div style="font-size:13px; color:var(--text-muted); margin-bottom:24px;">まだ同期されていない新規ファイル(PDF/ドキュメント)のみテキスト化します。<br>大量のPDFがある場合はOCR処理に時間がかかります。</div>
-            <button id="btn-drivesync" class="btn btn-primary" onclick="submitDriveSync()">
-              🔄 同期を実行する
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════
-         タブ: データ管理
-    ══════════════════════════════════════════ -->
-    <div id="tab-management" class="tab-pane">
-      <div class="page-header">
-        <h1>🗄️ データ管理コンソール</h1>
-        <div class="page-desc">インライン編集・CSVエクスポート</div>
-      </div>
-      <div class="page-body">
-        <div style="display:flex; gap:10px; margin-bottom:16px;">
-          <button class="btn btn-secondary btn-sm" onclick="loadManagementData()">🔄 データ再読込</button>
-          <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ PDF印刷</button>
-        </div>
-
-        <!-- 製品テーブル -->
-        <div class="glass-card" style="margin-bottom:16px;">
-          <div class="card-head">
-            <h2>📦 製品マスタ (Products)</h2>
-            <button class="btn btn-secondary btn-sm" onclick="exportCSV('table-products-head', 'table-products-body', 'products.csv')">⬇ CSV</button>
-          </div>
-          <div style="overflow-x:auto; max-height:380px; overflow-y:auto;">
-            <table class="data-table">
-              <thead><tr id="table-products-head"></tr></thead>
-              <tbody id="table-products-body"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- 議事録テーブル -->
-        <div class="glass-card" style="margin-bottom:16px;">
-          <div class="card-head">
-            <h2>📄 商談議事録 (Meetings)</h2>
-            <button class="btn btn-secondary btn-sm" onclick="exportCSV('table-meetings-head', 'table-meetings-body', 'meetings.csv')">⬇ CSV</button>
-          </div>
-          <div style="overflow-x:auto; max-height:380px; overflow-y:auto;">
-            <table class="data-table">
-              <thead><tr id="table-meetings-head"></tr></thead>
-              <tbody id="table-meetings-body"></tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════
-         タブ: キャリア・人事評価
-    ══════════════════════════════════════════ -->
-    <div id="tab-career" class="tab-pane">
-      <div class="page-header">
-        <h1>🏆 キャリア目標 & 成果エビデンス</h1>
-        <div class="page-desc">目標の進捗を記録し、人事評価でそのまま使える実績リスト</div>
-      </div>
-      <div class="page-body">
-        <div style="display:grid; grid-template-columns:2fr 1fr; gap:16px;">
-          <div class="glass-card">
-            <div class="card-head">
-              <h2>🎯 現在の目標リスト</h2>
-              <button class="btn btn-primary btn-sm" onclick="openGoalModal()">＋ 目標を追加</button>
-            </div>
-            <div class="card-body" id="goal-list-container">
-              <p style="color:var(--text-muted);font-size:13px;">目標が登録されていません。</p>
-            </div>
-          </div>
-          <div>
-            <div class="glass-card" style="margin-bottom:16px;">
-              <div class="card-head"><h2>⚡ 直近1ヶ月の実績</h2></div>
-              <div class="card-body">
-                <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:13px;">
-                  <span style="color:var(--text-secondary)">商談実施数:</span>
-                  <span style="font-weight:700;color:var(--accent-blue);" id="career-stat-meetings">0</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;font-size:13px;">
-                  <span style="color:var(--text-secondary)">ナレッジ作成数:</span>
-                  <span style="font-weight:700;color:var(--accent-green);" id="career-stat-knowledge">0</span>
-                </div>
-                <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border-color); font-size:11px; color:var(--text-muted);">
-                  ※自動集計。人事考課の根拠データとして活用できます。
-                </div>
+            <div class="card">
+              <h3>連絡先一覧</h3>
+              <div class="table-wrap">
+                <table id="contacts-table" class="data-table">
+                  <thead><tr><th>氏名</th><th>役職</th><th>メール</th><th>電話</th><th>担当</th></tr></thead>
+                  <tbody id="contacts-tbody"></tbody>
+                </table>
               </div>
             </div>
-            <div class="glass-card">
-              <div class="card-head"><h2>🎧 通勤学習・音声化</h2></div>
-              <div class="card-body" style="text-align:center;">
-                <div style="font-size:32px;margin-bottom:8px;opacity:0.3;">🎵</div>
-                <div style="font-size:12px;color:var(--text-muted);">「データ管理」タブから対象を選んで音声リクエストをしてください。</div>
+          </div>
+        </div>
+
+        <!-- 活動履歴 -->
+        <div class="sub-panel" id="sub-crm-activities">
+          <div class="two-col">
+            <div class="card">
+              <h3>活動記録</h3>
+              <div class="form-group"><label>会社ID</label><input id="act-co" class="input"></div>
+              <div class="form-group"><label>案件ID（任意）</label><input id="act-deal" class="input"></div>
+              <div class="form-group">
+                <label>種別</label>
+                <select id="act-type" class="input">
+                  <option>訪問</option><option>電話</option><option>メール</option><option>オンライン商談</option>
+                  <option>展示会</option><option>見積提出</option><option>その他</option>
+                </select>
+              </div>
+              <div class="form-group"><label>日時</label><input id="act-dt" class="input" type="datetime-local"></div>
+              <div class="form-group"><label>内容 *</label><textarea id="act-content" class="input" rows="4"></textarea></div>
+              <div class="form-group"><label>次回アクション</label><input id="act-next" class="input"></div>
+              <div class="form-group"><label>担当営業</label><input id="act-rep" class="input"></div>
+              <button class="btn-primary full-width" onclick="saveActivity()">記録</button>
+            </div>
+            <div class="card">
+              <h3>活動履歴</h3>
+              <div class="table-wrap">
+                <table id="activities-table" class="data-table">
+                  <thead><tr><th>日時</th><th>種別</th><th>内容</th><th>次回アクション</th><th>担当</th></tr></thead>
+                  <tbody id="activities-tbody"></tbody>
+                </table>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- ══════════════════════════════════════════
-         タブ: NotebookLM台帳
-    ══════════════════════════════════════════ -->
-    <div id="tab-notebooklm" class="tab-pane">
-      <div class="page-header">
-        <h1>📚 NotebookLM 管理台帳</h1>
-        <div class="page-desc">NotebookLMのノートリンクを集約・管理します</div>
+      <!-- AI 検索 -->
+      <div class="tab-panel" id="tab-ai">
+        <div class="page-header"><h1>AI検索・分析</h1></div>
+        <div class="card">
+          <div class="ai-mode-selector">
+            <label class="radio-label"><input type="radio" name="ai-mode" value="search" checked> 🔍 ナレッジ検索</label>
+            <label class="radio-label"><input type="radio" name="ai-mode" value="clone"> 🤖 デジタルクローン</label>
+            <label class="radio-label"><input type="radio" name="ai-mode" value="roleplay"> 🎭 ロープレ（厳格顧客）</label>
+            <label class="radio-label"><input type="radio" name="ai-mode" value="analyze_bom"> ⚙ BOM分析</label>
+            <label class="radio-label"><input type="radio" name="ai-mode" value="analyze_crm"> 📊 CRM分析</label>
+          </div>
+          <div class="ai-input-row">
+            <textarea id="ai-query" class="input ai-query" rows="3" placeholder="質問を入力してください…&#10;例: A社との商談で注意すべき点は？&#10;例: 機種Xの原価を下げるには何を検討すべき？"></textarea>
+            <button class="btn-ai" onclick="runAI()">送信</button>
+          </div>
+        </div>
+        <div id="ai-chat" class="ai-chat"></div>
       </div>
-      <div class="page-body">
-        <div class="glass-card">
-          <div class="card-body">
-            <form id="form-notebooklm" onsubmit="event.preventDefault(); submitNotebookLM();">
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                <div class="form-group">
-                  <label class="form-label">ノートブック名 <span style="color:var(--accent-red)">*</span></label>
-                  <input type="text" id="nlm-name" class="form-control" required placeholder="営業マニュアル一式">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">関連分野</label>
-                  <input type="text" id="nlm-related" class="form-control" placeholder="新人教育用">
-                </div>
-                <div class="form-group" style="grid-column:1/-1">
-                  <label class="form-label">共有URL <span style="color:var(--accent-red)">*</span></label>
-                  <input type="url" id="nlm-url" class="form-control" required placeholder="https://notebooklm.google.com/notebook/...">
-                </div>
-              </div>
-              <div style="text-align:right; margin-top:8px;">
-                <button type="submit" class="btn btn-primary">💾 台帳へ追加</button>
-              </div>
-            </form>
+
+      <!-- ナレッジグラフ -->
+      <div class="tab-panel" id="tab-graph">
+        <div class="page-header">
+          <h1>ナレッジグラフ</h1>
+          <button class="btn-primary" onclick="loadGraph()">↻ 再読込</button>
+        </div>
+        <div id="graph-container" style="height:600px;background:#0a0a0f;border-radius:12px;position:relative">
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#888">グラフを読み込み中…</div>
+        </div>
+        <div id="graph-legend" class="graph-legend"></div>
+      </div>
+
+      <!-- 商談議事録 -->
+      <div class="tab-panel" id="tab-meetings">
+        <div class="page-header"><h1>商談議事録</h1></div>
+        <div class="two-col">
+          <div class="card">
+            <h3>議事録登録</h3>
+            <div class="form-group"><label>顧客名 *</label><input id="mt-client" class="input"></div>
+            <div class="form-group"><label>関連基板・機種</label><input id="mt-related" class="input"></div>
+            <div class="form-group"><label>内容サマリ *</label><textarea id="mt-summary" class="input" rows="3"></textarea></div>
+            <div class="form-group"><label>議事録全文</label><textarea id="mt-full" class="input" rows="6"></textarea></div>
+            <div class="form-group"><label>次回アクション</label><input id="mt-next" class="input"></div>
+            <div class="form-group"><label>担当営業</label><input id="mt-rep" class="input"></div>
+            <button class="btn-primary full-width" onclick="saveMeeting()">登録</button>
+          </div>
+          <div class="card">
+            <h3>議事録一覧</h3>
+            <input type="text" placeholder="検索…" class="input" style="width:100%;margin-bottom:8px" oninput="filterTable('meetings-table',this.value)">
+            <div class="table-wrap">
+              <table id="meetings-table" class="data-table">
+                <thead><tr><th>日時</th><th>顧客名</th><th>サマリ</th><th>次回アクション</th><th>担当</th></tr></thead>
+                <tbody id="meetings-tbody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-  </main>
-</div>
+      <!-- インポート -->
+      <div class="tab-panel" id="tab-import">
+        <div class="page-header"><h1>データインポート</h1></div>
+        <div class="card">
+          <h3>スプレッドシートから読込</h3>
+          <div class="form-row" style="gap:8px;align-items:flex-end">
+            <div class="form-group" style="flex:1"><label>スプレッドシートID</label><input id="import-ssid" class="input"></div>
+            <div class="form-group" style="width:150px"><label>シート名（省略可）</label><input id="import-tab" class="input"></div>
+            <button class="btn-primary" onclick="readSpreadsheet()">読込</button>
+          </div>
+          <div id="import-preview" style="display:none;margin-top:12px">
+            <div class="form-group">
+              <label>インポート先</label>
+              <select id="import-type" class="input" style="width:200px">
+                <option value="models">機種マスタ</option>
+                <option value="boards">基板マスタ</option>
+                <option value="parts">部品マスタ</option>
+                <option value="crm_companies">会社マスタ(CRM)</option>
+                <option value="quotes">見積書</option>
+              </select>
+            </div>
+            <div class="table-wrap">
+              <table id="import-table" class="data-table" style="max-height:300px"></table>
+            </div>
+            <button class="btn-primary" style="margin-top:8px" onclick="doImport()">▶ インポート実行</button>
+          </div>
+        </div>
 
-<!-- ══════════════════════════════════════════
-     モーダル: 目標追加
-══════════════════════════════════════════ -->
-<div class="modal-overlay" id="modal-goal">
-  <div class="modal-box">
-    <div class="modal-head">
-      <h3>🎯 キャリア目標の新規登録</h3>
-      <button class="btn btn-secondary btn-icon" onclick="closeModal('modal-goal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <form id="form-goal" onsubmit="event.preventDefault(); submitGoal();">
-        <div class="form-group">
-          <label class="form-label">目標タイトル</label>
-          <input type="text" id="goal-title" class="form-control" required placeholder="部品知識100件マスター">
+        <div class="card" style="margin-top:16px">
+          <h3>CSVファイル貼り付けインポート</h3>
+          <div class="form-group">
+            <label>インポート先</label>
+            <select id="csv-import-type" class="input" style="width:200px">
+              <option value="parts">部品マスタ</option>
+              <option value="boards">基板マスタ</option>
+              <option value="models">機種マスタ</option>
+              <option value="crm_companies">会社マスタ</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>CSVテキスト（1行目はヘッダー）</label>
+            <textarea id="csv-text" class="input" rows="8" placeholder="部品名,部品番号,メーカー,仕様,単価,在庫数&#10;抵抗100Ω,R-100,村田製作所,1/4W,2,1000"></textarea>
+          </div>
+          <button class="btn-primary" onclick="doCSVImport()">▶ CSVインポート</button>
         </div>
-        <div class="form-group">
-          <label class="form-label">対象期間</label>
-          <input type="text" id="goal-period" class="form-control" placeholder="2025年度 上期">
-        </div>
-        <div class="form-group">
-          <label class="form-label">測定指標 (KPI)</label>
-          <input type="text" id="goal-kpi" class="form-control" placeholder="ナレッジをXX件作成">
-        </div>
-        <div class="form-group">
-          <label class="form-label">進捗 (%)</label>
-          <input type="number" id="goal-progress" class="form-control" value="0" min="0" max="100">
-        </div>
-        <div class="form-group">
-          <label class="form-label">自己評価・エビデンス</label>
-          <textarea id="goal-eval" class="form-control" rows="3" placeholder="人事考課でアピールしたい内容"></textarea>
-        </div>
-      </form>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-secondary" onclick="closeModal('modal-goal')">キャンセル</button>
-      <button class="btn btn-primary" onclick="submitGoal()">💾 保存する</button>
-    </div>
+      </div>
+
+    </main>
   </div>
-</div>
 
-<!-- ══════════════════════════════════════════
-     モーダル: エッジ追加
-══════════════════════════════════════════ -->
-<div class="modal-overlay" id="modal-edge">
-  <div class="modal-box">
-    <div class="modal-head">
-      <h3>🔗 ノード間の関係性を追加</h3>
-      <button class="btn btn-secondary btn-icon" onclick="closeModal('modal-edge')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">参照元ノードID (Source)</label>
-        <input type="text" id="edge-source-id" class="form-control" placeholder="ノードIDを入力 (グラフでクリックしてコピー)">
-      </div>
-      <div class="form-group">
-        <label class="form-label">参照先ノードID (Target)</label>
-        <input type="text" id="edge-target-id" class="form-control" placeholder="ノードIDを入力">
-      </div>
-      <div class="form-group">
-        <label class="form-label">関係の種類</label>
-        <input type="text" id="edge-relation" class="form-control" placeholder="例: 商談で言及 / 後継機種 / 参照文書">
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-secondary" onclick="closeModal('modal-edge')">キャンセル</button>
-      <button class="btn btn-success" onclick="submitEdge()">🔗 エッジを追加</button>
-    </div>
-  </div>
-</div>
-
-<!-- vis-network + Custom JS -->
-<?!= include('JavaScript'); ?>
+  <?!= include('JavaScript'); ?>
 </body>
 </html>
