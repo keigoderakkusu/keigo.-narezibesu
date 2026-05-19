@@ -624,6 +624,67 @@ textarea{resize:vertical;min-height:90px;line-height:1.7}
   #content{margin-left:0!important;padding-bottom:72px}
   .top-bar{padding-left:52px}
 }
+
+/* ── インライン編集 ── */
+.ie-cell{cursor:pointer;border-radius:4px;padding:2px 4px;transition:background .15s;display:inline-block;min-width:60px}
+.ie-cell:hover{background:#f0f0f0}
+.ie-cell.saving{opacity:.5}
+.ie-cell.saved{background:#d1fae5!important;transition:background .5s}
+.ie-input{border:1.5px solid var(--accent)!important;border-radius:4px;padding:3px 6px;font-size:inherit;font-family:inherit;outline:none;background:#fff;width:100%;box-sizing:border-box}
+.ie-select{border:1.5px solid var(--accent)!important;border-radius:4px;padding:3px 6px;font-size:inherit;font-family:inherit;outline:none;background:#fff}
+.ie-save-indicator{position:fixed;bottom:80px;right:16px;background:#16a34a;color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}
+.ie-save-indicator.show{opacity:1}
+
+/* ── SFAパイプライン ── */
+.pipe-board{display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;min-height:calc(100vh - 200px)}
+.pipe-col{min-width:220px;max-width:240px;flex-shrink:0;background:#f8f9fa;border-radius:12px;padding:12px;border:1px solid var(--border)}
+.pipe-col-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid}
+.pipe-col.stage-0 .pipe-col-header{border-color:#94a3b8}
+.pipe-col.stage-1 .pipe-col-header{border-color:#f59e0b}
+.pipe-col.stage-2 .pipe-col-header{border-color:#f97316}
+.pipe-col.stage-3 .pipe-col-header{border-color:#6366f1}
+.pipe-col.stage-4 .pipe-col-header{border-color:#16a34a}
+.pipe-col.stage-5 .pipe-col-header{border-color:#ef4444}
+.pipe-col-title{font-weight:700;font-size:13px}
+.pipe-col-badge{background:#fff;border:1px solid var(--border);border-radius:10px;font-size:11px;font-weight:700;padding:1px 7px}
+.pipe-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;cursor:grab;transition:box-shadow .15s;user-select:none}
+.pipe-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.pipe-card.dragging{opacity:.5;cursor:grabbing}
+.pipe-card-company{font-weight:700;font-size:13px;margin-bottom:2px}
+.pipe-card-person{font-size:12px;color:var(--muted)}
+.pipe-card-amount{font-size:15px;font-weight:700;color:#16a34a;margin-top:4px}
+.pipe-card-prob{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.pipe-card-prob-bar{height:4px;background:#e5e7eb;border-radius:2px;flex:1;overflow:hidden}
+.pipe-card-prob-fill{height:100%;border-radius:2px;background:var(--accent)}
+.pipe-col.drag-over{background:#eff6ff;border-color:var(--accent)}
+.pipe-total-amount{font-size:11px;color:var(--muted);text-align:right;margin-top:8px}
+/* deal form */
+.deal-form-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:400;align-items:center;justify-content:center}
+.deal-form-overlay.open{display:flex}
+.deal-form-box{background:#fff;border-radius:16px;padding:24px;width:min(480px,95vw);max-height:90vh;overflow-y:auto}
+
+/* ── レポート ── */
+.rpt-section{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.rpt-section h3{margin:0 0 16px;font-size:15px;display:flex;align-items:center;gap:8px}
+.rpt-kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:8px}
+.rpt-kpi{background:#f8f9fa;border-radius:10px;padding:14px;text-align:center}
+.rpt-kpi-value{font-size:28px;font-weight:800;color:var(--accent);line-height:1}
+.rpt-kpi-label{font-size:11px;color:var(--muted);margin-top:4px}
+.rpt-table{width:100%;border-collapse:collapse;font-size:13px}
+.rpt-table th{background:#f8f9fa;padding:8px 10px;text-align:left;border-bottom:2px solid var(--border);font-weight:700;font-size:12px}
+.rpt-table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.rpt-table tr:last-child td{border-bottom:none}
+.rpt-export-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.rpt-month-sel{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+/* 印刷用 */
+@media print{
+  .sidebar,.top-bar,.bottom-nav,.voice-fab,.rpt-export-bar,.btn,nav{display:none!important}
+  .main{margin:0!important;padding:0!important}
+  .rpt-section{border:1px solid #ccc;break-inside:avoid;margin-bottom:12px}
+  body{font-size:12px}
+  .page-content{display:block!important}
+  #page-reports{display:block!important}
+}
 </style>
 </head>
 <body>
@@ -657,6 +718,8 @@ textarea{resize:vertical;min-height:90px;line-height:1.7}
     <div class="nav-item"        id="nav-quoteled"  onclick="showPage('quoteled')"> <span class="ni-icon">📊</span><span>見積台帳</span></div>
     <div class="nav-item"        id="nav-emailmon"  onclick="showPage('emailmon')"> <span class="ni-icon">📬</span><span>メール管理</span></div>
     <div class="nav-item"        id="nav-calendar"  onclick="showPage('calendar')"> <span class="ni-icon">📅</span><span>カレンダー</span></div>
+    <div class="nav-item"        id="nav-pipeline"  onclick="showPage('pipeline')"> <span class="ni-icon">📊</span><span>商談パイプライン</span></div>
+    <div class="nav-item"        id="nav-reports"   onclick="showPage('reports')">  <span class="ni-icon">📑</span><span>レポート</span></div>
     <div class="nav-sep">──── モバイル秘書 ────</div>
     <div class="nav-item"        id="nav-commute"   onclick="showPage('commute')">  <span class="ni-icon">🚃</span><span>通勤モード</span></div>
     <div class="nav-item"        id="nav-hosoren"   onclick="showPage('hosoren')">  <span class="ni-icon">📨</span><span>報連相</span></div>
@@ -1403,8 +1466,116 @@ textarea{resize:vertical;min-height:90px;line-height:1.7}
   </div>
 </div>
 
+<!-- 商談パイプライン (SFA) -->
+<div class="page" id="page-pipeline">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <h2 style="margin:0;font-size:20px">📊 商談パイプライン（SFA）</h2>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline" onclick="loadPipeline()" style="font-size:12px">🔄 更新</button>
+      <button class="btn" onclick="openDealForm(null)" style="font-size:12px">＋ 新規案件</button>
+    </div>
+  </div>
+  <!-- KPI bar -->
+  <div id="pipe-kpi" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap"></div>
+  <!-- Kanban board -->
+  <div class="pipe-board" id="pipe-board"></div>
+  <!-- Deal form modal -->
+  <div class="deal-form-overlay" id="deal-form-overlay">
+    <div class="deal-form-box">
+      <h3 style="margin:0 0 16px;font-size:17px" id="deal-form-title">新規案件</h3>
+      <input type="hidden" id="deal-id">
+      <label class="lbl">会社名 *</label>
+      <input id="deal-company" class="inp" placeholder="〇〇株式会社" style="margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div><label class="lbl">担当者</label><input id="deal-person" class="inp" placeholder="田中 様"></div>
+        <div><label class="lbl">ステージ</label>
+          <select id="deal-stage" class="inp">
+            <option>見込み</option><option>初回提案</option><option>詳細交渉</option><option>見積提出</option><option>受注</option><option>失注</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div><label class="lbl">金額（円）</label><input id="deal-amount" class="inp" type="number" placeholder="1000000"></div>
+        <div><label class="lbl">確度（%）</label><input id="deal-probability" class="inp" type="number" min="0" max="100" placeholder="50"></div>
+      </div>
+      <label class="lbl">案件概要</label>
+      <input id="deal-purpose" class="inp" placeholder="〇〇部品の定期受注" style="margin-bottom:10px">
+      <label class="lbl">次のアクション</label>
+      <input id="deal-next-action" class="inp" placeholder="来週サンプル提出" style="margin-bottom:10px">
+      <label class="lbl">次回アクション予定日</label>
+      <input id="deal-next-date" class="inp" type="date" style="margin-bottom:10px">
+      <label class="lbl">メモ</label>
+      <textarea id="deal-note" class="inp" rows="3" placeholder="顧客の状況・競合情報など" style="margin-bottom:16px"></textarea>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="saveDealForm()" style="flex:1">💾 保存</button>
+        <button class="btn btn-outline" onclick="closeDealForm()" style="flex:1">キャンセル</button>
+      </div>
+      <button class="btn btn-danger btn-sm" id="deal-delete-btn" onclick="deleteDealById()" style="width:100%;margin-top:8px;display:none">🗑 この案件を削除</button>
+    </div>
+  </div>
+</div>
+
+<!-- レポート -->
+<div class="page" id="page-reports">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px">
+    <h2 style="margin:0;font-size:20px">📑 レポート</h2>
+  </div>
+
+  <div class="tab-bar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <button class="tab-btn active" id="rpt-tab-monthly" onclick="rptSwitchTab('monthly',this)">📅 月次レポート</button>
+    <button class="tab-btn" id="rpt-tab-customer" onclick="rptSwitchTab('customer',this)">👥 顧客分析</button>
+    <button class="tab-btn" id="rpt-tab-pipeline" onclick="rptSwitchTab('pipeline',this)">📊 パイプライン</button>
+    <button class="tab-btn" id="rpt-tab-activity" onclick="rptSwitchTab('activity',this)">📋 活動レポート</button>
+  </div>
+
+  <!-- 月次レポート -->
+  <div id="rpt-pane-monthly">
+    <div class="rpt-month-sel">
+      <label style="font-weight:600;font-size:14px">対象月：</label>
+      <input type="month" id="rpt-month-input" class="inp" style="width:160px">
+      <button class="btn" onclick="loadMonthlyReport()">📊 生成</button>
+    </div>
+    <div class="rpt-export-bar">
+      <button class="btn btn-outline" onclick="exportRptCsv('monthly')">⬇ CSV ダウンロード</button>
+      <button class="btn btn-outline" onclick="printReport()">🖨 PDF 印刷</button>
+    </div>
+    <div id="rpt-monthly-content">
+      <div style="text-align:center;padding:40px;color:var(--muted)">月を選択して「生成」を押してください</div>
+    </div>
+  </div>
+
+  <!-- 顧客分析 -->
+  <div id="rpt-pane-customer" style="display:none">
+    <div class="rpt-export-bar">
+      <button class="btn btn-outline" onclick="exportRptCsv('customers')">⬇ 顧客一覧 CSV</button>
+      <button class="btn btn-outline" onclick="printReport()">🖨 PDF 印刷</button>
+    </div>
+    <div id="rpt-customer-content"><div style="text-align:center;padding:40px;color:var(--muted)">⏳ 読み込み中…</div></div>
+  </div>
+
+  <!-- パイプライン -->
+  <div id="rpt-pane-pipeline" style="display:none">
+    <div class="rpt-export-bar">
+      <button class="btn btn-outline" onclick="exportRptCsv('deals')">⬇ 案件一覧 CSV</button>
+      <button class="btn btn-outline" onclick="printReport()">🖨 PDF 印刷</button>
+    </div>
+    <div id="rpt-pipeline-content"><div style="text-align:center;padding:40px;color:var(--muted)">⏳ 読み込み中…</div></div>
+  </div>
+
+  <!-- 活動レポート -->
+  <div id="rpt-pane-activity" style="display:none">
+    <div class="rpt-export-bar">
+      <button class="btn btn-outline" onclick="exportRptCsv('tasks')">⬇ タスク CSV</button>
+      <button class="btn btn-outline" onclick="exportRptCsv('meetings')">⬇ 商談 CSV</button>
+      <button class="btn btn-outline" onclick="printReport()">🖨 PDF 印刷</button>
+    </div>
+    <div id="rpt-activity-content"><div style="text-align:center;padding:40px;color:var(--muted)">⏳ 読み込み中…</div></div>
+  </div>
+</div>
+
 </div><!-- /content -->
 <div id="toast"></div>
+<div class="ie-save-indicator" id="ie-save-indicator">✓ 保存しました</div>
 
 <!-- ═══════════ JAVASCRIPT ═══════════ -->
 <!-- 底部ナビゲーション（モバイル） -->
@@ -1603,8 +1774,10 @@ function showPage(name) {
   if (name === 'emailmon') loadEmailRules();
   if (name === 'calendar') loadCalendar();
   if (name === 'selfana')  initSelfAna();
-  if (name === 'commute') loadCommuteData();
-  if (name === 'hosoren') { hsLoadSettings(); loadHosorenLog(); }
+  if (name === 'commute')  loadCommuteData();
+  if (name === 'hosoren')  { hsLoadSettings(); loadHosorenLog(); }
+  if (name === 'pipeline') loadPipeline();
+  if (name === 'reports')  { initReportPage(); }
   // bottom nav sync
   document.querySelectorAll('.bn-item').forEach(n => n.classList.remove('active'));
   const bnMap = {commute:'bn-commute',task:'bn-task',hosoren:'bn-hosoren',calendar:'bn-calendar',chat:'bn-chat'};
@@ -2307,7 +2480,8 @@ function renderCustList(list) {
     const daysLabel = days === null ? '未連絡' : days + '日前';
     const daysCls = days === null || days > 30 ? 'days-hot' : days > 14 ? 'days-warm' : '';
     return `<div class="cust-item ${c.id === _currentCustId ? 'active' : ''}" onclick="openCustomer('${c.id}')">
-      <span class="rank-badge rank-${c.rank}">${c.rank}</span>
+      <span class="rank-badge rank-${c.rank} ie-cell" title="クリックでランク変更"
+        onclick="event.stopPropagation();makeInlineEditable(this,'inlineUpdateCustomer','${c.id}','rank',{type:'select',options:['A','B','C']})">${c.rank}</span>
       <div style="flex:1;min-width:0">
         <div class="cust-company">${esc(c.company)}</div>
         <div class="cust-name">${esc(c.name)}</div>
@@ -2445,7 +2619,8 @@ function loadMeetings() {
             <div class="mc-company">${esc(m.company)} <span style="font-weight:400;color:#787774">${esc(m.person)}</span></div>
             <div class="mc-date">${esc(m.date)} ${m.purpose ? '/ ' + esc(m.purpose) : ''}</div>
           </div>
-          <span class="status-badge status-${m.status}" style="margin-left:auto">${esc(m.status)}</span>
+          <span class="status-badge status-${m.status} ie-cell" style="margin-left:auto" title="クリックでステータス変更"
+            onclick="event.stopPropagation();makeInlineEditable(this,'inlineUpdateMeeting','${m.id}','status',{type:'select',options:['フォロー中','提案済み','見積提出','交渉中','受注','失注','完了']})">${esc(m.status)}</span>
         </div>
         ${m.content ? `<div class="mc-content">${esc(m.content)}</div>` : ''}
         ${m.my_actions ? `<div class="mc-action">🙋 自分の宿題: ${esc(m.my_actions)}</div>` : ''}
@@ -3214,6 +3389,16 @@ function toggleSidebar() {
   sb.classList.toggle('open');
   ov.classList.toggle('show');
 }
+function initReportPage() {
+  // set month input to current month
+  const now = new Date();
+  const ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  const inp = document.getElementById('rpt-month-input');
+  if (inp && !inp.value) inp.value = ym;
+  // load customer and pipeline tabs in background
+  // (they will load on tab switch)
+}
+
 function initMobile() {
   const isMobile = window.innerWidth <= 640;
   const hb = document.getElementById('hamburger-btn');
@@ -3225,6 +3410,397 @@ window.addEventListener('resize', () => {
   const hb = document.getElementById('hamburger-btn');
   if (hb) hb.style.display = isMobile ? 'block' : 'none';
 });
+
+// ─────────────────────────────────────
+// インライン編集 ユーティリティ
+// ─────────────────────────────────────
+function showSaveIndicator() {
+  const el = document.getElementById('ie-save-indicator');
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+/**
+ * フィールドをインライン編集可能にする
+ * @param {HTMLElement} span - 表示中の要素
+ * @param {string} gasFn - GAS関数名 ('inlineUpdateCustomer' など)
+ * @param {string} recordId
+ * @param {string} field
+ * @param {object} options - { type:'text'|'select'|'date'|'number', options:[], multiline:false }
+ */
+function makeInlineEditable(span, gasFn, recordId, field, opts) {
+  if (span.dataset.editing) return;
+  span.dataset.editing = '1';
+  const orig = span.textContent;
+  opts = opts || {};
+
+  let input;
+  if (opts.type === 'select') {
+    input = document.createElement('select');
+    input.className = 'ie-select';
+    (opts.options || []).forEach(o => {
+      const op = document.createElement('option');
+      op.value = o; op.textContent = o;
+      if (o === orig) op.selected = true;
+      input.appendChild(op);
+    });
+  } else if (opts.multiline) {
+    input = document.createElement('textarea');
+    input.className = 'ie-input';
+    input.rows = 3;
+    input.value = orig;
+  } else {
+    input = document.createElement('input');
+    input.className = 'ie-input';
+    input.type = opts.type || 'text';
+    input.value = orig;
+  }
+
+  span.textContent = '';
+  span.appendChild(input);
+  input.focus();
+  if (input.select) input.select();
+
+  const save = () => {
+    const val = input.value;
+    span.textContent = val;
+    delete span.dataset.editing;
+    if (val === orig) return;
+    span.classList.add('saving');
+    google.script.run
+      .withSuccessHandler(r => {
+        span.classList.remove('saving');
+        if (r.ok) { span.classList.add('saved'); showSaveIndicator(); setTimeout(()=>span.classList.remove('saved'),800); }
+        else { span.textContent = orig; toast('❌ 保存失敗: ' + r.error, true); }
+      })
+      [gasFn](recordId, field, val);
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !opts.multiline) { e.preventDefault(); save(); }
+    if (e.key === 'Escape') { span.textContent = orig; delete span.dataset.editing; }
+  });
+}
+
+// ─────────────────────────────────────
+// SFA 商談パイプライン
+// ─────────────────────────────────────
+const PIPE_STAGES = ['見込み','初回提案','詳細交渉','見積提出','受注','失注'];
+const PIPE_STAGE_ICONS = ['🔵','🟡','🟠','🟣','🟢','🔴'];
+let _pipelineData = {};
+let _dragDealId = null;
+
+function loadPipeline() {
+  google.script.run.withSuccessHandler(data => {
+    _pipelineData = data;
+    renderPipelineKpi(data);
+    renderPipelineBoard(data);
+  }).getDealPipelineSummary();
+}
+
+function renderPipelineKpi(data) {
+  const active = ['見込み','初回提案','詳細交渉','見積提出'];
+  let totalAmt = 0, totalDeals = 0;
+  active.forEach(s => { totalAmt += (data[s]||{}).amount||0; totalDeals += (data[s]||{}).count||0; });
+  const won = data['受注'] || {};
+  const kpis = [
+    { label:'進行中案件', value: totalDeals + '件', color:'#6366f1' },
+    { label:'パイプライン金額', value: fmtYen(totalAmt), color:'#f59e0b' },
+    { label:'今月受注', value: (won.count||0) + '件', color:'#16a34a' },
+    { label:'受注金額', value: fmtYen(won.amount||0), color:'#16a34a' },
+  ];
+  document.getElementById('pipe-kpi').innerHTML = kpis.map(k =>
+    `<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:120px">
+      <div style="font-size:20px;font-weight:800;color:${k.color}">${k.value}</div>
+      <div style="font-size:11px;color:var(--muted)">${k.label}</div>
+    </div>`
+  ).join('');
+}
+
+function fmtYen(n) {
+  if (!n) return '¥0';
+  if (n >= 1e8) return '¥' + (n/1e8).toFixed(1) + '億';
+  if (n >= 1e4) return '¥' + Math.round(n/1e4) + '万';
+  return '¥' + n.toLocaleString();
+}
+
+function renderPipelineBoard(data) {
+  const board = document.getElementById('pipe-board');
+  board.innerHTML = PIPE_STAGES.map((stage, si) => {
+    const col = data[stage] || { count:0, amount:0, deals:[] };
+    const cards = (col.deals||[]).map(d => renderDealCard(d)).join('');
+    return `<div class="pipe-col stage-${si}" id="pipe-col-${si}"
+      ondragover="pipeDragOver(event,this)" ondragleave="pipeDragLeave(this)" ondrop="pipeDrop(event,'${stage}')">
+      <div class="pipe-col-header">
+        <span class="pipe-col-title">${PIPE_STAGE_ICONS[si]} ${stage}</span>
+        <span class="pipe-col-badge">${col.count}</span>
+      </div>
+      <div class="pipe-cards" id="pipe-cards-${si}">${cards}</div>
+      ${col.amount > 0 ? `<div class="pipe-total-amount">${fmtYen(col.amount)}</div>` : ''}
+      <button onclick="openDealForm(null,'${stage}')" style="width:100%;background:none;border:1px dashed var(--border);border-radius:6px;padding:6px;color:var(--muted);cursor:pointer;font-size:12px;margin-top:8px">＋ 追加</button>
+    </div>`;
+  }).join('');
+}
+
+function renderDealCard(d) {
+  return `<div class="pipe-card" draggable="true" id="deal-card-${d.id}"
+    ondragstart="pipeDragStart(event,'${d.id}')" ondragend="pipeDragEnd(event)"
+    onclick="openDealForm('${d.id}')">
+    <div class="pipe-card-company">${esc(d.company)}</div>
+    <div class="pipe-card-person">${esc(d.person||'')}</div>
+    ${d.amount ? `<div class="pipe-card-amount">${fmtYen(Number(d.amount))}</div>` : ''}
+    ${d.probability ? `<div class="pipe-card-prob">
+      <span>${d.probability}%</span>
+      <div class="pipe-card-prob-bar"><div class="pipe-card-prob-fill" style="width:${d.probability}%"></div></div>
+    </div>` : ''}
+    ${d.nextDate ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">📅 ${d.nextDate}</div>` : ''}
+    ${d.nextAction ? `<div style="font-size:12px;color:#374151;margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">→ ${esc(d.nextAction)}</div>` : ''}
+  </div>`;
+}
+
+// Drag & Drop
+function pipeDragStart(e, id) {
+  _dragDealId = id;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function pipeDragEnd(e) { e.currentTarget.classList.remove('dragging'); }
+function pipeDragOver(e, col) { e.preventDefault(); col.classList.add('drag-over'); }
+function pipeDragLeave(col) { col.classList.remove('drag-over'); }
+function pipeDrop(e, stage) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!_dragDealId) return;
+  google.script.run.withSuccessHandler(r => {
+    if (r.ok) { toast('ステージを移動しました'); loadPipeline(); }
+    else toast('❌ 移動失敗', true);
+  }).moveDealStage(_dragDealId, stage);
+  _dragDealId = null;
+}
+
+// Deal form
+let _editingDealId = null;
+function openDealForm(id, defaultStage) {
+  _editingDealId = id;
+  const isNew = !id;
+  document.getElementById('deal-form-title').textContent = isNew ? '新規案件' : '案件を編集';
+  document.getElementById('deal-delete-btn').style.display = isNew ? 'none' : 'block';
+  if (isNew) {
+    ['deal-id','deal-company','deal-person','deal-amount','deal-probability','deal-purpose','deal-next-action','deal-next-date','deal-note'].forEach(k => { const el=document.getElementById(k); if(el) el.value=''; });
+    if (defaultStage) document.getElementById('deal-stage').value = defaultStage;
+    else document.getElementById('deal-stage').value = '見込み';
+  } else {
+    // find deal in pipeline data
+    let d = null;
+    PIPE_STAGES.forEach(s => { (_pipelineData[s]||{deals:[]}).deals.forEach(dd => { if(dd.id===id) d=dd; }); });
+    if (!d) return;
+    document.getElementById('deal-id').value = d.id;
+    document.getElementById('deal-company').value = d.company||'';
+    document.getElementById('deal-person').value = d.person||'';
+    document.getElementById('deal-amount').value = d.amount||'';
+    document.getElementById('deal-probability').value = d.probability||'';
+    document.getElementById('deal-stage').value = d.stage||'見込み';
+    document.getElementById('deal-purpose').value = d.purpose||'';
+    document.getElementById('deal-next-action').value = d.nextAction||'';
+    document.getElementById('deal-next-date').value = d.nextDate||'';
+    document.getElementById('deal-note').value = d.note||'';
+  }
+  document.getElementById('deal-form-overlay').classList.add('open');
+}
+function closeDealForm() { document.getElementById('deal-form-overlay').classList.remove('open'); }
+function saveDealForm() {
+  const deal = {
+    id: document.getElementById('deal-id').value || null,
+    company: document.getElementById('deal-company').value.trim(),
+    person: document.getElementById('deal-person').value.trim(),
+    amount: Number(document.getElementById('deal-amount').value)||0,
+    probability: Number(document.getElementById('deal-probability').value)||0,
+    stage: document.getElementById('deal-stage').value,
+    purpose: document.getElementById('deal-purpose').value.trim(),
+    nextAction: document.getElementById('deal-next-action').value.trim(),
+    nextDate: document.getElementById('deal-next-date').value,
+    note: document.getElementById('deal-note').value.trim(),
+  };
+  if (!deal.company) { toast('会社名を入力してください', true); return; }
+  google.script.run.withSuccessHandler(r => {
+    if (r.ok) { toast('💾 保存しました'); closeDealForm(); loadPipeline(); }
+    else toast('❌ 保存失敗', true);
+  }).saveDeal(deal);
+}
+function deleteDealById() {
+  if (!_editingDealId) return;
+  if (!confirm('この案件を削除しますか？')) return;
+  google.script.run.withSuccessHandler(() => { toast('削除しました'); closeDealForm(); loadPipeline(); }).deleteDeal(_editingDealId);
+}
+
+// ─────────────────────────────────────
+// レポート
+// ─────────────────────────────────────
+let _rptCurrentTab = 'monthly';
+let _rptMonthlyData = null;
+
+function rptSwitchTab(tab, btn) {
+  ['monthly','customer','pipeline','activity'].forEach(t => {
+    document.getElementById('rpt-pane-'+t).style.display = t===tab ? 'block' : 'none';
+    document.getElementById('rpt-tab-'+t).classList.toggle('active', t===tab);
+  });
+  _rptCurrentTab = tab;
+  if (tab === 'customer') loadCustomerReport();
+  if (tab === 'pipeline') loadPipelineReport();
+  if (tab === 'activity') loadActivityReport();
+}
+
+function loadMonthlyReport() {
+  const ym = document.getElementById('rpt-month-input').value;
+  if (!ym) { toast('月を選択してください', true); return; }
+  const el = document.getElementById('rpt-monthly-content');
+  el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">⏳ レポート生成中…</div>';
+  google.script.run.withSuccessHandler(d => {
+    _rptMonthlyData = d;
+    el.innerHTML = renderMonthlyReport(d);
+  }).getSalesReportData(ym);
+}
+
+function renderMonthlyReport(d) {
+  return `
+  <div class="rpt-section">
+    <h3>📅 ${d.period} 月次サマリー</h3>
+    <div class="rpt-kpi-grid">
+      <div class="rpt-kpi"><div class="rpt-kpi-value">${d.tasks.done}</div><div class="rpt-kpi-label">完了タスク</div></div>
+      <div class="rpt-kpi"><div class="rpt-kpi-value">${d.tasks.pending}</div><div class="rpt-kpi-label">未完了タスク</div></div>
+      <div class="rpt-kpi"><div class="rpt-kpi-value">${d.meetings.count}</div><div class="rpt-kpi-label">商談件数</div></div>
+      <div class="rpt-kpi"><div class="rpt-kpi-value">${d.customers.total}</div><div class="rpt-kpi-label">顧客総数</div></div>
+      <div class="rpt-kpi"><div class="rpt-kpi-value">${d.pipeline.won}</div><div class="rpt-kpi-label">受注件数</div></div>
+      <div class="rpt-kpi"><div class="rpt-kpi-value">${fmtYen(d.pipeline.wonAmount)}</div><div class="rpt-kpi-label">受注金額</div></div>
+    </div>
+  </div>
+  <div class="rpt-section">
+    <h3>📋 本月の商談一覧（${d.meetings.count}件）</h3>
+    ${d.meetings.list.length ? `<table class="rpt-table">
+      <thead><tr><th>日付</th><th>会社名</th><th>担当者</th><th>目的</th><th>状態</th></tr></thead>
+      <tbody>${d.meetings.list.map(m => `<tr><td>${esc(m.date)}</td><td>${esc(m.company)}</td><td>${esc(m.person)}</td><td>${esc(m.purpose)}</td><td>${esc(m.status)}</td></tr>`).join('')}</tbody>
+    </table>` : '<div style="color:var(--muted);font-size:13px">商談記録なし</div>'}
+  </div>
+  <div class="rpt-section">
+    <h3>✅ 完了タスク一覧（${d.tasks.done}件）</h3>
+    ${d.tasks.doneList.length ? `<table class="rpt-table">
+      <thead><tr><th>タスク名</th><th>優先度</th><th>完了日</th></tr></thead>
+      <tbody>${d.tasks.doneList.map(t => `<tr><td>${esc(t.title)}</td><td>${esc(t.priority)}</td><td>${esc(t.date)}</td></tr>`).join('')}</tbody>
+    </table>` : '<div style="color:var(--muted);font-size:13px">なし</div>'}
+  </div>`;
+}
+
+function loadCustomerReport() {
+  google.script.run.withSuccessHandler(custs => {
+    const el = document.getElementById('rpt-customer-content');
+    if (!custs.length) { el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">顧客データなし</div>'; return; }
+    const rankCount = { A:0, B:0, C:0 };
+    custs.forEach(c => { rankCount[c.rank] = (rankCount[c.rank]||0)+1; });
+    el.innerHTML = `
+    <div class="rpt-section">
+      <h3>👥 顧客ランク内訳（計${custs.length}社）</h3>
+      <div class="rpt-kpi-grid">
+        <div class="rpt-kpi"><div class="rpt-kpi-value" style="color:#ef4444">${rankCount.A||0}</div><div class="rpt-kpi-label">ランクA（最重要）</div></div>
+        <div class="rpt-kpi"><div class="rpt-kpi-value" style="color:#f59e0b">${rankCount.B||0}</div><div class="rpt-kpi-label">ランクB（重要）</div></div>
+        <div class="rpt-kpi"><div class="rpt-kpi-value" style="color:#6366f1">${rankCount.C||0}</div><div class="rpt-kpi-label">ランクC（通常）</div></div>
+      </div>
+    </div>
+    <div class="rpt-section">
+      <h3>📋 顧客一覧</h3>
+      <table class="rpt-table">
+        <thead><tr><th>ランク</th><th>会社名</th><th>担当者</th><th>役職</th><th>最終連絡</th><th>タグ</th></tr></thead>
+        <tbody>${custs.map(c => `<tr>
+          <td><span class="rank-badge rank-${c.rank}">${c.rank}</span></td>
+          <td><b>${esc(c.company)}</b></td>
+          <td>${esc(c.name)}</td>
+          <td>${esc(c.role||'')}</td>
+          <td>${c.last_contact ? esc(c.last_contact) : '未連絡'}</td>
+          <td style="font-size:11px">${esc(c.tags||'')}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+  }).getCustomers(null);
+}
+
+function loadPipelineReport() {
+  google.script.run.withSuccessHandler(data => {
+    const el = document.getElementById('rpt-pipeline-content');
+    let totalActive=0, totalAmt=0;
+    ['見込み','初回提案','詳細交渉','見積提出'].forEach(s => {
+      totalActive += (data[s]||{}).count||0;
+      totalAmt += (data[s]||{}).amount||0;
+    });
+    const won = data['受注']||{};
+    el.innerHTML = `
+    <div class="rpt-section">
+      <h3>📊 パイプラインサマリー</h3>
+      <div class="rpt-kpi-grid">
+        <div class="rpt-kpi"><div class="rpt-kpi-value">${totalActive}</div><div class="rpt-kpi-label">進行中案件</div></div>
+        <div class="rpt-kpi"><div class="rpt-kpi-value">${fmtYen(totalAmt)}</div><div class="rpt-kpi-label">パイプライン金額</div></div>
+        <div class="rpt-kpi"><div class="rpt-kpi-value" style="color:#16a34a">${won.count||0}</div><div class="rpt-kpi-label">受注件数</div></div>
+        <div class="rpt-kpi"><div class="rpt-kpi-value" style="color:#16a34a">${fmtYen(won.amount||0)}</div><div class="rpt-kpi-label">受注金額</div></div>
+      </div>
+    </div>
+    <div class="rpt-section">
+      <h3>📋 ステージ別内訳</h3>
+      <table class="rpt-table">
+        <thead><tr><th>ステージ</th><th>件数</th><th>合計金額</th><th>案件名</th></tr></thead>
+        <tbody>${PIPE_STAGES.map((s,si) => {
+          const col = data[s]||{count:0,amount:0,deals:[]};
+          return `<tr><td>${PIPE_STAGE_ICONS[si]} ${s}</td><td>${col.count}件</td><td>${fmtYen(col.amount)}</td><td style="font-size:12px">${(col.deals||[]).map(d=>esc(d.company)).join('、')||'—'}</td></tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+  }).getDealPipelineSummary();
+}
+
+function loadActivityReport() {
+  google.script.run.withSuccessHandler(d => {
+    const el = document.getElementById('rpt-activity-content');
+    const tasks = d.tasks;
+    const meetings = d.meetings;
+    el.innerHTML = `
+    <div class="rpt-section">
+      <h3>📋 タスク状況</h3>
+      <div class="rpt-kpi-grid">
+        <div class="rpt-kpi"><div class="rpt-kpi-value">${tasks.done}</div><div class="rpt-kpi-label">完了</div></div>
+        <div class="rpt-kpi"><div class="rpt-kpi-value" style="color:#f59e0b">${tasks.pending}</div><div class="rpt-kpi-label">未完了</div></div>
+      </div>
+    </div>
+    <div class="rpt-section">
+      <h3>📅 直近の商談履歴</h3>
+      ${meetings.list.length ? `<table class="rpt-table">
+        <thead><tr><th>日付</th><th>会社</th><th>担当</th><th>目的</th><th>状態</th></tr></thead>
+        <tbody>${meetings.list.slice(0,20).map(m=>`<tr><td>${esc(m.date)}</td><td>${esc(m.company)}</td><td>${esc(m.person)}</td><td>${esc(m.purpose)}</td><td>${esc(m.status)}</td></tr>`).join('')}</tbody>
+      </table>` : '<div style="color:var(--muted);font-size:13px">商談なし</div>'}
+    </div>`;
+  }).getSalesReportData(null);
+}
+
+// CSV / PDF エクスポート
+function exportRptCsv(dataType) {
+  toast('⏳ CSV を生成中…');
+  google.script.run.withSuccessHandler(csv => {
+    if (!csv) { toast('データがありません', true); return; }
+    const bom = '﻿';
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = dataType + '_' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('✅ CSV をダウンロードしました');
+  }).exportCsvString(dataType);
+}
+
+function printReport() {
+  window.print();
+}
 
 // ─────────────────────────────────────
 // QUOTE CHECKER

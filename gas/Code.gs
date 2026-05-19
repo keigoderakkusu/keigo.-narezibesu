@@ -1857,3 +1857,196 @@ function saveVoiceMemo(text, saveAs) {
     .appendRow([_uuid(), _fmt(), '🎙️' + t.substring(0,20), t, '音声メモ']);
   return { ok: true, savedTo: 'memo', message: 'メモに保存しました' };
 }
+
+// ─────────────────────────────────────────────
+// インライン編集 ヘルパー
+// ─────────────────────────────────────────────
+
+function _inlineUpdate(sheetName, headers, id, field, value) {
+  var sh = _sheet(sheetName, headers);
+  var vs = sh.getDataRange().getValues();
+  var cols = vs[0];
+  var ci = cols.indexOf(field);
+  if (ci < 0) return { ok: false, error: 'field not found: ' + field };
+  for (var i = 1; i < vs.length; i++) {
+    if (String(vs[i][0]) === String(id)) {
+      sh.getRange(i + 1, ci + 1).setValue(value);
+      return { ok: true };
+    }
+  }
+  return { ok: false, error: 'record not found: ' + id };
+}
+
+function inlineUpdateCustomer(id, field, value) {
+  return _inlineUpdate('customers',
+    ['id','company','name','role','phone','email','rank','last_contact','notes','tags','created'],
+    id, field, value);
+}
+
+function inlineUpdateMeeting(id, field, value) {
+  return _inlineUpdate('meetings',
+    ['id','date','company','person','purpose','content','my_actions','their_actions','next_date','status','created'],
+    id, field, value);
+}
+
+function inlineUpdateTask(id, field, value) {
+  return _inlineUpdate('tasks',
+    ['id','createdAt','title','priority','deadline','status','note'],
+    id, field, value);
+}
+
+function inlineUpdateQuoteLedger(id, field, value) {
+  return _inlineUpdate('quote_ledger',
+    ['id','quoteNo','customer','subject','amount','quoteDate','expiryDate','staff','status','probability','source','note','fileUrl','updatedAt'],
+    id, field, value);
+}
+
+// ─────────────────────────────────────────────
+// SFA 商談パイプライン
+// ─────────────────────────────────────────────
+
+function getDeals(stage) {
+  var sh = _sheet('deals', ['id','createdAt','company','person','amount','probability','stage','purpose','nextAction','nextDate','note','updatedAt']);
+  var vs = sh.getDataRange().getValues().slice(1).filter(function(r){ return r[0]; });
+  var list = vs.map(function(r){
+    return { id:r[0], createdAt:r[1], company:r[2], person:r[3], amount:r[4],
+             probability:r[5], stage:r[6], purpose:r[7], nextAction:r[8],
+             nextDate:r[9], note:r[10], updatedAt:r[11] };
+  });
+  if (stage) list = list.filter(function(d){ return d.stage === stage; });
+  return list;
+}
+
+function saveDeal(deal) {
+  var sh = _sheet('deals', ['id','createdAt','company','person','amount','probability','stage','purpose','nextAction','nextDate','note','updatedAt']);
+  var now = _fmt();
+  if (deal.id) {
+    var vs = sh.getDataRange().getValues();
+    for (var i = 1; i < vs.length; i++) {
+      if (String(vs[i][0]) === String(deal.id)) {
+        sh.getRange(i+1,1,1,12).setValues([[
+          deal.id, vs[i][1], deal.company||'', deal.person||'',
+          deal.amount||0, deal.probability||0, deal.stage||'見込み',
+          deal.purpose||'', deal.nextAction||'', deal.nextDate||'',
+          deal.note||'', now
+        ]]);
+        return { ok:true, id:deal.id };
+      }
+    }
+  }
+  var id = _uuid();
+  sh.appendRow([id, now, deal.company||'', deal.person||'',
+    deal.amount||0, deal.probability||0, deal.stage||'見込み',
+    deal.purpose||'', deal.nextAction||'', deal.nextDate||'',
+    deal.note||'', now]);
+  return { ok:true, id:id };
+}
+
+function moveDealStage(id, stage) {
+  return _inlineUpdate('deals',
+    ['id','createdAt','company','person','amount','probability','stage','purpose','nextAction','nextDate','note','updatedAt'],
+    id, 'stage', stage);
+}
+
+function deleteDeal(id) {
+  var sh = _sheet('deals', ['id','createdAt','company','person','amount','probability','stage','purpose','nextAction','nextDate','note','updatedAt']);
+  var vs = sh.getDataRange().getValues();
+  for (var i = 1; i < vs.length; i++) {
+    if (String(vs[i][0]) === String(id)) { sh.deleteRow(i+1); return { ok:true }; }
+  }
+  return { ok:false };
+}
+
+function getDealPipelineSummary() {
+  var deals = getDeals(null);
+  var stages = ['見込み','初回提案','詳細交渉','見積提出','受注','失注'];
+  var result = {};
+  stages.forEach(function(s){
+    var filtered = deals.filter(function(d){ return d.stage === s; });
+    var totalAmt = filtered.reduce(function(acc, d){ return acc + (Number(d.amount)||0); }, 0);
+    result[s] = { count: filtered.length, amount: totalAmt, deals: filtered };
+  });
+  return result;
+}
+
+// ─────────────────────────────────────────────
+// レポート & エクスポート
+// ─────────────────────────────────────────────
+
+function getSalesReportData(yearMonth) {
+  // yearMonth: "2026-05" 形式
+  var prefix = yearMonth || Utilities.formatDate(new Date(),'Asia/Tokyo','yyyy-MM');
+  var ym = prefix.replace('-','年') + '月';
+
+  // タスク
+  var tVals = _sheet('tasks',['id','createdAt','title','priority','deadline','status','note'])
+    .getDataRange().getValues().slice(1);
+  var tasksDone    = tVals.filter(function(r){ return r[5]==='完了' && String(r[1]).startsWith(prefix); });
+  var tasksPending = tVals.filter(function(r){ return r[5]!=='完了'; });
+
+  // 商談
+  var mVals = _sheet('meetings',['id','date','company','person','purpose','content','my_actions','their_actions','next_date','status','created'])
+    .getDataRange().getValues().slice(1);
+  var mtgsMonth = mVals.filter(function(r){ return String(r[1]).startsWith(prefix); });
+
+  // 顧客
+  var cVals = _sheet('customers',['id','company','name','role','phone','email','rank','last_contact','notes','tags','created'])
+    .getDataRange().getValues().slice(1).filter(function(r){ return r[0]; });
+
+  // パイプライン
+  var deals = getDeals(null);
+  var pipeline = { total: deals.length, won: 0, lost: 0, active: 0, totalAmount: 0, wonAmount: 0 };
+  deals.forEach(function(d){
+    if (d.stage==='受注'){ pipeline.won++; pipeline.wonAmount+=Number(d.amount)||0; }
+    else if (d.stage==='失注'){ pipeline.lost++; }
+    else { pipeline.active++; pipeline.totalAmount+=Number(d.amount)||0; }
+  });
+
+  // 業務日誌
+  var logVals = _sheet('daily_logs',['id','date','activity','achievement','issue','nextAction'])
+    .getDataRange().getValues().slice(1);
+  var logsMonth = logVals.filter(function(r){ return String(r[1]).startsWith(prefix); });
+
+  return {
+    period: ym,
+    tasks: { done: tasksDone.length, pending: tasksPending.length,
+             doneList: tasksDone.map(function(r){ return { title:r[2], priority:r[3], date:r[1] }; }) },
+    meetings: { count: mtgsMonth.length,
+                list: mtgsMonth.map(function(r){ return { date:r[1], company:r[2], person:r[3], purpose:r[4], status:r[9] }; }) },
+    customers: { total: cVals.length,
+                 rankA: cVals.filter(function(r){ return r[6]==='A'; }).length,
+                 rankB: cVals.filter(function(r){ return r[6]==='B'; }).length,
+                 rankC: cVals.filter(function(r){ return r[6]==='C'; }).length },
+    pipeline: pipeline,
+    logs: { count: logsMonth.length,
+            list: logsMonth.map(function(r){ return { date:r[1], activity:r[2], achievement:r[3] }; }) }
+  };
+}
+
+function exportCsvString(dataType) {
+  var rows = [];
+  if (dataType === 'customers') {
+    var vs = _sheet('customers',['id','company','name','role','phone','email','rank','last_contact','notes','tags','created']).getDataRange().getValues();
+    rows = vs;
+  } else if (dataType === 'meetings') {
+    var vs = _sheet('meetings',['id','date','company','person','purpose','content','my_actions','their_actions','next_date','status','created']).getDataRange().getValues();
+    rows = vs;
+  } else if (dataType === 'tasks') {
+    var vs = _sheet('tasks',['id','createdAt','title','priority','deadline','status','note']).getDataRange().getValues();
+    rows = vs;
+  } else if (dataType === 'deals') {
+    var vs = _sheet('deals',['id','createdAt','company','person','amount','probability','stage','purpose','nextAction','nextDate','note','updatedAt']).getDataRange().getValues();
+    rows = vs;
+  } else if (dataType === 'quote_ledger') {
+    var vs = _sheet('quote_ledger',['id','quoteNo','customer','subject','amount','quoteDate','expiryDate','staff','status','probability','source','note','fileUrl','updatedAt']).getDataRange().getValues();
+    rows = vs;
+  }
+  if (!rows.length) return '';
+  return rows.map(function(r){
+    return r.map(function(c){
+      var s = String(c===null||c===undefined?'':c);
+      if (s.indexOf(',')>=0 || s.indexOf('"')>=0 || s.indexOf('\n')>=0) s='"'+s.replace(/"/g,'""')+'"';
+      return s;
+    }).join(',');
+  }).join('\r\n');
+}
