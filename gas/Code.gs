@@ -1130,6 +1130,305 @@ function setupQuoteChecker() {
 }
 
 // ─────────────────────────────────────────────
+// MEETING MINUTES & GLOSSARY
+// ─────────────────────────────────────────────
+
+function processMinutes(text, meetingType, attendees) {
+  try {
+    var prompt = 'あなたは製造業営業チームの会議録整理アシスタントです。以下の会議録テキストを構造化し、専門用語を解説してください。\n\n会議種別: ' + (meetingType||'打ち合わせ') + '\n参加者: ' + (attendees||'未入力') + '\n\n会議録:\n' + text.substring(0,8000) + '\n\n以下のJSONのみを返してください:\n{\n  "title": "会議タイトル",\n  "date": "YYYY年M月D日",\n  "attendees": ["参加者リスト"],\n  "agenda": ["議題"],\n  "summary": "要約3〜5文",\n  "decisions": [{"item":"決定事項","owner":"担当","deadline":"期限"}],\n  "actionItems": [{"task":"アクション","owner":"担当","deadline":"期限","priority":"high/medium/low"}],\n  "issues": ["未解決課題"],\n  "unknownTerms": [{"term":"専門用語","reading":"読み","definition":"製造業文脈での解説","category":"技術/業界/略語/社内用語"}],\n  "nextMeeting": "次回提案",\n  "salesInsight": "この会議から見える営業ポイント1〜2文"\n}';
+    var parsed = JSON.parse(_callGemini(prompt, true));
+    var sheet = _sheet('minutes', ['id','date','title','type','attendees','summary','content_json','actionItems_json','unknownTerms_json','createdAt']);
+    var id = _uuid();
+    var now = getCurrentTime();
+    sheet.appendRow([id, parsed.date||'', parsed.title||'', meetingType||'', JSON.stringify(parsed.attendees||[]), parsed.summary||'', JSON.stringify(parsed), JSON.stringify(parsed.actionItems||[]), JSON.stringify(parsed.unknownTerms||[]), now]);
+    if (parsed.unknownTerms && parsed.unknownTerms.length > 0) {
+      var glossSheet = _sheet('glossary', ['id','term','reading','definition','category','source','createdAt']);
+      var existing = glossSheet.getDataRange().getValues().slice(1).map(function(r){ return r[1]; });
+      parsed.unknownTerms.forEach(function(t) {
+        if (t.term && existing.indexOf(t.term) === -1) {
+          glossSheet.appendRow([_uuid(), t.term, t.reading||'', t.definition||'', t.category||'', parsed.title||'会議録', now]);
+          existing.push(t.term);
+        }
+      });
+    }
+    parsed.id = id;
+    return parsed;
+  } catch(e) { return { error: e.message }; }
+}
+
+function getMinutesList(limit) {
+  var sheet = _sheet('minutes', ['id','date','title','type','attendees','summary','content_json','actionItems_json','unknownTerms_json','createdAt']);
+  var rows = sheet.getDataRange().getValues().slice(1).filter(function(r){ return r[0]; });
+  rows.sort(function(a,b){ return new Date(b[9]) - new Date(a[9]); });
+  return rows.slice(0, limit||50).map(function(r) {
+    return { id:r[0], date:r[1], title:r[2], type:r[3], attendees:_sjp(r[4]), summary:r[5], createdAt:r[9],
+      actionCount: (_sjp(r[7])||[]).length, termCount: (_sjp(r[8])||[]).length };
+  });
+}
+
+function getMinutesDetail(id) {
+  var rows = _sheet('minutes', ['id','date','title','type','attendees','summary','content_json','actionItems_json','unknownTerms_json','createdAt']).getDataRange().getValues().slice(1);
+  for (var i=0;i<rows.length;i++) {
+    if (rows[i][0]===id) { var d=_sjp(rows[i][6]); d.id=rows[i][0]; d.type=rows[i][3]; d.createdAt=rows[i][9]; return d; }
+  }
+  return { error:'見つかりません' };
+}
+
+function deleteMinutes(id) {
+  var sheet = _sheet('minutes', ['id','date','title','type','attendees','summary','content_json','actionItems_json','unknownTerms_json','createdAt']);
+  var rows = sheet.getDataRange().getValues();
+  for (var i=rows.length-1;i>=1;i--) { if (rows[i][0]===id){ sheet.deleteRow(i+1); return {ok:true}; } }
+  return {ok:false};
+}
+
+function getGlossary(query) {
+  var rows = _sheet('glossary',['id','term','reading','definition','category','source','createdAt']).getDataRange().getValues().slice(1).filter(function(r){return r[0];});
+  if (query) { var q=query.toLowerCase(); rows=rows.filter(function(r){ return (r[1]+r[2]+r[3]+r[4]).toLowerCase().indexOf(q)!==-1; }); }
+  return rows.sort(function(a,b){return new Date(b[6])-new Date(a[6]);}).map(function(r){ return {id:r[0],term:r[1],reading:r[2],definition:r[3],category:r[4],source:r[5],createdAt:r[6]}; });
+}
+
+function saveGlossaryTerm(t) {
+  var sheet = _sheet('glossary',['id','term','reading','definition','category','source','createdAt']);
+  if (t.id) {
+    var rows=sheet.getDataRange().getValues();
+    for (var i=1;i<rows.length;i++) { if(rows[i][0]===t.id){ sheet.getRange(i+1,1,1,7).setValues([[t.id,t.term||'',t.reading||'',t.definition||'',t.category||'',t.source||'手動',rows[i][6]]]); return {ok:true,id:t.id}; } }
+  }
+  var id=_uuid(); sheet.appendRow([id,t.term||'',t.reading||'',t.definition||'',t.category||'手動登録',t.source||'手動',getCurrentTime()]); return {ok:true,id:id};
+}
+
+function deleteGlossaryTerm(id) {
+  var sheet=_sheet('glossary',['id','term','reading','definition','category','source','createdAt']);
+  var rows=sheet.getDataRange().getValues();
+  for(var i=rows.length-1;i>=1;i--){ if(rows[i][0]===id){ sheet.deleteRow(i+1); return {ok:true}; } }
+  return {ok:false};
+}
+
+function _sjp(str) { try { return typeof str==='object'?str:JSON.parse(str); } catch(e){ return []; } }
+
+// ─────────────────────────────────────────────
+// QUOTE LEDGER（見積台帳）
+// ─────────────────────────────────────────────
+
+function getQuoteLedger(statusFilter) {
+  var sheet = _sheet('quote_ledger',['id','quoteNo','customer','subject','amount','quoteDate','expiryDate','staff','status','probability','source','note','fileUrl','updatedAt']);
+  var rows = sheet.getDataRange().getValues().slice(1).filter(function(r){return r[0];});
+  if (statusFilter && statusFilter!=='all') rows=rows.filter(function(r){return r[8]===statusFilter;});
+  rows.sort(function(a,b){return new Date(b[13])-new Date(a[13]);});
+  return rows.map(function(r){ return {id:r[0],quoteNo:r[1],customer:r[2],subject:r[3],amount:r[4],quoteDate:r[5],expiryDate:r[6],staff:r[7],status:r[8],probability:r[9],source:r[10],note:r[11],fileUrl:r[12],updatedAt:r[13]}; });
+}
+
+function saveQuoteLedger(entry) {
+  var sheet = _sheet('quote_ledger',['id','quoteNo','customer','subject','amount','quoteDate','expiryDate','staff','status','probability','source','note','fileUrl','updatedAt']);
+  var now = getCurrentTime();
+  if (entry.id) {
+    var rows=sheet.getDataRange().getValues();
+    for(var i=1;i<rows.length;i++) { if(rows[i][0]===entry.id){ sheet.getRange(i+1,1,1,14).setValues([[entry.id,entry.quoteNo||rows[i][1],entry.customer||'',entry.subject||'',entry.amount||0,entry.quoteDate||'',entry.expiryDate||'',entry.staff||'',entry.status||'作成中',entry.probability||0,entry.source||'',entry.note||'',entry.fileUrl||'',now]]); return {ok:true,id:entry.id}; } }
+  }
+  var id=_uuid();
+  var prefix='QT-'+Utilities.formatDate(new Date(),'Asia/Tokyo','yyyyMMdd')+'-';
+  var cnt=sheet.getDataRange().getValues().slice(1).filter(function(r){return String(r[1]).indexOf(prefix)===0;}).length;
+  var qNo=prefix+String(cnt+1).padStart(3,'0');
+  sheet.appendRow([id,qNo,entry.customer||'',entry.subject||'',entry.amount||0,entry.quoteDate||_fmtDate(new Date()),entry.expiryDate||'',entry.staff||'',entry.status||'作成中',entry.probability||0,entry.source||'',entry.note||'',entry.fileUrl||'',now]);
+  return {ok:true,id:id,quoteNo:qNo};
+}
+
+function updateQuoteLedgerStatus(id, status, note) {
+  var sheet=_sheet('quote_ledger',['id','quoteNo','customer','subject','amount','quoteDate','expiryDate','staff','status','probability','source','note','fileUrl','updatedAt']);
+  var rows=sheet.getDataRange().getValues();
+  for(var i=1;i<rows.length;i++) { if(rows[i][0]===id){ sheet.getRange(i+1,9).setValue(status); if(note!==undefined) sheet.getRange(i+1,12).setValue(note); sheet.getRange(i+1,14).setValue(getCurrentTime()); return {ok:true}; } }
+  return {ok:false};
+}
+
+function parseTextForQuoteLedger(text) {
+  try {
+    var prompt='以下のテキスト（メール・依頼文など）から見積情報を抽出しJSONのみ返してください。\n\n'+text.substring(0,3000)+'\n\n{"customer":"顧客名","subject":"案件名・品目","amount":金額数値,"quoteDate":"YYYY-MM-DD","expiryDate":"YYYY-MM-DD","staff":"担当者","source":"引合元","note":"特記事項100文字以内","probability":受注確度0-100の数値}';
+    return JSON.parse(_callGemini(prompt, true));
+  } catch(e) { return {error:e.message,customer:'',subject:'',amount:0}; }
+}
+
+function getQuoteLedgerStats() {
+  var rows=_sheet('quote_ledger',['id','quoteNo','customer','subject','amount','quoteDate','expiryDate','staff','status','probability','source','note','fileUrl','updatedAt']).getDataRange().getValues().slice(1).filter(function(r){return r[0];});
+  var byStatus={};
+  rows.forEach(function(r){
+    var s=r[8]||'不明'; if(!byStatus[s]) byStatus[s]={count:0,amount:0};
+    byStatus[s].count++; byStatus[s].amount+=parseFloat(r[4])||0;
+  });
+  return {totalCount:rows.length, totalAmount:rows.reduce(function(s,r){return s+(parseFloat(r[4])||0);},0), byStatus:byStatus,
+    weightedAmount:rows.reduce(function(s,r){return s+((parseFloat(r[4])||0)*(parseFloat(r[9])||0)/100);},0)};
+}
+
+// ─────────────────────────────────────────────
+// EMAIL MONITOR & AUTO-ACTIONS
+// ─────────────────────────────────────────────
+
+function monitorInbox() {
+  try {
+    var props=PropertiesService.getScriptProperties();
+    var processedIds=JSON.parse(props.getProperty('email_processed_ids')||'[]');
+    var threads=GmailApp.search('is:unread newer_than:1d',0,20);
+    var rules=getEmailRules();
+    var logSheet=_sheet('email_monitor_log',['日時','送信者','件名','実行アクション','メッセージID']);
+    var now=getCurrentTime();
+    threads.forEach(function(thread) {
+      thread.getMessages().forEach(function(msg) {
+        var mid=msg.getId();
+        if(processedIds.indexOf(mid)!==-1) return;
+        var subject=msg.getSubject(); var from=msg.getFrom(); var body=msg.getPlainBody().substring(0,800);
+        var actions=[];
+        // ルール適用
+        for(var i=0;i<rules.length;i++) {
+          var rule=rules[i]; if(!rule.active) continue;
+          var target=rule.matchField==='subject'?subject:rule.matchField==='from'?from:subject+' '+body;
+          if(target.indexOf(rule.keyword)!==-1) {
+            try {
+              if(rule.action==='label'){ var lbl=GmailApp.getUserLabelByName(rule.actionValue)||GmailApp.createLabel(rule.actionValue); thread.addLabel(lbl); actions.push('ラベル:'+rule.actionValue); }
+              else if(rule.action==='archive'){ thread.moveToArchive(); actions.push('アーカイブ'); }
+              else if(rule.action==='star'){ msg.star(); actions.push('スター'); }
+              else if(rule.action==='task'){ saveTask({id:_uuid(),title:'[メール] '+subject,due:_fmtDate(new Date()),priority:rule.actionValue||'medium',status:'todo',createdAt:now}); actions.push('タスク作成'); }
+              else if(rule.action==='quote'){ var qd=parseTextForQuoteLedger(subject+'\n'+body); if(!qd.error){ saveQuoteLedger(qd); actions.push('見積台帳追加'); } }
+            } catch(ae) {}
+            break;
+          }
+        }
+        // AIフォールバック分類
+        if(actions.length===0) {
+          try {
+            var cls=classifyEmail(subject,body);
+            if(cls && !cls.error) {
+              if(cls.label){ var al=GmailApp.getUserLabelByName(cls.label)||GmailApp.createLabel(cls.label); thread.addLabel(al); actions.push('AI分類:'+cls.label); }
+              if(cls.createTask){ saveTask({id:_uuid(),title:'[要対応] '+subject,due:_fmtDate(new Date()),priority:cls.priority||'medium',status:'todo',createdAt:now}); actions.push('AI自動タスク'); }
+            }
+          } catch(ce) {}
+        }
+        if(actions.length>0){ logSheet.appendRow([now,from.substring(0,50),subject.substring(0,60),actions.join(' / '),mid]); }
+        processedIds.push(mid);
+      });
+    });
+    if(processedIds.length>500) processedIds=processedIds.slice(-300);
+    props.setProperty('email_processed_ids',JSON.stringify(processedIds));
+    return {ok:true};
+  } catch(e){ return {error:e.message}; }
+}
+
+function classifyEmail(subject, body) {
+  try {
+    var prompt='以下のメールを分類しJSONのみ返してください。\n件名:'+subject+'\n本文:'+body.substring(0,400)+'\n{"label":"重要/見積依頼/クレーム/社内連絡/メルマガ/その他","createTask":true/false,"priority":"high/medium/low","isQuoteRequest":true/false}';
+    return JSON.parse(_callGemini(prompt,true));
+  } catch(e){ return {label:'その他',createTask:false,priority:'low',isQuoteRequest:false}; }
+}
+
+function getEmailRules() {
+  var sheet=_sheet('email_rules',['id','name','matchField','keyword','action','actionValue','active','createdAt']);
+  var rows=sheet.getDataRange().getValues().slice(1).filter(function(r){return r[0];});
+  if(rows.length===0) {
+    var now=getCurrentTime();
+    [[_uuid(),'見積依頼振り分け','body','見積','label','見積依頼',true,now],[_uuid(),'クレーム検知','body','クレーム','label','🔴クレーム',true,now],[_uuid(),'至急メール検知','subject','至急','task','至急対応: ',true,now]].forEach(function(r){ sheet.appendRow(r); rows.push(r); });
+  }
+  return rows.map(function(r){ return {id:r[0],name:r[1],matchField:r[2],keyword:r[3],action:r[4],actionValue:r[5],active:r[6]===true||r[6]==='TRUE',createdAt:r[7]}; });
+}
+
+function saveEmailRule(rule) {
+  var sheet=_sheet('email_rules',['id','name','matchField','keyword','action','actionValue','active','createdAt']);
+  if(rule.id){ var rows=sheet.getDataRange().getValues(); for(var i=1;i<rows.length;i++){ if(rows[i][0]===rule.id){ sheet.getRange(i+1,1,1,8).setValues([[rule.id,rule.name,rule.matchField,rule.keyword,rule.action,rule.actionValue,rule.active!==false,rows[i][7]]]); return {ok:true}; } } }
+  sheet.appendRow([_uuid(),rule.name,rule.matchField,rule.keyword,rule.action,rule.actionValue||'',rule.active!==false,getCurrentTime()]); return {ok:true};
+}
+
+function deleteEmailRule(id) {
+  var sheet=_sheet('email_rules',['id','name','matchField','keyword','action','actionValue','active','createdAt']);
+  var rows=sheet.getDataRange().getValues();
+  for(var i=rows.length-1;i>=1;i--){ if(rows[i][0]===id){ sheet.deleteRow(i+1); return {ok:true}; } }
+  return {ok:false};
+}
+
+function getEmailMonitorLog(limit) {
+  var sheet=_ss().getSheetByName('email_monitor_log'); if(!sheet) return [];
+  var data=sheet.getDataRange().getValues(); if(data.length<=1) return [];
+  var headers=data[0];
+  return data.slice(1).reverse().slice(0,limit||50).map(function(row){ var o={}; headers.forEach(function(h,i){o[h]=row[i];}); return o; });
+}
+
+function sendDailyBriefing(email) {
+  try {
+    var to=email||PropertiesService.getScriptProperties().getProperty('NOTIFY_EMAIL')||Session.getActiveUser().getEmail();
+    var tasks=getTasks().filter(function(t){return t.status!=='done';});
+    var today=_fmtDate(new Date());
+    var overdue=tasks.filter(function(t){return t.due&&t.due<today;});
+    var todayT=tasks.filter(function(t){return t.due===today;});
+    var lines=['📋 日次ブリーフィング '+Utilities.formatDate(new Date(),'Asia/Tokyo','M月d日（E）'),'─────────'];
+    if(overdue.length) { lines.push('🔴 期限切れ（'+overdue.length+'件）'); overdue.slice(0,5).forEach(function(t){lines.push('  ・'+t.title+' ['+t.due+']');}); }
+    if(todayT.length) { lines.push('📅 本日期限（'+todayT.length+'件）'); todayT.forEach(function(t){lines.push('  ・'+t.title);}); }
+    lines.push('📊 未完了合計: '+tasks.length+'件');
+    var calEvs=[]; try{ calEvs=getCalendarEvents(1)||[]; }catch(ce){}
+    if(calEvs.length) { lines.push('📅 本日の予定'); calEvs.forEach(function(e){lines.push('  ・'+e.title+' '+e.startStr);}); }
+    GmailApp.sendEmail(to,'【日次ブリーフィング】'+Utilities.formatDate(new Date(),'Asia/Tokyo','M/d'),lines.join('\n'));
+    return {ok:true};
+  } catch(e){ return {error:e.message}; }
+}
+
+function setupEmailMonitor() {
+  ScriptApp.getProjectTriggers().forEach(function(t){ if(['monitorInbox','sendDailyBriefing'].indexOf(t.getHandlerFunction())!==-1) ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('monitorInbox').timeBased().everyMinutes(15).create();
+  ScriptApp.newTrigger('sendDailyBriefing').timeBased().atHour(8).everyDays(1).create();
+  return {ok:true,message:'メール監視(15分毎) + 日次ブリーフィング(毎朝8時) を設定しました'};
+}
+
+// ─────────────────────────────────────────────
+// GOOGLE CALENDAR
+// ─────────────────────────────────────────────
+
+function getCalendarEvents(daysAhead) {
+  try {
+    var cal=CalendarApp.getDefaultCalendar();
+    var start=new Date(); var end=new Date(start.getTime()+(daysAhead||14)*24*60*60*1000);
+    return cal.getEvents(start,end).map(function(ev) {
+      var allDay=ev.isAllDayEvent(); var s=ev.getStartTime();
+      return {id:ev.getId(),title:ev.getTitle(),isAllDay:allDay,
+        dateStr:Utilities.formatDate(s,'Asia/Tokyo','yyyy-MM-dd'),
+        startStr:allDay?'終日':Utilities.formatDate(s,'Asia/Tokyo','HH:mm'),
+        endStr:allDay?'':Utilities.formatDate(ev.getEndTime(),'Asia/Tokyo','HH:mm'),
+        location:ev.getLocation()||'',description:(ev.getDescription()||'').substring(0,100)};
+    });
+  } catch(e){ return []; }
+}
+
+function createCalendarEvent(event) {
+  try {
+    var cal=CalendarApp.getDefaultCalendar(); var ev;
+    if(event.allDay){ var p=(event.startDate||'').split('-'); ev=cal.createAllDayEvent(event.title||'無題',new Date(p[0],p[1]-1,p[2]),{location:event.location||'',description:event.description||''}); }
+    else { ev=cal.createEvent(event.title||'無題',new Date(event.startDatetime),new Date(event.endDatetime||new Date(event.startDatetime).getTime()+3600000),{location:event.location||'',description:event.description||''}); }
+    return {ok:true,id:ev.getId(),title:ev.getTitle()};
+  } catch(e){ return {error:e.message}; }
+}
+
+function deleteCalendarEvent(eventId) {
+  try { var ev=CalendarApp.getDefaultCalendar().getEventById(eventId); if(!ev) return {error:'見つかりません'}; ev.deleteEvent(); return {ok:true}; }
+  catch(e){ return {error:e.message}; }
+}
+
+function syncTasksToCalendar() {
+  try {
+    var props=PropertiesService.getScriptProperties();
+    var synced=JSON.parse(props.getProperty('cal_synced_tasks')||'[]');
+    var cal=CalendarApp.getDefaultCalendar(); var cnt=0;
+    getTasks().filter(function(t){return t.status!=='done'&&t.due&&synced.indexOf(t.id)===-1;}).forEach(function(t){
+      try { var p=t.due.split('-'); cal.createAllDayEvent('📋 '+t.title,new Date(p[0],p[1]-1,p[2]),{description:'優先度:'+t.priority}); synced.push(t.id); cnt++; } catch(ce){}
+    });
+    if(synced.length>1000) synced=synced.slice(-800);
+    props.setProperty('cal_synced_tasks',JSON.stringify(synced));
+    return {ok:true,synced:cnt};
+  } catch(e){ return {error:e.message}; }
+}
+
+function parseTextForCalendar(text) {
+  try {
+    var today=Utilities.formatDate(new Date(),'Asia/Tokyo','yyyy年M月d日');
+    var prompt='以下のテキストから予定情報を抽出しJSON配列のみ返してください。本日:'+today+'\n\n'+text.substring(0,2000)+'\n\n[{"title":"予定名","startDatetime":"YYYY-MM-DDTHH:mm:00","endDatetime":"YYYY-MM-DDTHH:mm:00","allDay":false,"startDate":"YYYY-MM-DD","location":"場所","description":"メモ"}]';
+    var result=JSON.parse(_callGemini(prompt,true));
+    return Array.isArray(result)?result:[result];
+  } catch(e){ return []; }
+}
+
+// ─────────────────────────────────────────────
 // SELF ANALYSIS
 // ─────────────────────────────────────────────
 

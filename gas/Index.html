@@ -369,6 +369,102 @@ textarea{resize:vertical;min-height:90px;line-height:1.7}
 .news-loading{text-align:center;padding:60px 0;color:var(--muted);font-size:14px}
 .news-sources{font-size:11px;color:var(--muted);margin-top:14px;line-height:1.6}
 
+/* ── MEETING MINUTES & GLOSSARY ── */
+.min-tabs{display:flex;gap:4px;margin-bottom:18px}
+.min-tab{padding:7px 18px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)}
+.min-tab.active{background:#2383e2;color:#fff;border-color:#2383e2}
+.min-pane{display:none}
+.min-pane.active{display:block}
+.min-type-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.min-type-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:12px;cursor:pointer;color:var(--muted)}
+.min-type-btn.sel{background:#e8f0fe;color:#1a56db;border-color:#1a56db}
+.min-textarea{width:100%;min-height:160px;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:13px;line-height:1.7;resize:vertical;font-family:inherit;outline:none}
+.min-textarea:focus{border-color:#2383e2}
+.min-result{margin-top:16px}
+.min-result-section{margin-bottom:14px}
+.min-result-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.min-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-size:13px;line-height:1.75}
+.min-decision-item{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #f0f0ef;font-size:13px}
+.min-decision-item:last-child{border:none}
+.min-action-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;background:#f8f8f7;margin-bottom:6px}
+.min-action-pri{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.min-action-pri.high{background:#ef4444}
+.min-action-pri.medium{background:#f59e0b}
+.min-action-pri.low{background:#22c55e}
+.min-term-card{background:#fff;border:1px solid var(--border);border-radius:9px;padding:10px 14px;margin-bottom:8px}
+.min-term-name{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.min-term-reading{font-size:11px;color:var(--muted);font-weight:400}
+.min-term-cat{font-size:10px;background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:20px}
+.min-term-def{font-size:13px;color:#374151;margin-top:6px;line-height:1.6}
+.min-list-item{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s}
+.min-list-item:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.min-list-title{font-size:14px;font-weight:700;margin-bottom:4px}
+.min-list-meta{font-size:11px;color:var(--muted);display:flex;gap:10px}
+.min-insight{background:#f0fdf4;border:1px solid #86efac;border-radius:9px;padding:10px 14px;font-size:13px;color:#14532d;margin-top:8px}
+
+/* ── QUOTE LEDGER ── */
+.ql-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:18px}
+.ql-stat{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.ql-stat-num{font-size:22px;font-weight:800;color:#2383e2;line-height:1}
+.ql-stat-label{font-size:11px;color:var(--muted);margin-top:3px}
+.ql-status-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.ql-status-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted)}
+.ql-status-btn.active{background:#2383e2;color:#fff;border-color:#2383e2}
+.ql-table-wrap{overflow-x:auto}
+.ql-table{width:100%;border-collapse:collapse;font-size:13px}
+.ql-table th{background:#f4f4f2;color:var(--muted);padding:9px 12px;text-align:left;font-weight:700;border-bottom:1px solid var(--border);white-space:nowrap}
+.ql-table td{padding:10px 12px;border-bottom:1px solid #f0f0ef;vertical-align:middle}
+.ql-table tr:hover td{background:#fafaf9;cursor:pointer}
+.ql-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.ql-badge.作成中{background:#e0e7ff;color:#3730a3}
+.ql-badge.提出済{background:#fef3c7;color:#92400e}
+.ql-badge.交渉中{background:#dbeafe;color:#1e40af}
+.ql-badge.受注{background:#d1fae5;color:#065f46}
+.ql-badge.失注{background:#fee2e2;color:#991b1b}
+.ql-badge.失効{background:#f3f4f6;color:#6b7280}
+.ql-form{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px;display:none}
+.ql-form.open{display:block}
+.ql-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:600px){.ql-grid{grid-template-columns:1fr}}
+.ql-parse-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:14px;margin-bottom:14px;display:none}
+.ql-parse-box.open{display:block}
+
+/* ── EMAIL MONITOR ── */
+.em-tabs{display:flex;gap:4px;margin-bottom:18px}
+.em-tab{padding:7px 18px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)}
+.em-tab.active{background:#2383e2;color:#fff;border-color:#2383e2}
+.em-pane{display:none}
+.em-pane.active{display:block}
+.em-rule-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.em-rule-name{font-size:13px;font-weight:700;flex:1}
+.em-rule-meta{font-size:11px;color:var(--muted)}
+.em-rule-form{background:#f9f9f8;border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px;display:none}
+.em-rule-form.open{display:block}
+.em-form-row{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.em-log-table{width:100%;border-collapse:collapse;font-size:12px}
+.em-log-table th{background:#f4f4f2;color:var(--muted);padding:8px 10px;text-align:left;font-weight:700;border-bottom:1px solid var(--border)}
+.em-log-table td{padding:8px 10px;border-bottom:1px solid #f0f0ef;color:#374151}
+.em-log-table tr:hover td{background:#fafaf9}
+.em-briefing-box{background:linear-gradient(135deg,#1e3a8a,#3b82f6);border-radius:14px;padding:20px 24px;color:#fff}
+.em-briefing-title{font-size:15px;font-weight:700;margin-bottom:8px}
+.em-briefing-sub{font-size:13px;opacity:.85;margin-bottom:16px}
+
+/* ── CALENDAR ── */
+.cal-header-row{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.cal-day-group{margin-bottom:18px}
+.cal-day-label{font-size:12px;font-weight:700;color:var(--muted);padding:4px 10px;background:#f4f4f2;border-radius:6px;display:inline-block;margin-bottom:8px}
+.cal-day-label.today{background:#2383e2;color:#fff}
+.cal-event{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border:1px solid var(--border);border-radius:9px;margin-bottom:6px}
+.cal-event-time{font-size:12px;color:var(--muted);min-width:70px;font-weight:600}
+.cal-event-title{font-size:13px;font-weight:600;flex:1}
+.cal-event-loc{font-size:11px;color:var(--muted)}
+.cal-event-del{background:none;border:none;color:#d1d5db;cursor:pointer;font-size:16px;padding:2px 6px}
+.cal-event-del:hover{color:#ef4444}
+.cal-add-form{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px;display:none}
+.cal-add-form.open{display:block}
+.cal-parse-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:14px;margin-bottom:14px}
+.cal-sync-result{background:#d1fae5;border:1px solid #86efac;border-radius:9px;padding:10px 14px;font-size:13px;color:#065f46;margin-top:10px;display:none}
+
 /* ── QUOTE CHECKER ── */
 .qc-input-row{display:flex;gap:8px;margin-bottom:16px}
 .qc-input-row input{flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:9px;font-size:13px;outline:none;transition:border-color .2s;background:#fff}
@@ -498,6 +594,11 @@ textarea{resize:vertical;min-height:90px;line-height:1.7}
     <div class="nav-item"        id="nav-news"      onclick="showPage('news')">     <span class="ni-icon">📰</span><span>ニュース</span></div>
     <div class="nav-item"        id="nav-quote"     onclick="showPage('quote')">    <span class="ni-icon">📋</span><span>見積書チェック</span></div>
     <div class="nav-item"        id="nav-selfana"   onclick="showPage('selfana')">  <span class="ni-icon">🔍</span><span>自己分析</span></div>
+    <div class="nav-section-label">秘書機能</div>
+    <div class="nav-item"        id="nav-minutia"   onclick="showPage('minutia')">  <span class="ni-icon">📝</span><span>会議録AI整理</span></div>
+    <div class="nav-item"        id="nav-quoteled"  onclick="showPage('quoteled')"> <span class="ni-icon">📊</span><span>見積台帳</span></div>
+    <div class="nav-item"        id="nav-emailmon"  onclick="showPage('emailmon')"> <span class="ni-icon">📬</span><span>メール管理</span></div>
+    <div class="nav-item"        id="nav-calendar"  onclick="showPage('calendar')"> <span class="ni-icon">📅</span><span>カレンダー</span></div>
   </div>
   <div class="sidebar-footer"><a id="db-link" href="#" target="_blank">📊 データベース</a></div>
 </nav>
@@ -973,6 +1074,235 @@ textarea{resize:vertical;min-height:90px;line-height:1.7}
   </div>
 </div>
 
+<!-- ═══ 会議録AI整理 ═══ -->
+<div class="page" id="page-minutia">
+  <div class="page-header">
+    <div class="page-title">📝 会議録AI整理</div>
+    <div class="page-sub">打ち合わせメモを貼り付けるだけ。決定事項・アクション・不明用語をAIが自動整理</div>
+  </div>
+  <div class="page-body" style="max-width:800px">
+    <div class="min-tabs">
+      <button class="min-tab active" onclick="minSwitchTab('new',this)">📝 新規作成</button>
+      <button class="min-tab" onclick="minSwitchTab('list',this)">📋 過去の議事録</button>
+      <button class="min-tab" onclick="minSwitchTab('gloss',this)">📖 用語集</button>
+    </div>
+    <!-- 新規作成 -->
+    <div class="min-pane active" id="min-pane-new">
+      <div class="min-type-btns">
+        <button class="min-type-btn sel" onclick="minSelType('社内会議',this)">🏢 社内会議</button>
+        <button class="min-type-btn" onclick="minSelType('顧客訪問',this)">🤝 顧客訪問</button>
+        <button class="min-type-btn" onclick="minSelType('電話打ち合わせ',this)">📞 電話</button>
+        <button class="min-type-btn" onclick="minSelType('オンライン会議',this)">💻 オンライン</button>
+        <button class="min-type-btn" onclick="minSelType('展示会',this)">🏛️ 展示会</button>
+      </div>
+      <input id="min-attendees" class="inp" placeholder="参加者（カンマ区切り、省略可）" style="margin-bottom:10px">
+      <textarea id="min-text" class="min-textarea" placeholder="会議メモ・音声文字起こし・箇条書きなど、何でも貼り付けてください&#10;&#10;例)&#10;・〇〇社との打ち合わせ&#10;・新製品の見積依頼あり、来週までに提出&#10;・QCDの観点で〜"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+        <button class="btn btn-ai" onclick="runProcessMinutes()">🤖 AIで議事録を整理</button>
+        <span class="loading" id="min-loading" style="display:none"><span class="spin"></span>AIが解析中…</span>
+      </div>
+      <div id="min-result" class="min-result"></div>
+    </div>
+    <!-- 一覧 -->
+    <div class="min-pane" id="min-pane-list">
+      <button class="btn btn-secondary btn-sm" onclick="loadMinutesList()" style="margin-bottom:12px">🔄 更新</button>
+      <div id="min-list"></div>
+    </div>
+    <!-- 用語集 -->
+    <div class="min-pane" id="min-pane-gloss">
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <input id="gloss-search" class="inp" placeholder="用語を検索…" style="flex:1" oninput="searchGlossary(this.value)">
+        <button class="btn btn-secondary btn-sm" onclick="openGlossForm()">＋ 手動追加</button>
+      </div>
+      <div id="gloss-form" class="em-rule-form" style="margin-bottom:14px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px">用語を追加</div>
+        <input id="gf-term" class="inp" placeholder="用語名" style="margin-bottom:8px">
+        <input id="gf-reading" class="inp" placeholder="読み（ふりがな）" style="margin-bottom:8px">
+        <textarea id="gf-def" class="min-textarea" placeholder="解説・意味" style="min-height:80px;margin-bottom:8px"></textarea>
+        <select id="gf-cat" class="inp" style="margin-bottom:10px"><option value="技術">技術</option><option value="業界">業界</option><option value="略語">略語</option><option value="社内用語">社内用語</option><option value="手動登録">その他</option></select>
+        <div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="saveGlossForm()">保存</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('gloss-form').classList.remove('open')">キャンセル</button></div>
+      </div>
+      <div id="gloss-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 見積台帳 ═══ -->
+<div class="page" id="page-quoteled">
+  <div class="page-header">
+    <div class="page-title">📊 見積台帳</div>
+    <div class="page-sub">全ての見積を一元管理。ステータス追跡・受注確度・金額集計</div>
+  </div>
+  <div class="page-body" style="max-width:900px">
+    <div class="ql-stats" id="ql-stats"></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-primary btn-sm" onclick="openQlForm()">＋ 新規登録</button>
+      <button class="btn btn-secondary btn-sm" onclick="openQlParseBox()">📧 メールから自動解析</button>
+      <button class="btn btn-ghost btn-sm" onclick="loadQuoteLedger('all')">🔄 更新</button>
+    </div>
+    <!-- テキスト解析ボックス -->
+    <div class="ql-parse-box" id="ql-parse-box">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">📧 メール本文から見積情報を自動抽出</div>
+      <textarea id="ql-parse-text" class="min-textarea" placeholder="見積依頼メールの本文をここに貼り付けてください" style="min-height:100px;margin-bottom:8px"></textarea>
+      <button class="btn btn-ai btn-sm" onclick="runParseForQL()">🤖 情報を抽出して入力フォームに反映</button>
+    </div>
+    <!-- 新規/編集フォーム -->
+    <div class="ql-form" id="ql-form">
+      <div style="font-size:14px;font-weight:700;margin-bottom:12px" id="ql-form-title">新規見積登録</div>
+      <input type="hidden" id="ql-id">
+      <div class="ql-grid">
+        <div><label class="label">顧客名 *</label><input id="ql-customer" class="inp" placeholder="株式会社〇〇"></div>
+        <div><label class="label">件名 *</label><input id="ql-subject" class="inp" placeholder="〇〇製品の見積依頼"></div>
+        <div><label class="label">金額（円）</label><input id="ql-amount" class="inp" type="number" placeholder="0"></div>
+        <div><label class="label">受注確度（%）</label><input id="ql-prob" class="inp" type="number" min="0" max="100" placeholder="50"></div>
+        <div><label class="label">見積日</label><input id="ql-qdate" class="inp" type="date"></div>
+        <div><label class="label">有効期限</label><input id="ql-edate" class="inp" type="date"></div>
+        <div><label class="label">担当者</label><input id="ql-staff" class="inp" placeholder="自分の名前"></div>
+        <div><label class="label">ステータス</label>
+          <select id="ql-status" class="inp"><option>作成中</option><option>提出済</option><option>交渉中</option><option>受注</option><option>失注</option><option>失効</option></select>
+        </div>
+      </div>
+      <div style="margin-top:8px"><label class="label">備考</label><input id="ql-note" class="inp" placeholder="特記事項・引合元など"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-primary btn-sm" onclick="saveQlForm()">保存</button>
+        <button class="btn btn-ghost btn-sm" onclick="closeQlForm()">キャンセル</button>
+      </div>
+    </div>
+    <!-- ステータスフィルター -->
+    <div class="ql-status-btns">
+      <button class="ql-status-btn active" onclick="loadQuoteLedger('all',this)">全て</button>
+      <button class="ql-status-btn" onclick="loadQuoteLedger('作成中',this)">作成中</button>
+      <button class="ql-status-btn" onclick="loadQuoteLedger('提出済',this)">提出済</button>
+      <button class="ql-status-btn" onclick="loadQuoteLedger('交渉中',this)">交渉中</button>
+      <button class="ql-status-btn" onclick="loadQuoteLedger('受注',this)">受注</button>
+      <button class="ql-status-btn" onclick="loadQuoteLedger('失注',this)">失注</button>
+    </div>
+    <div class="ql-table-wrap"><table class="ql-table"><thead><tr><th>見積No</th><th>顧客名</th><th>件名</th><th>金額</th><th>見積日</th><th>有効期限</th><th>確度</th><th>ステータス</th></tr></thead><tbody id="ql-tbody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ═══ メール管理 ═══ -->
+<div class="page" id="page-emailmon">
+  <div class="page-header">
+    <div class="page-title">📬 メール管理</div>
+    <div class="page-sub">自動振り分けルールの設定・処理ログ確認・日次ブリーフィング送信</div>
+  </div>
+  <div class="page-body" style="max-width:800px">
+    <div class="em-tabs">
+      <button class="em-tab active" onclick="emSwitchTab('rules',this)">⚙️ 振り分けルール</button>
+      <button class="em-tab" onclick="emSwitchTab('log',this)">📜 処理ログ</button>
+      <button class="em-tab" onclick="emSwitchTab('briefing',this)">📧 ブリーフィング</button>
+    </div>
+    <!-- ルール設定 -->
+    <div class="em-pane active" id="em-pane-rules">
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button class="btn btn-primary btn-sm" onclick="openEmRuleForm()">＋ ルール追加</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadEmailRules()">🔄 更新</button>
+        <button class="btn btn-ai btn-sm" onclick="runSetupMonitor()">⚡ 自動監視を有効化</button>
+      </div>
+      <div class="em-rule-form" id="em-rule-form">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px">ルールを追加</div>
+        <input type="hidden" id="erf-id">
+        <div class="em-form-row">
+          <input id="erf-name" class="inp" placeholder="ルール名" style="flex:1">
+          <select id="erf-field" class="inp" style="width:120px"><option value="subject">件名</option><option value="from">送信者</option><option value="body">本文</option></select>
+          <input id="erf-kw" class="inp" placeholder="キーワード" style="flex:1">
+        </div>
+        <div class="em-form-row">
+          <select id="erf-action" class="inp" style="width:140px" onchange="updateEmActionValue(this.value)">
+            <option value="label">ラベル付け</option>
+            <option value="task">タスク作成</option>
+            <option value="archive">アーカイブ</option>
+            <option value="star">スター</option>
+            <option value="quote">見積台帳に追加</option>
+          </select>
+          <input id="erf-val" class="inp" placeholder="ラベル名 または タスク接頭辞" style="flex:1">
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="saveEmRule()">保存</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('em-rule-form').classList.remove('open')">キャンセル</button>
+        </div>
+      </div>
+      <div id="em-rules-list"></div>
+    </div>
+    <!-- ログ -->
+    <div class="em-pane" id="em-pane-log">
+      <button class="btn btn-secondary btn-sm" onclick="loadEmLog()" style="margin-bottom:12px">🔄 ログを更新</button>
+      <div style="overflow-x:auto"><table class="em-log-table"><thead><tr><th>日時</th><th>送信者</th><th>件名</th><th>実行アクション</th></tr></thead><tbody id="em-log-tbody"></tbody></table></div>
+    </div>
+    <!-- ブリーフィング -->
+    <div class="em-pane" id="em-pane-briefing">
+      <div class="em-briefing-box">
+        <div class="em-briefing-title">🤖 あなた専属の秘書機能</div>
+        <div class="em-briefing-sub">毎朝8時に未完了タスク・期限切れ・本日の予定をまとめてメールで送信します</div>
+        <input id="em-briefing-email" class="inp" placeholder="送信先メールアドレス（空欄=Googleアカウントのメール）" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;margin-bottom:12px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary" onclick="runSendBriefing()" style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.4);color:#fff">📧 今すぐ送信（テスト）</button>
+          <button class="btn" onclick="runSetupMonitor()" style="background:#fff;color:#1e3a8a;font-weight:700">⚡ 毎朝8時の自動送信を設定</button>
+        </div>
+      </div>
+      <div style="margin-top:16px;font-size:13px;color:var(--muted);line-height:1.8">
+        <strong>自動送信の内容：</strong><br>
+        ① 期限切れタスク一覧<br>② 本日期限のタスク<br>③ 今日のGoogleカレンダー予定<br>④ 未完了タスクの件数<br><br>
+        <strong>メール監視（15分毎）の内容：</strong><br>
+        ① 未読メールをルールで自動振り分け<br>② AIがラベル付け・タスク自動生成
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ カレンダー ═══ -->
+<div class="page" id="page-calendar">
+  <div class="page-header">
+    <div class="page-title">📅 カレンダー</div>
+    <div class="page-sub">Googleカレンダーと連携。予定の確認・追加・タスクの自動同期</div>
+  </div>
+  <div class="page-body" style="max-width:780px">
+    <div class="cal-header-row">
+      <select id="cal-days" class="inp" style="width:160px" onchange="loadCalendar()">
+        <option value="7">今後7日間</option>
+        <option value="14" selected>今後14日間</option>
+        <option value="30">今後30日間</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="openCalForm()">＋ 予定を追加</button>
+      <button class="btn btn-secondary btn-sm" onclick="runSyncTasks()">📋 タスクを同期</button>
+      <button class="btn btn-ghost btn-sm" onclick="loadCalendar()">🔄 更新</button>
+      <span class="loading" id="cal-loading" style="display:none"><span class="spin"></span></span>
+    </div>
+    <!-- テキストから予定抽出 -->
+    <div class="cal-parse-box">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">📝 テキストから予定を自動抽出</div>
+      <textarea id="cal-parse-text" class="min-textarea" placeholder="メール・チャット・メモを貼り付け → AIが日時・場所を解析してカレンダーに追加します" style="min-height:80px;margin-bottom:8px"></textarea>
+      <button class="btn btn-ai btn-sm" onclick="runParseForCal()">🤖 予定を抽出して追加</button>
+    </div>
+    <!-- 予定追加フォーム -->
+    <div class="cal-add-form" id="cal-add-form">
+      <div style="font-size:14px;font-weight:700;margin-bottom:12px">予定を追加</div>
+      <input id="cf-title" class="inp" placeholder="予定のタイトル" style="margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px;cursor:pointer">
+        <input type="checkbox" id="cf-allday" onchange="toggleCalAllDay(this.checked)"> 終日予定
+      </label>
+      <div id="cf-datetime-fields">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input id="cf-start" class="inp" type="datetime-local" style="flex:1">
+          <input id="cf-end" class="inp" type="datetime-local" style="flex:1">
+        </div>
+      </div>
+      <div id="cf-date-field" style="display:none;margin-bottom:8px">
+        <input id="cf-date" class="inp" type="date">
+      </div>
+      <input id="cf-location" class="inp" placeholder="場所（任意）" style="margin-bottom:8px">
+      <input id="cf-desc" class="inp" placeholder="メモ（任意）" style="margin-bottom:12px">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="saveCalEvent()">追加</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('cal-add-form').classList.remove('open')">キャンセル</button>
+      </div>
+    </div>
+    <div id="cal-sync-result" class="cal-sync-result"></div>
+    <div id="cal-events"></div>
+  </div>
+</div>
+
 <div class="page" id="page-selfana">
   <div class="page-header">
     <div class="page-title">🔍 自己分析レポート</div>
@@ -1051,6 +1381,10 @@ function showPage(name) {
   if (name === 'numbers')  initNumbers();
   if (name === 'news')     loadNews(false);
   if (name === 'quote')    loadQuoteLogs();
+  if (name === 'minutia')  { /* ready */ }
+  if (name === 'quoteled') { loadQuoteLedger('all'); loadQlStats(); }
+  if (name === 'emailmon') loadEmailRules();
+  if (name === 'calendar') loadCalendar();
   if (name === 'selfana')  initSelfAna();
 }
 
@@ -2123,6 +2457,318 @@ function renderWeeklyReport(d) {
     ${iss ? `<div class="report-section"><div class="report-label">課題・懸念事項</div>${iss}</div>` : ''}
     ${nxt ? `<div class="report-section"><div class="report-label">来週の予定</div>${nxt}</div>` : ''}
     ${d.message ? `<div style="margin-top:12px;padding:10px 14px;background:#eefbee;border-radius:8px;font-size:13px;border-left:3px solid #2d8a4e">💬 ${esc(d.message)}</div>` : ''}`;
+}
+
+// ─────────────────────────────────────
+// MEETING MINUTES & GLOSSARY
+// ─────────────────────────────────────
+let _minType = '社内会議';
+function minSwitchTab(name, btn) {
+  document.querySelectorAll('.min-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.min-pane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('min-pane-'+name).classList.add('active');
+  if(name==='list') loadMinutesList();
+  if(name==='gloss') loadGlossary();
+}
+function minSelType(type, btn) {
+  _minType = type;
+  document.querySelectorAll('.min-type-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+function runProcessMinutes() {
+  const text = document.getElementById('min-text').value.trim();
+  if(!text) { toast('会議メモを入力してください'); return; }
+  const attendees = document.getElementById('min-attendees').value;
+  document.getElementById('min-loading').style.display='';
+  document.getElementById('min-result').innerHTML='';
+  google.script.run
+    .withSuccessHandler(d => { document.getElementById('min-loading').style.display='none'; renderMinResult(d); })
+    .withFailureHandler(e => { document.getElementById('min-loading').style.display='none'; toast('エラー: '+e.message); })
+    .processMinutes(text, _minType, attendees);
+}
+function renderMinResult(d) {
+  if(d.error) { document.getElementById('min-result').innerHTML=`<div class="empty-state">${esc(d.error)}</div>`; return; }
+  let h = '';
+  // Summary
+  h += `<div class="min-result-section"><div class="min-result-label">📋 要約</div><div class="min-card">${esc(d.summary||'')}</div></div>`;
+  // Decisions
+  if((d.decisions||[]).length) {
+    h += `<div class="min-result-section"><div class="min-result-label">✅ 決定事項</div><div class="min-card">`;
+    d.decisions.forEach(dec => { h += `<div class="min-decision-item"><div style="flex:1">${esc(dec.item)}</div><div style="font-size:11px;color:var(--muted);white-space:nowrap">${esc(dec.owner||'')} ${dec.deadline?'/ '+esc(dec.deadline):''}</div></div>`; });
+    h += `</div></div>`;
+  }
+  // Action Items
+  if((d.actionItems||[]).length) {
+    h += `<div class="min-result-section"><div class="min-result-label">⚡ アクション items</div>`;
+    d.actionItems.forEach((a,i) => {
+      h += `<div class="min-action-item"><div class="min-action-pri ${a.priority||'medium'}"></div><div style="flex:1;font-size:13px">${esc(a.task)}</div><div style="font-size:11px;color:var(--muted)">${esc(a.owner||'')}${a.deadline?' / '+esc(a.deadline):''}</div><button class="btn btn-secondary btn-sm" style="font-size:11px" onclick="addMinActionTask(${i})">タスク追加</button></div>`;
+    });
+    h += `</div>`;
+  }
+  // Issues
+  if((d.issues||[]).length) {
+    h += `<div class="min-result-section"><div class="min-result-label">⚠️ 未解決課題</div><div class="min-card"><ul class="sa-list">${d.issues.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div></div>`;
+  }
+  // Sales Insight
+  if(d.salesInsight) { h += `<div class="min-insight">💼 ${esc(d.salesInsight)}</div>`; }
+  // Unknown Terms
+  if((d.unknownTerms||[]).length) {
+    h += `<div class="min-result-section"><div class="min-result-label">📖 自動習得した用語（${d.unknownTerms.length}件）</div>`;
+    d.unknownTerms.forEach(t => { h += `<div class="min-term-card"><div class="min-term-name">${esc(t.term)} <span class="min-term-reading">${esc(t.reading||'')}</span><span class="min-term-cat">${esc(t.category||'')}</span></div><div class="min-term-def">${esc(t.definition)}</div></div>`; });
+    h += `</div>`;
+  }
+  if(d.nextMeeting) { h += `<div class="min-result-section"><div class="min-result-label">📅 次回提案</div><div class="min-card">${esc(d.nextMeeting)}</div></div>`; }
+  // Store action items for task creation
+  window._minActions = d.actionItems||[];
+  document.getElementById('min-result').innerHTML = h;
+  toast('議事録を整理しました（用語集に'+(d.unknownTerms||[]).length+'件追加）');
+}
+function addMinActionTask(idx) {
+  const a = (window._minActions||[])[idx]; if(!a) return;
+  google.script.run.withSuccessHandler(()=>toast('タスクに追加しました')).withFailureHandler(e=>toast('エラー: '+e.message))
+    .saveTask({id:'', title:a.task, due:a.deadline||'', priority:a.priority||'medium', status:'todo', createdAt:''});
+}
+function loadMinutesList() {
+  document.getElementById('min-list').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)"><span class="spin"></span> 読み込み中</div>';
+  google.script.run.withSuccessHandler(list => {
+    if(!list||!list.length){ document.getElementById('min-list').innerHTML='<div class="empty-state">まだ議事録がありません</div>'; return; }
+    document.getElementById('min-list').innerHTML = list.map(m=>`
+      <div class="min-list-item" onclick="viewMinutesDetail('${esc(m.id)}')">
+        <div class="min-list-title">${esc(m.title||'（タイトルなし）')}</div>
+        <div class="min-list-meta">
+          <span>${esc(m.date||'')} ${esc(m.type||'')}</span>
+          <span>アクション ${m.actionCount||0}件</span>
+          <span>新規用語 ${m.termCount||0}件</span>
+        </div>
+        <div style="font-size:12px;color:#374151;margin-top:4px">${esc((m.summary||'').substring(0,80))}</div>
+      </div>`).join('');
+  }).withFailureHandler(e=>toast('エラー: '+e.message)).getMinutesList(30);
+}
+function viewMinutesDetail(id) {
+  google.script.run.withSuccessHandler(d=>{ if(d&&!d.error) renderMinResult(d); minSwitchTab('new',document.querySelector('.min-tab')); }).getMinutesDetail(id);
+}
+function loadGlossary() { searchGlossary(''); }
+function searchGlossary(q) {
+  google.script.run.withSuccessHandler(list=>{
+    if(!list||list.error||!list.length){ document.getElementById('gloss-list').innerHTML='<div class="empty-state">用語がありません</div>'; return; }
+    document.getElementById('gloss-list').innerHTML = list.map(t=>`
+      <div class="min-term-card">
+        <div class="min-term-name">${esc(t.term)} <span class="min-term-reading">${esc(t.reading||'')}</span><span class="min-term-cat">${esc(t.category||'')}</span>
+          <button class="btn btn-ghost btn-sm" style="margin-left:auto;font-size:11px" onclick="deleteGlossTerm('${esc(t.id)}')">🗑</button>
+        </div>
+        <div class="min-term-def">${esc(t.definition)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">出典: ${esc(t.source||'')}</div>
+      </div>`).join('');
+  }).getGlossary(q||'');
+}
+function openGlossForm() { document.getElementById('gloss-form').classList.add('open'); }
+function saveGlossForm() {
+  const term=document.getElementById('gf-term').value.trim(); if(!term){ toast('用語名を入力してください'); return; }
+  google.script.run.withSuccessHandler(()=>{ toast('用語を保存しました'); loadGlossary(); document.getElementById('gloss-form').classList.remove('open'); ['gf-term','gf-reading','gf-def'].forEach(id=>document.getElementById(id).value=''); }).saveGlossaryTerm({term,reading:document.getElementById('gf-reading').value,definition:document.getElementById('gf-def').value,category:document.getElementById('gf-cat').value});
+}
+function deleteGlossTerm(id) {
+  if(!confirm('この用語を削除しますか？')) return;
+  google.script.run.withSuccessHandler(()=>{ toast('削除しました'); loadGlossary(); }).deleteGlossaryTerm(id);
+}
+
+// ─────────────────────────────────────
+// QUOTE LEDGER
+// ─────────────────────────────────────
+let _qlFilter='all';
+function loadQlStats() {
+  google.script.run.withSuccessHandler(s=>{
+    if(!s||s.error) return;
+    const st=s.byStatus||{};
+    document.getElementById('ql-stats').innerHTML=`
+      <div class="ql-stat"><div class="ql-stat-num">${s.totalCount||0}</div><div class="ql-stat-label">総件数</div></div>
+      <div class="ql-stat"><div class="ql-stat-num" style="font-size:16px">${((s.totalAmount||0)/10000).toFixed(0)}万</div><div class="ql-stat-label">見積合計</div></div>
+      <div class="ql-stat"><div class="ql-stat-num" style="font-size:16px;color:#2d8a4e">${((s.weightedAmount||0)/10000).toFixed(0)}万</div><div class="ql-stat-label">加重受注予測</div></div>
+      <div class="ql-stat"><div class="ql-stat-num" style="color:#065f46">${(st['受注']||{}).count||0}</div><div class="ql-stat-label">受注</div></div>
+      <div class="ql-stat"><div class="ql-stat-num" style="color:#92400e">${(st['提出済']||{}).count||0}</div><div class="ql-stat-label">提出済</div></div>`;
+  }).getQuoteLedgerStats();
+}
+function loadQuoteLedger(status, btn) {
+  _qlFilter=status||'all';
+  if(btn){ document.querySelectorAll('.ql-status-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
+  google.script.run.withSuccessHandler(rows=>{
+    if(!rows||rows.error){ document.getElementById('ql-tbody').innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">データなし</td></tr>'; return; }
+    document.getElementById('ql-tbody').innerHTML = rows.map(r=>`
+      <tr onclick="openQlEditForm('${esc(r.id)}')">
+        <td style="font-size:11px;white-space:nowrap">${esc(r.quoteNo||'')}</td>
+        <td style="font-weight:600">${esc(r.customer||'')}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.subject||'')}</td>
+        <td style="text-align:right;font-weight:700">${r.amount?Number(r.amount).toLocaleString()+'円':'-'}</td>
+        <td style="font-size:12px;white-space:nowrap">${esc(r.quoteDate||'')}</td>
+        <td style="font-size:12px;white-space:nowrap">${esc(r.expiryDate||'')}</td>
+        <td style="text-align:center">${r.probability?r.probability+'%':'-'}</td>
+        <td><span class="ql-badge ${esc(r.status||'')}">${esc(r.status||'')}</span></td>
+      </tr>`).join('');
+  }).getQuoteLedger(status||'all');
+}
+function openQlForm() {
+  document.getElementById('ql-id').value='';
+  document.getElementById('ql-form-title').textContent='新規見積登録';
+  ['ql-customer','ql-subject','ql-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('ql-amount').value='';
+  document.getElementById('ql-prob').value='50';
+  document.getElementById('ql-qdate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('ql-status').value='作成中';
+  document.getElementById('ql-form').classList.add('open');
+}
+function closeQlForm() { document.getElementById('ql-form').classList.remove('open'); }
+function openQlParseBox() { document.getElementById('ql-parse-box').classList.toggle('open'); }
+function runParseForQL() {
+  const text=document.getElementById('ql-parse-text').value.trim(); if(!text){ toast('テキストを入力してください'); return; }
+  google.script.run.withSuccessHandler(d=>{
+    if(d&&!d.error){ document.getElementById('ql-customer').value=d.customer||''; document.getElementById('ql-subject').value=d.subject||''; document.getElementById('ql-amount').value=d.amount||''; document.getElementById('ql-note').value=d.note||''; document.getElementById('ql-form').classList.add('open'); document.getElementById('ql-parse-box').classList.remove('open'); toast('情報を抽出してフォームに入力しました'); }
+  }).parseTextForQuoteLedger(text);
+}
+function openQlEditForm(id) {
+  google.script.run.withSuccessHandler(rows=>{
+    const r=(rows||[]).find(x=>x.id===id); if(!r) return;
+    document.getElementById('ql-id').value=r.id; document.getElementById('ql-form-title').textContent='見積を編集';
+    document.getElementById('ql-customer').value=r.customer||''; document.getElementById('ql-subject').value=r.subject||'';
+    document.getElementById('ql-amount').value=r.amount||''; document.getElementById('ql-prob').value=r.probability||'';
+    document.getElementById('ql-qdate').value=r.quoteDate||''; document.getElementById('ql-edate').value=r.expiryDate||'';
+    document.getElementById('ql-staff').value=r.staff||''; document.getElementById('ql-status').value=r.status||'作成中';
+    document.getElementById('ql-note').value=r.note||''; document.getElementById('ql-form').classList.add('open');
+  }).getQuoteLedger('all');
+}
+function saveQlForm() {
+  const c=document.getElementById('ql-customer').value.trim(); const s=document.getElementById('ql-subject').value.trim();
+  if(!c||!s){ toast('顧客名と件名は必須です'); return; }
+  const entry={id:document.getElementById('ql-id').value,customer:c,subject:s,amount:document.getElementById('ql-amount').value,probability:document.getElementById('ql-prob').value,quoteDate:document.getElementById('ql-qdate').value,expiryDate:document.getElementById('ql-edate').value,staff:document.getElementById('ql-staff').value,status:document.getElementById('ql-status').value,note:document.getElementById('ql-note').value};
+  google.script.run.withSuccessHandler(r=>{ toast('保存しました（'+r.quoteNo+'）'); closeQlForm(); loadQuoteLedger(_qlFilter); loadQlStats(); }).withFailureHandler(e=>toast('エラー: '+e.message)).saveQuoteLedger(entry);
+}
+
+// ─────────────────────────────────────
+// EMAIL MONITOR
+// ─────────────────────────────────────
+function emSwitchTab(name, btn) {
+  document.querySelectorAll('.em-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.em-pane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active'); document.getElementById('em-pane-'+name).classList.add('active');
+  if(name==='log') loadEmLog();
+}
+function loadEmailRules() {
+  google.script.run.withSuccessHandler(rules=>{
+    if(!rules||rules.error){ document.getElementById('em-rules-list').innerHTML='<div class="empty-state">ルールがありません</div>'; return; }
+    document.getElementById('em-rules-list').innerHTML = rules.map(r=>`
+      <div class="em-rule-card">
+        <div><div class="em-rule-name">${esc(r.name)}</div>
+          <div class="em-rule-meta">${esc(r.matchField==='subject'?'件名':r.matchField==='from'?'送信者':'本文')} に「${esc(r.keyword)}」→ ${esc(r.action==='label'?'ラベル: '+r.actionValue:r.action==='task'?'タスク作成':r.action==='quote'?'見積台帳':r.action)}</div>
+        </div>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="checkbox" ${r.active?'checked':''} onchange="toggleEmRule('${esc(r.id)}',this.checked)"> 有効</label>
+        <button class="btn btn-ghost btn-sm" onclick="deleteEmRule('${esc(r.id)}')">🗑</button>
+      </div>`).join('');
+  }).getEmailRules();
+}
+function openEmRuleForm() { document.getElementById('em-rule-form').classList.add('open'); document.getElementById('erf-id').value=''; document.getElementById('erf-name').value=''; document.getElementById('erf-kw').value=''; document.getElementById('erf-val').value=''; }
+function updateEmActionValue(action) {
+  const pl={label:'ラベル名',task:'タスク名の接頭辞',archive:'（不要）',star:'（不要）',quote:'（自動）'};
+  document.getElementById('erf-val').placeholder=pl[action]||'';
+}
+function saveEmRule() {
+  const name=document.getElementById('erf-name').value.trim(); const kw=document.getElementById('erf-kw').value.trim();
+  if(!name||!kw){ toast('ルール名とキーワードは必須です'); return; }
+  const rule={id:document.getElementById('erf-id').value,name,matchField:document.getElementById('erf-field').value,keyword:kw,action:document.getElementById('erf-action').value,actionValue:document.getElementById('erf-val').value,active:true};
+  google.script.run.withSuccessHandler(()=>{ toast('ルールを保存しました'); document.getElementById('em-rule-form').classList.remove('open'); loadEmailRules(); }).saveEmailRule(rule);
+}
+function toggleEmRule(id, active) {
+  google.script.run.withSuccessHandler(()=>{}).saveEmailRule({id,active});
+}
+function deleteEmRule(id) {
+  if(!confirm('このルールを削除しますか？')) return;
+  google.script.run.withSuccessHandler(()=>{ toast('削除しました'); loadEmailRules(); }).deleteEmailRule(id);
+}
+function loadEmLog() {
+  document.getElementById('em-log-tbody').innerHTML='<tr><td colspan="4" style="text-align:center;padding:14px;color:var(--muted)">読み込み中…</td></tr>';
+  google.script.run.withSuccessHandler(logs=>{
+    if(!logs||!logs.length){ document.getElementById('em-log-tbody').innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted)">ログがありません</td></tr>'; return; }
+    document.getElementById('em-log-tbody').innerHTML=logs.map(l=>`<tr><td style="white-space:nowrap;font-size:11px">${esc(String(l['日時']||'').substring(0,16))}</td><td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis">${esc(String(l['送信者']||'').substring(0,30))}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${esc(String(l['件名']||'').substring(0,40))}</td><td style="font-size:12px;color:#2383e2">${esc(String(l['実行アクション']||''))}</td></tr>`).join('');
+  }).getEmailMonitorLog(50);
+}
+function runSetupMonitor() {
+  google.script.run.withSuccessHandler(r=>toast(r.message||'設定完了')).withFailureHandler(e=>toast('エラー: '+e.message)).setupEmailMonitor();
+}
+function runSendBriefing() {
+  const email=document.getElementById('em-briefing-email').value.trim();
+  google.script.run.withSuccessHandler(r=>toast(r.ok?'送信しました':'エラー: '+(r.error||''))).sendDailyBriefing(email||null);
+}
+
+// ─────────────────────────────────────
+// CALENDAR
+// ─────────────────────────────────────
+function loadCalendar() {
+  const days=parseInt(document.getElementById('cal-days').value)||14;
+  document.getElementById('cal-loading').style.display='';
+  document.getElementById('cal-events').innerHTML='';
+  google.script.run
+    .withSuccessHandler(events=>{
+      document.getElementById('cal-loading').style.display='none';
+      if(!events||events.error||!events.length){ document.getElementById('cal-events').innerHTML='<div class="empty-state">予定がありません</div>'; return; }
+      const today=new Date().toISOString().split('T')[0];
+      const grouped={};
+      events.forEach(e=>{ if(!grouped[e.dateStr]) grouped[e.dateStr]=[]; grouped[e.dateStr].push(e); });
+      document.getElementById('cal-events').innerHTML = Object.keys(grouped).sort().map(d=>{
+        const isToday=d===today;
+        const label=new Date(d+'T00:00:00').toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'});
+        return `<div class="cal-day-group">
+          <div class="cal-day-label ${isToday?'today':''}">${isToday?'今日 ':''}${label}</div>
+          ${grouped[d].map(ev=>`<div class="cal-event">
+            <div class="cal-event-time">${ev.isAllDay?'終日':ev.startStr+'-'+ev.endStr}</div>
+            <div><div class="cal-event-title">${esc(ev.title)}</div>${ev.location?`<div class="cal-event-loc">📍${esc(ev.location)}</div>`:''}</div>
+            <button class="cal-event-del" onclick="delCalEvent('${esc(ev.id)}',event)">✕</button>
+          </div>`).join('')}
+        </div>`;
+      }).join('');
+    })
+    .withFailureHandler(e=>{ document.getElementById('cal-loading').style.display='none'; toast('カレンダー取得エラー: '+e.message); })
+    .getCalendarEvents(days);
+}
+function openCalForm() {
+  const now=new Date(); const plus1=new Date(now.getTime()+3600000);
+  const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  document.getElementById('cf-start').value=fmt(now); document.getElementById('cf-end').value=fmt(plus1);
+  document.getElementById('cf-title').value=''; document.getElementById('cf-location').value=''; document.getElementById('cf-desc').value='';
+  document.getElementById('cal-add-form').classList.toggle('open');
+}
+function toggleCalAllDay(checked) {
+  document.getElementById('cf-datetime-fields').style.display=checked?'none':'';
+  document.getElementById('cf-date-field').style.display=checked?'':'none';
+}
+function saveCalEvent() {
+  const title=document.getElementById('cf-title').value.trim(); if(!title){ toast('タイトルを入力してください'); return; }
+  const allDay=document.getElementById('cf-allday').checked;
+  const event={title,allDay,location:document.getElementById('cf-location').value,description:document.getElementById('cf-desc').value,
+    startDatetime:document.getElementById('cf-start').value+':00',endDatetime:document.getElementById('cf-end').value+':00',
+    startDate:document.getElementById('cf-date').value};
+  google.script.run.withSuccessHandler(r=>{ if(r.ok){ toast('予定を追加しました'); document.getElementById('cal-add-form').classList.remove('open'); loadCalendar(); } else toast('エラー: '+(r.error||'')); }).createCalendarEvent(event);
+}
+function delCalEvent(id, ev) {
+  ev.stopPropagation(); if(!confirm('この予定を削除しますか？')) return;
+  google.script.run.withSuccessHandler(r=>{ if(r.ok){ toast('削除しました'); loadCalendar(); } else toast('エラー: '+(r.error||'')); }).deleteCalendarEvent(id);
+}
+function runSyncTasks() {
+  google.script.run.withSuccessHandler(r=>{
+    const el=document.getElementById('cal-sync-result');
+    el.textContent=r.ok?`✅ ${r.synced}件のタスクをカレンダーに同期しました`:'エラー: '+(r.error||'');
+    el.style.display=''; setTimeout(()=>el.style.display='none',4000);
+    if(r.ok&&r.synced>0) loadCalendar();
+  }).syncTasksToCalendar();
+}
+function runParseForCal() {
+  const text=document.getElementById('cal-parse-text').value.trim(); if(!text){ toast('テキストを入力してください'); return; }
+  google.script.run.withSuccessHandler(events=>{
+    if(!events||!events.length){ toast('予定情報が見つかりませんでした'); return; }
+    let cnt=0;
+    const createNext=idx=>{
+      if(idx>=events.length){ toast(cnt+'件の予定を追加しました'); loadCalendar(); return; }
+      google.script.run.withSuccessHandler(r=>{ if(r.ok) cnt++; createNext(idx+1); }).createCalendarEvent(events[idx]);
+    };
+    createNext(0);
+  }).parseTextForCalendar(text);
 }
 
 // ─────────────────────────────────────
