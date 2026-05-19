@@ -75,6 +75,7 @@ function _fmtDate(d) {
   try { return Utilities.formatDate(new Date(d), 'Asia/Tokyo', 'yyyy/MM/dd'); } catch (e) { return ''; }
 }
 function _uuid() { return Utilities.getUuid().split('-')[0]; }
+function getCurrentTime() { return Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm:ss'); }
 
 function getDbUrl() { return _ss().getUrl(); }
 
@@ -723,6 +724,409 @@ JSON形式:
   "message": "上司へのひと言（30字以内、前向きに）"
 }`;
   return _callGemini(prompt, true);
+}
+
+// ─────────────────────────────────────────────
+// QUOTE CHECKER
+// ─────────────────────────────────────────────
+// 見積書（Excel/PDF/画像）を4項目でAI自動チェック
+// 対応: ①誤字脱字 ②計算ミス ③必須項目 ④商品マスタ照合
+// ─────────────────────────────────────────────
+
+/** Driveフォルダを監視して全ファイルを自動チェック（5分おきトリガー用） */
+function checkQuotesInFolder() {
+  const props = PropertiesService.getScriptProperties();
+  const inboxFolderId = props.getProperty('QUOTE_INBOX_FOLDER_ID');
+  if (!inboxFolderId) { Logger.log('QUOTE_INBOX_FOLDER_ID 未設定'); return; }
+
+  const files = DriveApp.getFolderById(inboxFolderId).getFiles();
+  const processed = [];
+
+  while (files.hasNext()) {
+    const file = files.next();
+    const mime = file.getMimeType();
+    const name = file.getName();
+    try {
+      let quoteData = null;
+      if (mime === MimeType.MICROSOFT_EXCEL ||
+          mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+          name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        quoteData = readExcelFile(file);
+      } else if (mime === MimeType.PDF) {
+        quoteData = readWithGeminiOCR(file, 'application/pdf');
+      } else if (mime === MimeType.JPEG || mime === MimeType.PNG ||
+                 mime === 'image/jpeg' || mime === 'image/png') {
+        quoteData = readWithGeminiOCR(file, mime);
+      } else {
+        moveQuoteFile(file, 'QUOTE_ERROR_FOLDER_ID');
+        continue;
+      }
+      const results = runAllChecks(quoteData, file.getName());
+      logCheckResults(file.getName(), file.getUrl(), results);
+      sendNotificationEmail(file.getName(), file.getUrl(), results);
+      saveQuoteToMemos(quoteData, results, file);
+      moveQuoteFile(file, 'QUOTE_DONE_FOLDER_ID');
+      processed.push(name);
+    } catch(e) {
+      Logger.log('エラー [' + name + ']: ' + e.message);
+      moveQuoteFile(file, 'QUOTE_ERROR_FOLDER_ID');
+    }
+  }
+  return '処理完了: ' + processed.length + '件';
+}
+
+/** Excel→GスプレッドシートへOCR読み込み（Drive API 有効化が必要） */
+function readExcelFile(file) {
+  const tempResource = { title: '__tmp_quote_' + Date.now(), mimeType: MimeType.GOOGLE_SHEETS };
+  const tempFile = Drive.Files.insert(tempResource, file.getBlob());
+  try {
+    const ss = SpreadsheetApp.openById(tempFile.id);
+    return parseExcelData(ss.getActiveSheet().getDataRange().getValues(), file.getName());
+  } finally {
+    try { Drive.Files.remove(tempFile.id); } catch(e) {}
+  }
+}
+
+function parseExcelData(data, fileName) {
+  const result = {
+    fileName, format: 'Excel', rawData: data,
+    company:'', quoteNo:'', quoteDate:'', expiryDate:'',
+    staffName:'', contactInfo:'', ourCompany:'', deliveryDate:'',
+    items:[], subtotal:0, tax:0, total:0,
+    rawText: data.map(r => r.join('\t')).join('\n')
+  };
+  for (let i = 0; i < Math.min(20, data.length); i++) {
+    const row = data[i]; const rowStr = row.join(' ');
+    if (rowStr.match(/御見積|宛先|会社名/) && !result.company)
+      result.company = extractValueNearby(row, ['御見積','宛先','会社名']);
+    if (rowStr.match(/見積番号|見積No/))
+      result.quoteNo = extractValueNearby(row, ['見積番号','見積No','No.']);
+    if (rowStr.match(/見積日|作成日/))
+      result.quoteDate = extractValueNearby(row, ['見積日','作成日']);
+    if (rowStr.match(/有効期限|期限/))
+      result.expiryDate = extractValueNearby(row, ['有効期限','期限']);
+    if (rowStr.match(/担当者|担当/))
+      result.staffName = extractValueNearby(row, ['担当者','担当']);
+    if (rowStr.match(/納期|納入/))
+      result.deliveryDate = extractValueNearby(row, ['納期','納入']);
+  }
+  let inItems = false;
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i]; const rowStr = row.join(' ');
+    if (rowStr.match(/品名|商品名|品目/) && rowStr.match(/数量|個数/) && rowStr.match(/単価|価格/)) {
+      inItems = true; continue;
+    }
+    if (inItems) {
+      if (rowStr.match(/小計|合計/) && !rowStr.match(/品名|商品/)) {
+        const nums = row.filter(c => typeof c === 'number' || (String(c).match(/^[\d,]+$/) && c));
+        if (nums.length > 0) {
+          const val = parseFloat(String(nums[nums.length-1]).replace(/,/g,''));
+          if (rowStr.match(/税込|合計/)) result.total = val;
+          else if (rowStr.match(/消費税|税額/)) result.tax = val;
+          else result.subtotal = val;
+        }
+        continue;
+      }
+      if (row.every(c => c === '' || c === null || c === undefined)) continue;
+      const item = parseItemRow(row);
+      if (item) result.items.push(item);
+    }
+  }
+  if (result.subtotal === 0 && result.items.length > 0) {
+    result.subtotal = result.items.reduce((s,i) => s + (i.subtotal||0), 0);
+    result.tax   = Math.round(result.subtotal * 0.1);
+    result.total = result.subtotal + result.tax;
+  }
+  return result;
+}
+
+function extractValueNearby(row, keywords) {
+  for (let i = 0; i < row.length; i++) {
+    if (keywords.some(k => String(row[i]).includes(k))) {
+      for (let j = i+1; j < Math.min(i+4, row.length); j++) {
+        if (row[j] !== '' && row[j] !== null) return String(row[j]);
+      }
+    }
+  }
+  return '';
+}
+
+function parseItemRow(row) {
+  const nums=[]; const texts=[];
+  row.forEach(c => {
+    if (typeof c === 'number') nums.push(c);
+    else if (typeof c === 'string' && c.match(/^[\d,]+(\.\d+)?$/) && c.length > 0)
+      nums.push(parseFloat(c.replace(/,/g,'')));
+    else if (typeof c === 'string' && c.trim()) texts.push(c.trim());
+  });
+  if (nums.length < 2 && texts.length === 0) return null;
+  return { name:texts[0]||'', code:texts[1]||'', qty:nums[0]||0, price:nums[1]||0, subtotal:nums[2]||(nums[0]*nums[1])||0 };
+}
+
+/** PDF・画像をGemini OCRで読み込み */
+function readWithGeminiOCR(file, mimeType) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('GEMINI_API_KEY が未設定です');
+  const base64 = Utilities.base64Encode(file.getBlob().getBytes());
+  const prompt = `この見積書を読み取りJSONのみ返してください。説明文不要。
+{"company":"宛先会社名","quoteNo":"見積番号","quoteDate":"YYYY-MM-DD","expiryDate":"YYYY-MM-DD","staffName":"担当者名","contactInfo":"連絡先","ourCompany":"自社名","deliveryDate":"納期","items":[{"name":"商品名","code":"型番","qty":数量,"price":単価,"subtotal":小計}],"subtotal":税抜合計,"tax":消費税,"total":税込合計,"rawText":"全文テキスト"}`;
+  const payload = {
+    contents: [{ parts:[{inline_data:{mime_type:mimeType,data:base64}},{text:prompt}] }],
+    generationConfig: { temperature:0 }
+  };
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey;
+  const res = UrlFetchApp.fetch(url, { method:'POST', contentType:'application/json', payload:JSON.stringify(payload), muteHttpExceptions:true });
+  const json = JSON.parse(res.getContentText());
+  if (!json.candidates?.[0]) throw new Error('Gemini OCRエラー');
+  let text = json.candidates[0].content.parts[0].text.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+  try {
+    const parsed = JSON.parse(text);
+    parsed.fileName = file.getName();
+    parsed.format = mimeType.includes('pdf') ? 'PDF' : 'Image';
+    return parsed;
+  } catch(e) {
+    return { fileName:file.getName(), format:'OCR_Error', rawText:text, items:[], company:'', quoteNo:'', quoteDate:'', expiryDate:'', staffName:'', contactInfo:'', ourCompany:'', deliveryDate:'', subtotal:0, tax:0, total:0 };
+  }
+}
+
+/** 4つのチェックを一括実行 */
+function runAllChecks(quoteData, fileName) {
+  const results = {
+    fileName,
+    timestamp: getCurrentTime(),
+    check1_typo:     checkTypoAndVariation(quoteData),
+    check2_calc:     checkCalculation(quoteData),
+    check3_required: checkRequiredFields(quoteData),
+    check4_product:  checkProductMaster(quoteData),
+    overallStatus:   'OK'
+  };
+  const checks = [results.check1_typo, results.check2_calc, results.check3_required, results.check4_product];
+  results.overallStatus = checks.some(c=>c.status==='ERROR') ? 'ERROR' : checks.some(c=>c.status==='WARNING') ? 'WARNING' : 'OK';
+  return results;
+}
+
+/** チェック①：誤字脱字・表記ゆれ（Gemini） */
+function checkTypoAndVariation(quoteData) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) return { status:'SKIP', issues:[], message:'APIキー未設定' };
+  const textToCheck = [quoteData.rawText||'', (quoteData.items||[]).map(i=>i.name+' '+i.code).join('\n')].join('\n').substring(0,8000);
+  const prompt = `以下の見積書テキストの誤字脱字・表記ゆれを検出し、JSONのみ返してください。
+{"issues":[{"type":"誤字脱字|表記ゆれ|その他","found":"問題箇所","suggestion":"修正案"}],"hasIssue":true/false}
+テキスト:\n${textToCheck}`;
+  try {
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey;
+    const res = UrlFetchApp.fetch(url, { method:'POST', contentType:'application/json',
+      payload: JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0} }),
+      muteHttpExceptions:true });
+    let text = JSON.parse(res.getContentText()).candidates[0].content.parts[0].text;
+    text = text.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    const parsed = JSON.parse(text);
+    return { status: parsed.hasIssue?'WARNING':'OK', issues:parsed.issues||[], message: parsed.hasIssue?`${parsed.issues.length}件の表記ゆれを検出`:'問題なし' };
+  } catch(e) { return { status:'SKIP', issues:[], message:'チェックエラー: '+e.message }; }
+}
+
+/** チェック②：計算ミス（GASロジック） */
+function checkCalculation(quoteData) {
+  const TOLERANCE = 1;
+  if (!quoteData.items || quoteData.items.length === 0)
+    return { status:'WARNING', issues:[], message:'明細行を取得できませんでした（フォーマット確認が必要）' };
+  const issues = [];
+  let calcSubtotal = 0;
+  quoteData.items.forEach((item, idx) => {
+    const expected = item.qty * item.price;
+    const actual   = item.subtotal || 0;
+    if (Math.abs(expected - actual) > TOLERANCE && expected > 0) {
+      issues.push({ type:'小計ミス', found:`${idx+1}行目「${item.name}」: ${item.qty}×${item.price.toLocaleString()}=${expected.toLocaleString()} → 記載:${actual.toLocaleString()}`, suggestion:`小計は${expected.toLocaleString()}円が正しい` });
+    }
+    calcSubtotal += (actual > 0 ? actual : expected);
+  });
+  if (quoteData.subtotal > 0 && Math.abs(quoteData.subtotal - calcSubtotal) > TOLERANCE)
+    issues.push({ type:'税抜合計ミス', found:`明細合計:${calcSubtotal.toLocaleString()} → 記載:${quoteData.subtotal.toLocaleString()}`, suggestion:`税抜合計は${calcSubtotal.toLocaleString()}円が正しい` });
+  const base = quoteData.subtotal > 0 ? quoteData.subtotal : calcSubtotal;
+  const expectedTax = Math.round(base * 0.1);
+  if (quoteData.tax > 0 && Math.abs(quoteData.tax - expectedTax) > TOLERANCE)
+    issues.push({ type:'消費税ミス', found:`記載:${quoteData.tax.toLocaleString()} → 計算値:${expectedTax.toLocaleString()}`, suggestion:`消費税は${expectedTax.toLocaleString()}円（10%）` });
+  const expectedTotal = base + (quoteData.tax > 0 ? quoteData.tax : expectedTax);
+  if (quoteData.total > 0 && Math.abs(quoteData.total - expectedTotal) > TOLERANCE)
+    issues.push({ type:'税込合計ミス', found:`記載:${quoteData.total.toLocaleString()} → 計算値:${expectedTotal.toLocaleString()}`, suggestion:`税込合計は${expectedTotal.toLocaleString()}円が正しい` });
+  return { status:issues.length>0?'ERROR':'OK', issues, message:issues.length>0?`${issues.length}件の計算ミスを検出`:`計算OK（税抜:${calcSubtotal.toLocaleString()}円 / 税込:${expectedTotal.toLocaleString()}円）` };
+}
+
+/** チェック③：必須項目チェック（GASロジック） */
+function checkRequiredFields(quoteData) {
+  const required = [
+    {key:'company',label:'宛先会社名'},{key:'quoteNo',label:'見積番号'},
+    {key:'quoteDate',label:'見積日'},{key:'expiryDate',label:'有効期限'},
+    {key:'ourCompany',label:'自社名'},{key:'staffName',label:'担当者名'},
+    {key:'deliveryDate',label:'納期'}
+  ];
+  const issues = [];
+  required.forEach(f => {
+    const val = quoteData[f.key];
+    if (!val || String(val).trim()==='' || String(val)==='undefined')
+      issues.push({ type:'記入漏れ', found:`「${f.label}」が空欄`, suggestion:`${f.label}を記入してください` });
+  });
+  if (!quoteData.items || quoteData.items.length===0)
+    issues.push({ type:'記入漏れ', found:'明細行が1件もありません', suggestion:'商品・サービスの明細を記入してください' });
+  return { status:issues.length>0?'ERROR':'OK', issues, message:issues.length>0?`${issues.length}件の必須項目が未記入`:'全必須項目OK' };
+}
+
+/** チェック④：商品マスタ照合（スプレッドシートDB） */
+function checkProductMaster(quoteData) {
+  const masterSheetId = PropertiesService.getScriptProperties().getProperty('PRODUCT_MASTER_SHEET_ID');
+  if (!masterSheetId) return { status:'SKIP', issues:[], message:'PRODUCT_MASTER_SHEET_ID 未設定のためスキップ' };
+  if (!quoteData.items || quoteData.items.length===0) return { status:'OK', issues:[], message:'明細なし' };
+  try {
+    const masterData = SpreadsheetApp.openById(masterSheetId).getSheets()[0].getDataRange().getValues();
+    if (masterData.length < 2) return { status:'SKIP', issues:[], message:'商品マスタにデータがありません' };
+    const headers = masterData[0].map(h=>String(h).trim());
+    const codeCol  = headers.findIndex(h=>h.match(/型番|品番|コード/));
+    const priceCol = headers.findIndex(h=>h.match(/価格|単価/));
+    const statusCol= headers.findIndex(h=>h.match(/ステータス|廃番|状態/));
+    const masterMap = {};
+    masterData.slice(1).forEach(row => {
+      const code = codeCol>=0 ? String(row[codeCol]).trim().toLowerCase() : '';
+      if (code) masterMap[code] = { price:priceCol>=0?row[priceCol]:null, status:statusCol>=0?String(row[statusCol]):'' };
+    });
+    const issues = [];
+    quoteData.items.forEach((item, idx) => {
+      if (!item.code || !item.code.trim()) {
+        if (item.name) issues.push({ type:'型番未記入', found:`${idx+1}行目「${item.name}」の型番が空欄`, suggestion:'型番を記入してください' });
+        return;
+      }
+      const m = masterMap[item.code.trim().toLowerCase()];
+      if (!m) {
+        issues.push({ type:'不明な型番', found:`${idx+1}行目「${item.code}」がマスタに存在しません`, suggestion:'型番を確認するかマスタに登録してください' });
+      } else {
+        if (m.status.match(/廃番|廃止|discontinued/i))
+          issues.push({ type:'廃番商品', found:`${idx+1}行目「${item.code}」は廃番です`, suggestion:'後継機種への変更を検討してください' });
+        if (m.price && item.price > 0) {
+          const mp = parseFloat(String(m.price).replace(/[^0-9.]/g,''));
+          const diff = Math.abs(item.price-mp)/mp;
+          if (diff > 0.2) issues.push({ type:'価格乖離', found:`${idx+1}行目「${item.code}」単価:${item.price.toLocaleString()}円（マスタ:${mp.toLocaleString()}円, 乖離${Math.round(diff*100)}%）`, suggestion:'単価を確認してください' });
+        }
+      }
+    });
+    return { status:issues.length>0?'WARNING':'OK', issues, message:issues.length>0?`${issues.length}件のマスタ不一致`:`全${quoteData.items.length}件の型番照合OK` };
+  } catch(e) { return { status:'SKIP', issues:[], message:'マスタ照合エラー: '+e.message }; }
+}
+
+/** チェック結果をスプレッドシートにログ保存 */
+function logCheckResults(fileName, fileUrl, results) {
+  const sheet = _sheet('quote_check_logs', ['日時','ファイル名','ファイルURL','総合ステータス','①誤字脱字','②計算','③必須項目','④型番照合','問題詳細']);
+  const SE = { OK:'✅', WARNING:'⚠️', ERROR:'❌', SKIP:'⏭️' };
+  const allIssues = [
+    ...results.check1_typo.issues, ...results.check2_calc.issues,
+    ...results.check3_required.issues, ...results.check4_product.issues
+  ].map(i=>`[${i.type}] ${i.found}`).join(' | ');
+  sheet.appendRow([
+    results.timestamp, fileName, fileUrl,
+    SE[results.overallStatus]+' '+results.overallStatus,
+    SE[results.check1_typo.status]+' '+results.check1_typo.message,
+    SE[results.check2_calc.status]+' '+results.check2_calc.message,
+    SE[results.check3_required.status]+' '+results.check3_required.message,
+    SE[results.check4_product.status]+' '+results.check4_product.message,
+    allIssues || 'なし'
+  ]);
+  const last = sheet.getLastRow();
+  if (results.overallStatus==='ERROR')   sheet.getRange(last,1,1,9).setBackground('#fee2e2');
+  else if (results.overallStatus==='WARNING') sheet.getRange(last,1,1,9).setBackground('#fef9c3');
+}
+
+/** ERRORまたはWARNINGのみメール通知 */
+function sendNotificationEmail(fileName, fileUrl, results) {
+  if (results.overallStatus==='OK') return;
+  const email = PropertiesService.getScriptProperties().getProperty('NOTIFY_EMAIL');
+  if (!email) return;
+  const SE = { OK:'✅', WARNING:'⚠️', ERROR:'❌', SKIP:'⏭️' };
+  const subject = `【見積書チェック】${SE[results.overallStatus]} ${results.overallStatus} - ${fileName}`;
+  const lines = [
+    `ファイル: ${fileName}`, `URL: ${fileUrl}`, `総合: ${results.overallStatus}`, `日時: ${results.timestamp}`, '─────',
+    `① 誤字脱字: ${SE[results.check1_typo.status]} ${results.check1_typo.message}`,
+    `② 計算    : ${SE[results.check2_calc.status]} ${results.check2_calc.message}`,
+    `③ 必須項目: ${SE[results.check3_required.status]} ${results.check3_required.message}`,
+    `④ 型番照合: ${SE[results.check4_product.status]} ${results.check4_product.message}`,
+  ];
+  [results.check1_typo,results.check2_calc,results.check3_required,results.check4_product].forEach(c => {
+    (c.issues||[]).forEach(i => lines.push(`   → [${i.type}] ${i.found}  修正案: ${i.suggestion||'-'}`));
+  });
+  GmailApp.sendEmail(email, subject, lines.join('\n'));
+}
+
+/** チェック済み見積書データをメモとして保存 */
+function saveQuoteToMemos(quoteData, results, file) {
+  try {
+    const content = [
+      `【見積書チェック済み】${quoteData.fileName}`,
+      `宛先: ${quoteData.company}  見積No: ${quoteData.quoteNo}  見積日: ${quoteData.quoteDate}`,
+      `税込合計: ${(quoteData.total||0).toLocaleString()}円  有効期限: ${quoteData.expiryDate}  担当: ${quoteData.staffName}`,
+      `総合チェック: ${results.overallStatus}`,
+      `─── 明細 ───`,
+      (quoteData.items||[]).map(i=>`${i.name} ${i.code} × ${i.qty} = ${(i.subtotal||0).toLocaleString()}円`).join('\n'),
+      `DriveURL: ${file.getUrl()}`
+    ].join('\n');
+    saveMemo({ id:_uuid(), title:'見積書: '+quoteData.fileName, content, tags:'見積書,チェック済み', updatedAt:getCurrentTime() });
+  } catch(e) { Logger.log('メモ保存エラー: '+e.message); }
+}
+
+function moveQuoteFile(file, destPropKey) {
+  const id = PropertiesService.getScriptProperties().getProperty(destPropKey);
+  if (!id) return;
+  try {
+    const dest = DriveApp.getFolderById(id);
+    dest.addFile(file);
+    const parents = file.getParents();
+    while (parents.hasNext()) parents.next().removeFile(file);
+  } catch(e) { Logger.log('移動エラー: '+e.message); }
+}
+
+/** UIからファイルIDを指定して単一チェック（メインUI呼び出し口） */
+function checkSingleFileById(fileId) {
+  const file = DriveApp.getFileById(fileId);
+  const mime = file.getMimeType();
+  const name = file.getName();
+  let quoteData;
+  if (mime === MimeType.MICROSOFT_EXCEL ||
+      mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      name.endsWith('.xlsx') || name.endsWith('.xls')) {
+    quoteData = readExcelFile(file);
+  } else if (mime === MimeType.PDF) {
+    quoteData = readWithGeminiOCR(file, 'application/pdf');
+  } else if (mime === MimeType.JPEG || mime === MimeType.PNG) {
+    quoteData = readWithGeminiOCR(file, mime);
+  } else {
+    return { error: true, message: '対応外フォーマット: ' + mime };
+  }
+  const results = runAllChecks(quoteData, name);
+  logCheckResults(name, file.getUrl(), results);
+  sendNotificationEmail(name, file.getUrl(), results);
+  return results;
+}
+
+/** ログ履歴をUI向けに返す */
+function getQuoteCheckLogs(limit) {
+  limit = limit || 50;
+  const sheet = _ss().getSheetByName('quote_check_logs');
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  const headers = data[0];
+  return data.slice(1).reverse().slice(0, limit).map(row => {
+    const obj = {};
+    headers.forEach((h,i) => { obj[h] = row[i]; });
+    return obj;
+  });
+}
+
+/** 初期セットアップ（初回のみGASエディタから手動実行） */
+function setupQuoteChecker() {
+  const triggers = ScriptApp.getProjectTriggers();
+  if (!triggers.some(t => t.getHandlerFunction()==='checkQuotesInFolder')) {
+    ScriptApp.newTrigger('checkQuotesInFolder').timeBased().everyMinutes(5).create();
+  }
+  return ['✅ 初期セットアップ完了','スクリプトプロパティに以下を設定してください:',
+    'QUOTE_INBOX_FOLDER_ID / QUOTE_DONE_FOLDER_ID / QUOTE_ERROR_FOLDER_ID',
+    'NOTIFY_EMAIL（任意）/ PRODUCT_MASTER_SHEET_ID（任意）'].join('\n');
 }
 
 // ─────────────────────────────────────────────

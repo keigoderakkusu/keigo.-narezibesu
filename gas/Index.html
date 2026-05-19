@@ -369,6 +369,53 @@ textarea{resize:vertical;min-height:90px;line-height:1.7}
 .news-loading{text-align:center;padding:60px 0;color:var(--muted);font-size:14px}
 .news-sources{font-size:11px;color:var(--muted);margin-top:14px;line-height:1.6}
 
+/* ── QUOTE CHECKER ── */
+.qc-input-row{display:flex;gap:8px;margin-bottom:16px}
+.qc-input-row input{flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:9px;font-size:13px;outline:none;transition:border-color .2s;background:#fff}
+.qc-input-row input:focus{border-color:#2383e2}
+.qc-drop-zone{border:2px dashed var(--border);border-radius:14px;padding:28px 20px;text-align:center;cursor:pointer;transition:all .2s;background:#fafaf9;margin-bottom:16px}
+.qc-drop-zone:hover{border-color:#2383e2;background:#f0f7ff}
+.qc-drop-icon{font-size:2rem;margin-bottom:6px}
+.qc-drop-text{font-size:13px;color:var(--muted)}
+.qc-formats{display:flex;justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.qc-format-chip{background:#e8f0fe;color:#1a56db;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600}
+.qc-result-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px 24px;margin-bottom:16px;display:none}
+.qc-result-card.visible{display:block}
+.qc-result-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
+.qc-result-filename{font-weight:700;font-size:15px}
+.qc-result-time{font-size:11px;color:var(--muted);margin-top:2px}
+.qc-overall-badge{padding:5px 14px;border-radius:20px;font-weight:700;font-size:13px}
+.qc-overall-badge.OK{background:#d1fae5;color:#065f46}
+.qc-overall-badge.WARNING{background:#fef3c7;color:#92400e}
+.qc-overall-badge.ERROR{background:#fee2e2;color:#991b1b}
+.qc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+@media(max-width:600px){.qc-grid{grid-template-columns:1fr}}
+.qc-check-item{background:#f9f9f8;border-radius:10px;padding:14px;border-left:3px solid #d1d5db}
+.qc-check-item.OK{border-left-color:#22c55e;background:#f0fdf4}
+.qc-check-item.WARNING{border-left-color:#f59e0b;background:#fffbeb}
+.qc-check-item.ERROR{border-left-color:#ef4444;background:#fff1f2}
+.qc-check-item.SKIP{border-left-color:#d1d5db;background:#f9f9f8}
+.qc-check-title{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
+.qc-check-status{font-size:13px;font-weight:500;color:#1a1a1a;margin-bottom:8px}
+.qc-issue-list{list-style:none;padding:0;margin:0}
+.qc-issue-item{background:rgba(239,68,68,.06);border-radius:6px;padding:7px 10px;margin-bottom:5px;font-size:12px}
+.qc-issue-item.warn{background:rgba(245,158,11,.08)}
+.qc-issue-type{color:#dc2626;font-weight:700;font-size:11px;margin-bottom:2px}
+.qc-issue-item.warn .qc-issue-type{color:#d97706}
+.qc-issue-found{color:#374151}
+.qc-issue-suggest{color:#2383e2;font-size:11px;margin-top:2px}
+.qc-log-title{font-size:13px;font-weight:700;color:var(--muted);margin:20px 0 10px;display:flex;align-items:center;gap:8px}
+.qc-log-table{width:100%;border-collapse:collapse;font-size:12px}
+.qc-log-table th{background:#f4f4f2;color:var(--muted);padding:8px 10px;text-align:left;font-weight:700;border-bottom:1px solid var(--border)}
+.qc-log-table td{padding:8px 10px;border-bottom:1px solid #f0f0ef;color:#374151;vertical-align:top}
+.qc-log-table tr:hover td{background:#fafaf9}
+.qc-s-ok{color:#16a34a;font-weight:700}
+.qc-s-warn{color:#d97706;font-weight:700}
+.qc-s-err{color:#dc2626;font-weight:700}
+.qc-s-skip{color:#9ca3af}
+.qc-loading{display:none;text-align:center;padding:32px 0;color:var(--muted)}
+.qc-loading.on{display:block}
+
 /* ── SELF ANALYSIS ── */
 .sa-tabs{display:flex;gap:4px;margin-bottom:20px;background:#f3f3f1;padding:4px;border-radius:10px;width:fit-content}
 .sa-tab{padding:7px 22px;border-radius:7px;border:none;background:transparent;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .2s}
@@ -449,6 +496,7 @@ textarea{resize:vertical;min-height:90px;line-height:1.7}
     <div class="nav-item"        id="nav-meeting"   onclick="showPage('meeting')">  <span class="ni-icon">📅</span><span>商談メモ</span></div>
     <div class="nav-item"        id="nav-numbers"   onclick="showPage('numbers')">  <span class="ni-icon">📈</span><span>数値目標</span></div>
     <div class="nav-item"        id="nav-news"      onclick="showPage('news')">     <span class="ni-icon">📰</span><span>ニュース</span></div>
+    <div class="nav-item"        id="nav-quote"     onclick="showPage('quote')">    <span class="ni-icon">📋</span><span>見積書チェック</span></div>
     <div class="nav-item"        id="nav-selfana"   onclick="showPage('selfana')">  <span class="ni-icon">🔍</span><span>自己分析</span></div>
   </div>
   <div class="sidebar-footer"><a id="db-link" href="#" target="_blank">📊 データベース</a></div>
@@ -850,6 +898,81 @@ textarea{resize:vertical;min-height:90px;line-height:1.7}
   </div>
 </div>
 
+<div class="page" id="page-quote">
+  <div class="page-header">
+    <div class="page-title">📋 見積書チェック</div>
+    <div class="page-sub">Excel・PDF・スクショをAIが4項目自動チェック。計算ミス・誤字・必須項目・廃番を即検出</div>
+  </div>
+  <div class="page-body" style="max-width:780px">
+
+    <!-- ファイルID入力 -->
+    <div class="qc-input-row">
+      <input type="text" id="qc-file-id" placeholder="Google Drive のファイルURL または ファイルID を貼り付け"
+             onkeydown="if(event.key==='Enter') runQuoteCheck()">
+      <button class="btn btn-ai" onclick="runQuoteCheck()" id="qc-check-btn">⚡ チェック実行</button>
+      <button class="btn btn-secondary" onclick="loadQuoteLogs()">📜 履歴</button>
+    </div>
+
+    <!-- フォーマット説明 -->
+    <div class="qc-drop-zone" onclick="document.getElementById('qc-file-id').focus()">
+      <div class="qc-drop-icon">📂</div>
+      <div class="qc-drop-text">楽楽販売などからエクスポートしたファイルをGoogleドライブに保存後、URLを貼り付け<br>またはDriveの監視フォルダに入れれば5分以内に自動チェック</div>
+      <div class="qc-formats">
+        <span class="qc-format-chip">📊 Excel (.xlsx)</span>
+        <span class="qc-format-chip">📄 PDF</span>
+        <span class="qc-format-chip">🖼️ PNG / JPG</span>
+      </div>
+    </div>
+
+    <!-- ローディング -->
+    <div class="qc-loading" id="qc-loading">
+      <span class="spin"></span><br><br>Gemini AIが見積書を解析中…（OCR → 4項目チェック → ログ記録）
+    </div>
+
+    <!-- チェック結果 -->
+    <div class="qc-result-card" id="qc-result-card">
+      <div class="qc-result-header">
+        <div>
+          <div class="qc-result-filename" id="qc-result-filename">—</div>
+          <div class="qc-result-time" id="qc-result-time">—</div>
+        </div>
+        <span class="qc-overall-badge" id="qc-overall-badge">—</span>
+      </div>
+      <div class="qc-grid">
+        <div class="qc-check-item" id="qc-c1"><div class="qc-check-title">① 誤字脱字・表記ゆれ</div><div class="qc-check-status" id="qc-c1-msg">—</div><ul class="qc-issue-list" id="qc-c1-issues"></ul></div>
+        <div class="qc-check-item" id="qc-c2"><div class="qc-check-title">② 計算チェック</div><div class="qc-check-status" id="qc-c2-msg">—</div><ul class="qc-issue-list" id="qc-c2-issues"></ul></div>
+        <div class="qc-check-item" id="qc-c3"><div class="qc-check-title">③ 必須項目</div><div class="qc-check-status" id="qc-c3-msg">—</div><ul class="qc-issue-list" id="qc-c3-issues"></ul></div>
+        <div class="qc-check-item" id="qc-c4"><div class="qc-check-title">④ 商品マスタ照合</div><div class="qc-check-status" id="qc-c4-msg">—</div><ul class="qc-issue-list" id="qc-c4-issues"></ul></div>
+      </div>
+    </div>
+
+    <!-- ログ履歴 -->
+    <div class="qc-log-title">📜 チェック履歴 <span style="font-size:11px;font-weight:400">直近50件</span></div>
+    <div style="overflow-x:auto">
+      <table class="qc-log-table">
+        <thead><tr><th>日時</th><th>ファイル名</th><th>総合</th><th>①誤字</th><th>②計算</th><th>③必須</th><th>④型番</th></tr></thead>
+        <tbody id="qc-log-tbody">
+          <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">「履歴」ボタンで表示</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 設定メモ -->
+    <details style="margin-top:20px">
+      <summary style="font-size:12px;color:var(--muted);cursor:pointer">⚙️ 自動監視・通知の設定方法</summary>
+      <div style="background:#f9f9f8;border-radius:8px;padding:14px;margin-top:8px;font-size:12px;line-height:1.8;color:#374151">
+        <strong>スクリプトプロパティに以下を追加してください：</strong><br>
+        <code>QUOTE_INBOX_FOLDER_ID</code> — 見積書を入れるDriveフォルダID（監視対象）<br>
+        <code>QUOTE_DONE_FOLDER_ID</code> — チェック済みの移動先フォルダID<br>
+        <code>QUOTE_ERROR_FOLDER_ID</code> — 読み取り失敗ファイルの移動先<br>
+        <code>NOTIFY_EMAIL</code> — WARNING/ERROR時のメール通知先<br>
+        <code>PRODUCT_MASTER_SHEET_ID</code> — 商品マスタのスプレッドシートID（型番照合用）<br><br>
+        <strong>自動監視を有効にする：</strong> GASエディタで <code>setupQuoteChecker</code> 関数を手動実行 → 5分おきの自動チェックが開始されます
+      </div>
+    </details>
+  </div>
+</div>
+
 <div class="page" id="page-selfana">
   <div class="page-header">
     <div class="page-title">🔍 自己分析レポート</div>
@@ -927,6 +1050,7 @@ function showPage(name) {
   if (name === 'meeting')  { initMeetingForm(); loadMeetings(); }
   if (name === 'numbers')  initNumbers();
   if (name === 'news')     loadNews(false);
+  if (name === 'quote')    loadQuoteLogs();
   if (name === 'selfana')  initSelfAna();
 }
 
@@ -1999,6 +2123,107 @@ function renderWeeklyReport(d) {
     ${iss ? `<div class="report-section"><div class="report-label">課題・懸念事項</div>${iss}</div>` : ''}
     ${nxt ? `<div class="report-section"><div class="report-label">来週の予定</div>${nxt}</div>` : ''}
     ${d.message ? `<div style="margin-top:12px;padding:10px 14px;background:#eefbee;border-radius:8px;font-size:13px;border-left:3px solid #2d8a4e">💬 ${esc(d.message)}</div>` : ''}`;
+}
+
+// ─────────────────────────────────────
+// QUOTE CHECKER
+// ─────────────────────────────────────
+function runQuoteCheck() {
+  const raw = document.getElementById('qc-file-id').value.trim();
+  if (!raw) { toast('ファイルURLまたはIDを入力してください'); return; }
+  const m = raw.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  const fileId = m ? m[1] : raw;
+
+  document.getElementById('qc-loading').classList.add('on');
+  document.getElementById('qc-result-card').classList.remove('visible');
+  document.getElementById('qc-check-btn').disabled = true;
+
+  google.script.run
+    .withSuccessHandler(data => {
+      document.getElementById('qc-loading').classList.remove('on');
+      document.getElementById('qc-check-btn').disabled = false;
+      if (data && data.error) { toast('エラー: ' + data.message); return; }
+      renderQuoteResult(data);
+    })
+    .withFailureHandler(e => {
+      document.getElementById('qc-loading').classList.remove('on');
+      document.getElementById('qc-check-btn').disabled = false;
+      toast('チェックに失敗しました: ' + (e.message||''));
+    })
+    .checkSingleFileById(fileId);
+}
+
+function renderQuoteResult(data) {
+  if (!data) return;
+  const card = document.getElementById('qc-result-card');
+  card.classList.add('visible');
+  document.getElementById('qc-result-filename').textContent = data.fileName || '—';
+  document.getElementById('qc-result-time').textContent = data.timestamp || '';
+  const badge = document.getElementById('qc-overall-badge');
+  const labels = { OK:'✅ 問題なし', WARNING:'⚠️ 要確認', ERROR:'❌ 要修正' };
+  badge.textContent = labels[data.overallStatus] || data.overallStatus;
+  badge.className = 'qc-overall-badge ' + (data.overallStatus || 'OK');
+  renderQCItem('qc-c1', data.check1_typo);
+  renderQCItem('qc-c2', data.check2_calc);
+  renderQCItem('qc-c3', data.check3_required);
+  renderQCItem('qc-c4', data.check4_product);
+  card.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  loadQuoteLogs(); // ログも自動更新
+}
+
+function renderQCItem(id, check) {
+  if (!check) return;
+  const el   = document.getElementById(id);
+  const msgEl = document.getElementById(id + '-msg');
+  const listEl = document.getElementById(id + '-issues');
+  el.className = 'qc-check-item ' + (check.status || 'SKIP');
+  msgEl.textContent = check.message || '';
+  listEl.innerHTML = (check.issues || []).map(issue => `
+    <li class="qc-issue-item${check.status==='WARNING'?' warn':''}">
+      <div class="qc-issue-type">${esc(issue.type||'')}</div>
+      <div class="qc-issue-found">${esc(issue.found||'')}</div>
+      ${issue.suggestion ? `<div class="qc-issue-suggest">💡 ${esc(issue.suggestion)}</div>` : ''}
+    </li>`).join('');
+}
+
+function loadQuoteLogs() {
+  const tbody = document.getElementById('qc-log-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:14px">読み込み中…</td></tr>';
+  google.script.run
+    .withSuccessHandler(logs => {
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">チェック履歴がありません</td></tr>';
+        return;
+      }
+      tbody.innerHTML = logs.map(log => {
+        const overall = String(log['総合ステータス'] || '');
+        const cls = overall.includes('OK') ? 'qc-s-ok' : overall.includes('WARNING') ? 'qc-s-warn' : overall.includes('ERROR') ? 'qc-s-err' : 'qc-s-skip';
+        const fname = String(log['ファイル名'] || '').substring(0, 28);
+        const furl  = log['ファイルURL'];
+        const dt    = String(log['日時'] || '').substring(0, 16);
+        return `<tr>
+          <td style="white-space:nowrap">${esc(dt)}</td>
+          <td>${furl ? `<a href="${esc(String(furl))}" target="_blank" style="color:#2383e2;text-decoration:none">${esc(fname)}</a>` : esc(fname)}</td>
+          <td class="${cls}">${esc(overall)}</td>
+          <td>${qcStatusIcon(log['①誤字脱字'])}</td>
+          <td>${qcStatusIcon(log['②計算'])}</td>
+          <td>${qcStatusIcon(log['③必須項目'])}</td>
+          <td>${qcStatusIcon(log['④型番照合'])}</td>
+        </tr>`;
+      }).join('');
+    })
+    .withFailureHandler(e => {
+      tbody.innerHTML = `<tr><td colspan="7" style="color:#dc2626;padding:12px">エラー: ${esc(e.message||'')}</td></tr>`;
+    })
+    .getQuoteCheckLogs(50);
+}
+
+function qcStatusIcon(val) {
+  const s = String(val || '');
+  if (s.includes('✅')) return '<span class="qc-s-ok">✅</span>';
+  if (s.includes('⚠️')) return '<span class="qc-s-warn">⚠️</span>';
+  if (s.includes('❌')) return '<span class="qc-s-err">❌</span>';
+  return '<span class="qc-s-skip">⏭️</span>';
 }
 
 // ─────────────────────────────────────
