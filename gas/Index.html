@@ -1,0 +1,2241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>営業ナレッジ Pro</title>
+<style>
+/* ── Reset ── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Sans','Meiryo',sans-serif;background:#fff;color:#37352f;height:100vh;display:flex;overflow:hidden}
+button,input,textarea,select{font-family:inherit}
+
+/* ── Sidebar ── */
+#sidebar{
+  width:190px;flex-shrink:0;
+  background:#fbfbfa;border-right:1px solid #e9e9e7;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.sidebar-logo{
+  padding:14px 14px 10px;font-size:15px;font-weight:700;
+  border-bottom:1px solid #e9e9e7;color:#37352f;
+  display:flex;align-items:center;gap:7px;
+}
+.sidebar-logo span{font-size:20px}
+.nav-items{flex:1;overflow-y:auto;padding:8px 6px}
+.nav-item{
+  display:flex;align-items:center;gap:9px;
+  padding:8px 10px;border-radius:7px;cursor:pointer;
+  font-size:13.5px;color:#37352f;margin-bottom:2px;
+  transition:background .12s;
+}
+.nav-item:hover{background:#ebebea}
+.nav-item.active{background:#e9e9e7;font-weight:600}
+.nav-item .ni-icon{font-size:16px;flex-shrink:0}
+.nav-badge{
+  margin-left:auto;background:#eb5757;color:#fff;
+  border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;
+}
+.sidebar-footer{
+  padding:10px 12px;border-top:1px solid #e9e9e7;
+}
+#db-link{
+  display:block;font-size:12px;color:#9b9a97;text-decoration:none;
+  padding:6px 8px;border-radius:6px;
+}
+#db-link:hover{background:#ebebea;color:#37352f}
+
+/* ── Content area ── */
+#content{flex:1;position:relative;overflow:hidden}
+.page{position:absolute;inset:0;display:none;overflow-y:auto}
+.page.active{display:flex;flex-direction:column}
+
+/* ── Page header ── */
+.page-header{padding:28px 36px 0;flex-shrink:0}
+.page-title{font-size:24px;font-weight:700;margin-bottom:4px}
+.page-sub{font-size:13px;color:#787774;margin-bottom:20px}
+.page-body{padding:0 36px 40px;flex:1}
+
+/* ── Tabs ── */
+.tabs{display:flex;gap:2px;border-bottom:2px solid #e9e9e7;margin-bottom:20px}
+.tab-btn{
+  padding:8px 16px;border:none;background:none;cursor:pointer;
+  font-size:13px;color:#787774;border-bottom:2px solid transparent;
+  margin-bottom:-2px;transition:.15s;
+}
+.tab-btn.active{color:#2383e2;border-bottom-color:#2383e2;font-weight:600}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* ── Buttons ── */
+.btn{padding:7px 15px;border-radius:7px;border:none;cursor:pointer;font-size:13px;transition:.15s}
+.btn-primary{background:#2383e2;color:#fff}
+.btn-primary:hover{background:#1a6ec7}
+.btn-secondary{background:#e9e9e7;color:#37352f}
+.btn-secondary:hover{background:#d8d7d2}
+.btn-danger{background:#eb5757;color:#fff}
+.btn-danger:hover{background:#c94040}
+.btn-ghost{background:none;border:1px solid #e9e9e7;color:#787774}
+.btn-ghost:hover{background:#f5f5f4}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-full{width:100%}
+.btn-ai{background:linear-gradient(135deg,#6940a5,#2383e2);color:#fff}
+.btn-ai:hover{opacity:.9}
+
+/* ── Form elements ── */
+label{display:block;font-size:13px;font-weight:600;color:#37352f;margin:12px 0 5px}
+input[type=text],input[type=email],input[type=date],input[type=number],textarea,select{
+  width:100%;border:1px solid #e9e9e7;border-radius:7px;
+  padding:9px 12px;font-size:14px;background:#fff;outline:none;
+  transition:border-color .15s;
+}
+input:focus,textarea:focus,select:focus{border-color:#2383e2}
+textarea{resize:vertical;min-height:90px;line-height:1.7}
+.form-row{display:flex;gap:10px}
+.form-row>*{flex:1}
+
+/* ── Cards ── */
+.card{
+  border:1px solid #e9e9e7;border-radius:9px;padding:14px 16px;
+  margin-bottom:10px;background:#fff;
+}
+.card-hover{cursor:pointer;transition:border-color .15s,background .15s}
+.card-hover:hover{border-color:#2383e2;background:#f4f8ff}
+.card-hover.selected{border-color:#2383e2;background:#eef4ff}
+
+/* ── MEMO LAYOUT ── */
+#page-memo{flex-direction:row!important;overflow:hidden}
+#memo-list-col{
+  width:210px;flex-shrink:0;border-right:1px solid #e9e9e7;
+  background:#fbfbfa;display:flex;flex-direction:column;overflow:hidden;
+}
+#memo-list-header{padding:10px 8px 8px;flex-shrink:0}
+#memo-list-scroll{flex:1;overflow-y:auto;padding:0 4px 8px}
+#memo-editor-col{flex:1;overflow-y:auto;padding:32px 40px 40px;display:flex;flex-direction:column}
+.mi{padding:7px 9px;border-radius:6px;cursor:pointer;margin-bottom:1px}
+.mi:hover{background:#ebebea}
+.mi.active{background:#e9e9e7}
+.mi-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mi-date{font-size:11px;color:#9b9a97;margin-top:1px}
+#save-status{font-size:12px;color:#9b9a97;margin-bottom:8px;min-height:16px}
+#memo-title-input{width:100%;font-size:28px;font-weight:700;border:none;outline:none;background:transparent;margin-bottom:6px}
+#memo-tags-input{width:100%;border:none;outline:none;font-size:13px;color:#9b9a97;background:transparent;margin-bottom:14px}
+#memo-content-input{width:100%;flex:1;min-height:400px;border:none;outline:none;resize:none;font-size:15px;line-height:1.85;background:transparent}
+
+/* ── TASK ── */
+.task-item{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 14px;border:1px solid #e9e9e7;border-radius:8px;
+  margin-bottom:6px;background:#fff;
+}
+.task-item.done{opacity:.5}
+.task-check{width:18px;height:18px;cursor:pointer;accent-color:#2383e2;flex-shrink:0}
+.task-title{flex:1;font-size:14px}
+.task-title.done{text-decoration:line-through;color:#9b9a97}
+.task-meta{font-size:11px;color:#9b9a97;margin-top:2px}
+.task-cat{
+  font-size:11px;padding:2px 8px;border-radius:10px;
+  background:#f0f0ef;color:#787774;flex-shrink:0;
+}
+.priority-high{background:#fdecea;color:#c94040}
+.priority-mid{background:#fff4e0;color:#946900}
+.priority-low{background:#eefbee;color:#2d8a4e}
+
+/* AI Analysis result */
+#ai-analysis-panel{
+  background:#f8f4ff;border:1px solid #d4c8f0;border-radius:10px;
+  padding:18px;margin-top:16px;display:none;
+}
+.ai-situation{
+  font-size:15px;font-weight:600;color:#6940a5;
+  margin-bottom:14px;padding:10px 14px;
+  background:#fff;border-radius:8px;border-left:4px solid #6940a5;
+}
+.ai-task-card{
+  background:#fff;border-radius:8px;padding:13px 15px;margin-bottom:8px;
+  border-left:4px solid #e9e9e7;
+}
+.ai-task-card.p-high{border-left-color:#eb5757}
+.ai-task-card.p-mid{border-left-color:#f5a623}
+.ai-task-card.p-low{border-left-color:#2d8a4e}
+.ai-task-title{font-weight:600;font-size:14px;margin-bottom:6px}
+.ai-task-meta{font-size:12px;color:#787774;display:flex;gap:12px;flex-wrap:wrap}
+.ai-tip{font-size:13px;color:#37352f;margin-top:6px;padding-top:6px;border-top:1px solid #f0f0ef}
+.ai-advice-box{
+  margin-top:14px;padding:12px 14px;background:#fff;border-radius:8px;
+  font-size:14px;line-height:1.7;color:#37352f;border:1px solid #d4c8f0;
+}
+
+/* ── EMAIL ── */
+.var-chip{
+  display:inline-block;background:#fffbe6;color:#946900;
+  border-radius:4px;padding:2px 7px;font-size:11px;margin:2px;
+  border:1px solid #f0e6c0;
+}
+.preview-box{
+  background:#fbfbfa;border:1px solid #e9e9e7;border-radius:8px;
+  padding:16px;white-space:pre-wrap;font-size:14px;line-height:1.8;
+  margin-top:10px;
+}
+
+/* Proofreading result */
+.score-ring{
+  width:64px;height:64px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;font-weight:700;flex-shrink:0;
+}
+.score-high{background:#eefbee;color:#2d8a4e;border:3px solid #2d8a4e}
+.score-mid{background:#fff4e0;color:#946900;border:3px solid #f5a623}
+.score-low{background:#fdecea;color:#c94040;border:3px solid #eb5757}
+.proof-issue{
+  display:flex;gap:10px;padding:10px 12px;background:#fffbe6;
+  border-radius:7px;margin-bottom:6px;border-left:3px solid #f5a623;font-size:13px;
+}
+.proof-good{
+  display:flex;gap:10px;padding:10px 12px;background:#eefbee;
+  border-radius:7px;margin-bottom:6px;border-left:3px solid #2d8a4e;font-size:13px;
+}
+.corrected-area{
+  background:#f8f4ff;border:1px solid #d4c8f0;border-radius:8px;
+  padding:16px;white-space:pre-wrap;font-size:14px;line-height:1.8;
+  margin-top:8px;outline:none;
+}
+
+/* ── OCR ── */
+#drop-zone{
+  border:2px dashed #d3d1cb;border-radius:12px;padding:40px;
+  text-align:center;cursor:pointer;transition:.2s;background:#fbfbfa;
+}
+#drop-zone:hover,#drop-zone.drag-over{border-color:#2383e2;background:#f0f6ff}
+#ocr-result-box{
+  border:1px solid #e9e9e7;border-radius:9px;padding:16px;
+  min-height:100px;font-size:14px;line-height:1.85;
+  white-space:pre-wrap;background:#fbfbfa;outline:none;
+}
+
+/* ── LOG ── */
+.log-item{
+  border:1px solid #e9e9e7;border-radius:8px;padding:13px 15px;
+  margin-bottom:8px;
+}
+.log-date{font-size:12px;font-weight:700;color:#2383e2;margin-bottom:6px}
+.log-section{font-size:12px;color:#787774;margin-top:6px}
+.log-text{font-size:13px;line-height:1.6;color:#37352f}
+.log-hours{display:inline-block;background:#f0f6ff;color:#2383e2;padding:1px 8px;border-radius:10px;font-size:11px;margin-left:6px}
+
+/* ── HR EVALUATION ── */
+.goal-card{
+  border:1px solid #e9e9e7;border-radius:9px;padding:14px 16px;
+  margin-bottom:10px;background:#fff;
+}
+.goal-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.goal-kpi{font-size:12px;color:#2383e2;background:#f0f6ff;display:inline-block;padding:2px 8px;border-radius:4px;margin-bottom:6px}
+.goal-detail{font-size:13px;color:#787774;line-height:1.6}
+.eval-section{margin-bottom:18px}
+.eval-section-title{font-size:12px;font-weight:700;color:#6940a5;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.eval-item{
+  padding:10px 12px;background:#f8f4ff;border-radius:7px;
+  margin-bottom:5px;font-size:14px;line-height:1.6;border-left:3px solid #6940a5;
+}
+.eval-body{
+  background:#fbfbfa;border:1px solid #e9e9e7;border-radius:8px;
+  padding:16px;font-size:14px;line-height:1.85;white-space:pre-wrap;
+  outline:none;
+}
+.interview-tip{
+  padding:10px 12px;background:#fff4e0;border-radius:7px;
+  margin-bottom:5px;font-size:13px;border-left:3px solid #f5a623;
+}
+.goal-advice-card{
+  border:1px solid #d4c8f0;border-radius:9px;padding:14px 16px;
+  margin-bottom:10px;background:#f8f4ff;
+}
+.gac-cat{font-size:11px;color:#6940a5;font-weight:700;margin-bottom:4px}
+.gac-title{font-size:14px;font-weight:600;margin-bottom:5px}
+.gac-kpi{font-size:12px;color:#2383e2;margin-bottom:5px}
+.gac-why{font-size:12px;color:#787774}
+
+/* ── CHECKLIST ── */
+.progress-bar{height:6px;background:#e9e9e7;border-radius:3px;margin:10px 0 6px}
+.progress-fill{height:100%;background:#2383e2;border-radius:3px;transition:width .3s}
+.check-item{
+  display:flex;align-items:center;gap:10px;padding:11px 13px;
+  border-radius:7px;margin-bottom:5px;border:1px solid #e9e9e7;
+  cursor:pointer;font-size:14px;transition:background .15s;
+}
+.check-item:hover{background:#f5f5f4}
+.check-item.done{opacity:.45;text-decoration:line-through;color:#9b9a97}
+.check-item input[type=checkbox]{width:17px;height:17px;cursor:pointer;accent-color:#2383e2;flex-shrink:0}
+
+/* ── AI CHAT ── */
+#chat-page-inner{display:flex;flex-direction:column;height:100%}
+#chat-messages{flex:1;overflow-y:auto;padding:20px 36px}
+.chat-bubble{max-width:78%;margin-bottom:14px}
+.chat-bubble.user{margin-left:auto}
+.bubble-inner{
+  padding:11px 15px;border-radius:12px;font-size:14px;line-height:1.7;
+}
+.user .bubble-inner{background:#2383e2;color:#fff;border-bottom-right-radius:3px}
+.assistant .bubble-inner{background:#f5f5f4;color:#37352f;border-bottom-left-radius:3px;white-space:pre-wrap}
+.chat-input-area{
+  padding:12px 36px 20px;border-top:1px solid #e9e9e7;
+  display:flex;gap:8px;align-items:flex-end;
+}
+#chat-input{flex:1;min-height:44px;max-height:140px;border:1px solid #e9e9e7;border-radius:9px;padding:10px 14px;font-size:14px;resize:none;outline:none;line-height:1.5}
+#chat-input:focus{border-color:#2383e2}
+.quick-prompts{display:flex;gap:6px;flex-wrap:wrap;padding:0 36px 10px}
+.qp-btn{
+  border:1px solid #d4c8f0;border-radius:14px;padding:4px 12px;
+  font-size:12px;background:#f8f4ff;color:#6940a5;cursor:pointer;white-space:nowrap;
+}
+.qp-btn:hover{background:#ede7ff}
+
+/* ── CUSTOMER ── */
+.nav-section{font-size:10px;font-weight:700;color:#9b9a97;letter-spacing:.8px;padding:10px 10px 4px;text-transform:uppercase}
+.rank-badge{display:inline-block;width:20px;height:20px;border-radius:50%;font-size:11px;font-weight:700;text-align:center;line-height:20px;flex-shrink:0}
+.rank-A{background:#fdecea;color:#c94040}
+.rank-B{background:#fff4e0;color:#946900}
+.rank-C{background:#f0f0ef;color:#787774}
+.cust-item{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:7px;margin-bottom:3px;cursor:pointer;border:1px solid transparent}
+.cust-item:hover{background:#f0f6ff;border-color:#d0e4ff}
+.cust-item.active{background:#eef4ff;border-color:#2383e2}
+.cust-company{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cust-name{font-size:11px;color:#787774}
+.last-contact{font-size:11px;color:#9b9a97;margin-left:auto;flex-shrink:0}
+.days-hot{color:#c94040!important;font-weight:600}
+.days-warm{color:#946900!important}
+.cust-detail-panel{flex:1;overflow-y:auto;padding:28px 36px}
+.detail-field{margin-bottom:14px}
+.detail-label{font-size:11px;font-weight:700;color:#9b9a97;text-transform:uppercase;margin-bottom:4px}
+.detail-value{font-size:14px;color:#37352f}
+
+/* ── MEETING ── */
+.meeting-card{border:1px solid #e9e9e7;border-radius:9px;padding:14px 16px;margin-bottom:10px;background:#fff}
+.meeting-card .mc-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.meeting-card .mc-company{font-size:14px;font-weight:600}
+.meeting-card .mc-date{font-size:12px;color:#787774}
+.status-badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600}
+.status-フォロー中{background:#fff4e0;color:#946900}
+.status-完了{background:#eefbee;color:#2d8a4e}
+.status-クローズ{background:#f0f0ef;color:#787774}
+.mc-content{font-size:13px;color:#37352f;line-height:1.6;margin-bottom:8px}
+.mc-action{font-size:12px;color:#2383e2;background:#f0f6ff;padding:6px 10px;border-radius:6px;margin-top:6px}
+.prep-result{background:#f8f4ff;border:1px solid #d4c8f0;border-radius:9px;padding:16px;margin-top:14px}
+.prep-section{margin-bottom:12px}
+.prep-label{font-size:12px;font-weight:700;color:#6940a5;margin-bottom:5px}
+.prep-item{font-size:13px;padding:5px 10px;background:#fff;border-radius:6px;margin-bottom:4px;border-left:3px solid #6940a5}
+
+/* ── NUMBERS ── */
+.num-month-picker{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.num-row{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #e9e9e7;border-radius:9px;margin-bottom:8px;background:#fff}
+.num-cat{font-size:14px;font-weight:600;flex:0 0 120px}
+.num-bar-wrap{flex:1}
+.num-bar-bg{height:8px;background:#f0f0ef;border-radius:4px;overflow:hidden;margin-top:4px}
+.num-bar-fill{height:100%;border-radius:4px;transition:width .5s}
+.num-bar-over{background:#2d8a4e!important}
+.num-bar-ok{background:#2383e2}
+.num-bar-warn{background:#f5a623}
+.num-bar-low{background:#eb5757}
+.num-pct{font-size:15px;font-weight:700;flex:0 0 52px;text-align:right}
+.num-inputs{display:flex;gap:8px;flex:0 0 200px}
+.num-inputs input{width:80px;padding:5px 8px;border:1px solid #e9e9e7;border-radius:6px;font-size:13px;text-align:center;outline:none}
+.num-inputs input:focus{border-color:#2383e2}
+.num-ai-box{background:#f8f4ff;border:1px solid #d4c8f0;border-radius:9px;padding:16px;margin-top:16px;display:none}
+.ai-metric{display:flex;gap:10px;margin-bottom:8px;font-size:13px}
+.ai-metric-label{font-weight:600;color:#6940a5;flex:0 0 60px}
+
+/* ── WEEKLY REPORT ── */
+.report-section{margin-bottom:16px}
+.report-label{font-size:11px;font-weight:700;color:#787774;text-transform:uppercase;margin-bottom:6px}
+.report-item{padding:8px 12px;background:#f8f4ff;border-radius:6px;margin-bottom:4px;font-size:13px;border-left:3px solid #6940a5}
+.report-body{background:#fbfbfa;border:1px solid #e9e9e7;border-radius:8px;padding:14px;font-size:14px;line-height:1.85;white-space:pre-wrap;outline:none}
+
+/* ── NEWS ── */
+.news-header-bar{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.news-updated{font-size:12px;color:var(--muted)}
+.news-alert{display:inline-flex;align-items:center;gap:5px;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600}
+.news-alert.green{background:#d1fae5;color:#065f46}
+.news-alert.yellow{background:#fef3c7;color:#92400e}
+.news-alert.red{background:#fee2e2;color:#991b1b}
+.news-briefing{background:linear-gradient(135deg,#667eea18,#764ba218);border:1px solid #667eea35;border-radius:12px;padding:16px 20px;margin-bottom:14px}
+.news-briefing-title{font-size:13px;font-weight:700;color:#4338ca;margin-bottom:8px}
+.news-briefing-body{font-size:13px;line-height:1.85;white-space:pre-line;color:#1e1b4b}
+.news-keywords{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.news-kw{background:#e0e7ff;color:#3730a3;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.news-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:10px}
+.news-card-title{font-size:15px;font-weight:700;margin-bottom:8px}
+.news-card-body{font-size:13px;color:#374151;line-height:1.75;margin-bottom:10px}
+.news-sales-tip{font-size:12px;background:#f0f9ff;border-left:3px solid #0ea5e9;padding:7px 12px;border-radius:0 8px 8px 0;color:#0c4a6e}
+.news-loading{text-align:center;padding:60px 0;color:var(--muted);font-size:14px}
+.news-sources{font-size:11px;color:var(--muted);margin-top:14px;line-height:1.6}
+
+/* ── SELF ANALYSIS ── */
+.sa-tabs{display:flex;gap:4px;margin-bottom:20px;background:#f3f3f1;padding:4px;border-radius:10px;width:fit-content}
+.sa-tab{padding:7px 22px;border-radius:7px;border:none;background:transparent;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .2s}
+.sa-tab.active{background:#fff;color:#1a1a1a;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.sa-picker{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.sa-picker button{background:none;border:none;font-size:18px;cursor:pointer;padding:4px 8px;border-radius:6px}
+.sa-picker button:hover{background:#f0f0ef}
+.sa-period-label{font-size:17px;font-weight:700;min-width:120px;text-align:center}
+.sa-stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:20px}
+.sa-stat{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 12px;text-align:center}
+.sa-stat-num{font-size:26px;font-weight:800;color:#2383e2;line-height:1}
+.sa-stat-label{font-size:11px;color:var(--muted);margin-top:4px}
+.sa-score-wrap{background:linear-gradient(135deg,#1e3a8a,#3b82f6);border-radius:14px;padding:20px 24px;margin-bottom:16px;color:#fff;display:flex;align-items:center;gap:20px}
+.sa-score-num{font-size:56px;font-weight:900;line-height:1}
+.sa-score-label{font-size:12px;opacity:.8;margin-bottom:4px}
+.sa-score-comment{font-size:13px;line-height:1.6}
+.sa-section{margin-bottom:16px}
+.sa-section-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.sa-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:10px}
+.sa-list{list-style:none;padding:0;margin:0}
+.sa-list li{padding:6px 0 6px 18px;position:relative;font-size:13px;line-height:1.6;border-bottom:1px solid #f0f0ef}
+.sa-list li:last-child{border:none}
+.sa-list li::before{content:"•";position:absolute;left:4px;color:#2383e2;font-weight:700}
+.sa-list.challenge li::before{color:#f5a623}
+.sa-list.action li::before{content:"→";color:#2d8a4e}
+.sa-pr-box{width:100%;min-height:140px;padding:14px;border:2px solid #e0e7ff;border-radius:10px;font-size:13px;line-height:1.85;resize:vertical;font-family:inherit;color:#1a1a1a;background:#fafbff}
+.sa-pr-box:focus{outline:none;border-color:#6366f1}
+.sa-copy-btn{margin-top:8px;font-size:12px}
+.sa-coach{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:12px;padding:16px 20px;font-size:13px;line-height:1.8;color:#14532d}
+.sa-hidden-strength{background:#fefce8;border:1px solid #fde68a;border-radius:12px;padding:14px 18px;font-size:13px;color:#713f12}
+.sa-hidden-label{font-size:11px;font-weight:700;color:#a16207;margin-bottom:6px}
+.sa-loading{text-align:center;padding:80px 0;color:var(--muted)}
+.sa-mood-bar{height:6px;background:#e5e7eb;border-radius:3px;margin-top:6px;overflow:hidden}
+.sa-mood-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#f87171,#fb923c,#facc15,#4ade80,#22d3ee)}
+
+/* ── Utilities ── */
+.divider{height:1px;background:#e9e9e7;margin:16px 0}
+.empty{text-align:center;padding:40px 20px;color:#9b9a97}
+.empty-icon{font-size:36px;margin-bottom:10px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #d3d1cb;border-top-color:#2383e2;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:5px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading{color:#787774;font-size:13px}
+.search-result{border:1px solid #e9e9e7;border-radius:8px;padding:12px 14px;margin-bottom:7px;cursor:pointer}
+.search-result:hover{border-color:#2383e2;background:#f4f8ff}
+.tag{display:inline-block;background:#f3f0ff;color:#6940a5;border-radius:4px;padding:1px 7px;font-size:11px;margin:1px}
+#toast{position:fixed;bottom:20px;right:20px;background:#37352f;color:#fff;padding:10px 18px;border-radius:9px;font-size:13px;z-index:9999;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+@media(max-width:640px){
+  #sidebar{width:50px}
+  .nav-item span:last-child{display:none}
+  .sidebar-logo span:last-child{display:none}
+  .page-header{padding:16px 16px 0}
+  .page-body{padding:0 16px 30px}
+  #memo-list-col{width:140px}
+  #memo-editor-col{padding:16px}
+  #chat-messages{padding:16px}
+  .chat-input-area{padding:10px 16px 16px}
+  .quick-prompts{padding:0 16px 8px}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ SIDEBAR ═══════════ -->
+<nav id="sidebar">
+  <div class="sidebar-logo"><span>📋</span><span>営業ナレッジ</span></div>
+  <div class="nav-items">
+    <div class="nav-item active" id="nav-memo"      onclick="showPage('memo')">      <span class="ni-icon">📝</span><span>メモ</span></div>
+    <div class="nav-item"        id="nav-task"      onclick="showPage('task')">      <span class="ni-icon">📋</span><span>タスク</span><span class="nav-badge" id="task-badge" style="display:none">0</span></div>
+    <div class="nav-item"        id="nav-ocr"       onclick="showPage('ocr')">       <span class="ni-icon">📷</span><span>OCR</span></div>
+    <div class="nav-item"        id="nav-email"     onclick="showPage('email')">     <span class="ni-icon">✉️</span><span>メール</span></div>
+    <div class="nav-item"        id="nav-checklist" onclick="showPage('checklist')"> <span class="ni-icon">☑️</span><span>チェック</span></div>
+    <div class="nav-item"        id="nav-log"       onclick="showPage('log')">       <span class="ni-icon">📓</span><span>業務日誌</span></div>
+    <div class="nav-item"        id="nav-hr"        onclick="showPage('hr')">        <span class="ni-icon">🏆</span><span>評価サポート</span></div>
+    <div class="nav-item"        id="nav-chat"      onclick="showPage('chat')">      <span class="ni-icon">🤖</span><span>AI相談</span></div>
+    <div class="nav-section">営業管理</div>
+    <div class="nav-item"        id="nav-customer"  onclick="showPage('customer')"> <span class="ni-icon">👥</span><span>顧客カルテ</span></div>
+    <div class="nav-item"        id="nav-meeting"   onclick="showPage('meeting')">  <span class="ni-icon">📅</span><span>商談メモ</span></div>
+    <div class="nav-item"        id="nav-numbers"   onclick="showPage('numbers')">  <span class="ni-icon">📈</span><span>数値目標</span></div>
+    <div class="nav-item"        id="nav-news"      onclick="showPage('news')">     <span class="ni-icon">📰</span><span>ニュース</span></div>
+    <div class="nav-item"        id="nav-selfana"   onclick="showPage('selfana')">  <span class="ni-icon">🔍</span><span>自己分析</span></div>
+  </div>
+  <div class="sidebar-footer"><a id="db-link" href="#" target="_blank">📊 データベース</a></div>
+</nav>
+
+<!-- ═══════════ CONTENT ═══════════ -->
+<div id="content">
+
+<!-- ── MEMO ── -->
+<div class="page active" id="page-memo" style="flex-direction:row!important;overflow:hidden">
+  <div id="memo-list-col">
+    <div id="memo-list-header">
+      <button class="btn btn-primary btn-full" style="font-size:13px" onclick="newMemo()">＋ 新規メモ</button>
+    </div>
+    <div id="memo-list-scroll"><div id="memo-list"></div></div>
+  </div>
+  <div id="memo-editor-col">
+    <div id="save-status"></div>
+    <input id="memo-title-input"   type="text" placeholder="タイトル…"            oninput="autoSave()">
+    <input id="memo-tags-input"    type="text" placeholder="タグ（カンマ区切り）…" oninput="autoSave()">
+    <div class="divider"></div>
+    <textarea id="memo-content-input" placeholder="機種の仕様、お客様情報、手順メモなど何でも…" oninput="autoSave()"></textarea>
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="deleteCurrent()">🗑 削除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TASK ── -->
+<div class="page" id="page-task">
+  <div class="page-header">
+    <div class="page-title">📋 タスク管理</div>
+    <div class="page-sub">未完了タスクをAIが優先度分析します</div>
+  </div>
+  <div class="page-body">
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <input type="text" id="task-input" placeholder="タスク名を入力…" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')addTask()">
+      <input type="date" id="task-deadline" style="width:140px">
+      <select id="task-category" style="width:110px">
+        <option>見積</option><option>営業</option><option>内部作業</option>
+        <option>製品知識</option><option>通常</option>
+      </select>
+      <button class="btn btn-primary" onclick="addTask()">追加</button>
+      <button class="btn btn-ai" onclick="runTaskAnalysis()">🤖 AI優先度分析</button>
+    </div>
+    <div id="task-list"></div>
+    <div id="ai-analysis-panel"></div>
+  </div>
+</div>
+
+<!-- ── OCR ── -->
+<div class="page" id="page-ocr">
+  <div class="page-header">
+    <div class="page-title">📷 OCR・テキスト抽出</div>
+    <div class="page-sub">画像・PDFからテキストを自動抽出します（Gemini AI）</div>
+  </div>
+  <div class="page-body" style="max-width:740px">
+    <div id="drop-zone"
+         onclick="document.getElementById('file-input').click()"
+         ondragover="event.preventDefault();this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="handleDrop(event)">
+      <div style="font-size:42px" id="dz-icon">📄</div>
+      <div style="font-weight:600;font-size:15px;margin-top:10px" id="dz-main">クリックまたはドロップでファイルを選択</div>
+      <div style="font-size:13px;color:#787774;margin-top:4px" id="dz-sub">対応: JPG・PNG・PDF（最大10MB）</div>
+    </div>
+    <input type="file" id="file-input" accept="image/*,application/pdf" style="display:none" onchange="handleFileInput(this)">
+    <div id="ocr-actions" style="display:none;margin:14px 0">
+      <label>抽出の指示（任意）</label>
+      <input type="text" id="ocr-prompt" placeholder="例: 金額と品番だけ抽出して　/　表を読み取って">
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+        <button class="btn btn-primary" onclick="runOcr()">テキスト抽出</button>
+        <button class="btn btn-secondary" onclick="resetOcr()">リセット</button>
+        <span id="ocr-loading" class="loading" style="display:none"><span class="spin"></span>処理中…</span>
+      </div>
+    </div>
+    <div id="ocr-result-area" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong style="font-size:14px">抽出結果（クリックで編集可）</strong>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" onclick="copyOcrText()">コピー</button>
+          <button class="btn btn-primary btn-sm" onclick="saveOcrAsMemo()">メモに保存</button>
+        </div>
+      </div>
+      <div id="ocr-result-box" contenteditable="true"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── EMAIL ── -->
+<div class="page" id="page-email">
+  <div class="page-header">
+    <div class="page-title">✉️ メール</div>
+    <div class="page-sub">テンプレートから下書き作成、またはAI添削</div>
+  </div>
+  <div class="page-body">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('email','templates',this)">テンプレート</button>
+      <button class="tab-btn"        onclick="switchTab('email','proofread',this)">AI添削</button>
+    </div>
+
+    <!-- テンプレートタブ -->
+    <div class="tab-pane active" id="email-tab-templates">
+      <div style="display:flex;gap:20px">
+        <div style="flex:0 0 210px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <strong style="font-size:13px;color:#787774">一覧</strong>
+            <button class="btn btn-primary btn-sm" onclick="openNewTpl()">＋ 新規</button>
+          </div>
+          <div id="tpl-list"></div>
+        </div>
+        <div style="flex:1" id="tpl-fill-area">
+          <div class="empty"><div class="empty-icon">👈</div><div>テンプレートを選んでください</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI添削タブ -->
+    <div class="tab-pane" id="email-tab-proofread">
+      <div style="max-width:700px">
+        <label>添削したいメール本文を貼り付け</label>
+        <textarea id="proof-input" rows="10" placeholder="件名：〇〇&#10;&#10;〇〇様&#10;&#10;お世話になっております。&#10;…"></textarea>
+        <label>補足情報（任意）</label>
+        <input type="text" id="proof-context" placeholder="例: 初回連絡のメール　/ 苦情対応のフォロー">
+        <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+          <button class="btn btn-ai" onclick="runProofread()">🤖 AI添削</button>
+          <span id="proof-loading" class="loading" style="display:none"><span class="spin"></span>添削中…</span>
+        </div>
+        <div id="proof-result" style="display:none;margin-top:20px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CHECKLIST ── -->
+<div class="page" id="page-checklist">
+  <div class="page-header">
+    <div class="page-title">☑️ 送信前チェックリスト</div>
+    <div class="page-sub">確認漏れによるミスを防ぎます</div>
+  </div>
+  <div class="page-body" style="max-width:580px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <button class="btn btn-secondary" onclick="loadChecklist('email')">📧 メール送信前</button>
+      <button class="btn btn-secondary" onclick="loadChecklist('estimate')">📊 見積書送付前</button>
+      <button class="btn btn-secondary" onclick="loadChecklist('visit')">🚗 訪問前</button>
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="resetChecklist()">リセット</button>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    <div id="checklist-count" style="font-size:13px;color:#787774;margin-bottom:12px">種類を選択してください</div>
+    <div id="checklist-items"></div>
+  </div>
+</div>
+
+<!-- ── DAILY LOG ── -->
+<div class="page" id="page-log">
+  <div class="page-header">
+    <div class="page-title">📓 業務日誌</div>
+    <div class="page-sub">日々の記録が人事評価の材料になります。毎日1分で記録を</div>
+  </div>
+  <div class="page-body">
+    <div style="display:flex;gap:20px">
+      <!-- 入力フォーム -->
+      <div style="flex:0 0 320px">
+        <strong style="font-size:13px;color:#787774">今日の記録</strong>
+        <div id="log-editing-badge" style="display:none;background:#fff4e0;color:#946900;font-size:12px;padding:4px 10px;border-radius:6px;margin-top:6px;border:1px solid #f5a623">編集中</div>
+        <label>日付</label>
+        <input type="date" id="log-date">
+        <label>本日の業務内容</label>
+        <textarea id="log-work" rows="3" placeholder="例: 〇〇社へ見積書作成・送付、△△社フォローアップメール送信"></textarea>
+        <label>達成したこと・良かったこと</label>
+        <textarea id="log-achievements" rows="2" placeholder="例: 〇〇社から受注連絡あり、見積書を30分で完成できた"></textarea>
+        <label>課題・困ったこと</label>
+        <textarea id="log-issues" rows="2" placeholder="例: 機種Aの納期回答に時間がかかった"></textarea>
+        <div class="form-row" style="margin-top:12px">
+          <div>
+            <label>業務時間（時間）</label>
+            <input type="number" id="log-hours" min="0" max="24" step="0.5" placeholder="8">
+          </div>
+          <div>
+            <label>タグ</label>
+            <input type="text" id="log-tags" placeholder="見積,訪問">
+          </div>
+        </div>
+        <input type="hidden" id="log-editing-id">
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-primary" onclick="saveLog()">保存</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearLogForm()">クリア</button>
+        </div>
+      </div>
+      <!-- 履歴 -->
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <strong style="font-size:13px;color:#787774">記録履歴</strong>
+          <span id="log-count" style="font-size:12px;color:#9b9a97"></span>
+        </div>
+        <div id="log-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── HR EVALUATION ── -->
+<div class="page" id="page-hr">
+  <div class="page-header">
+    <div class="page-title">🏆 人事評価サポート</div>
+    <div class="page-sub">日々の記録から自己評価文を自動生成。面談対策まで対応</div>
+  </div>
+  <div class="page-body">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('hr','goals',this)">目標管理</button>
+      <button class="tab-btn"        onclick="switchTab('hr','generate',this)">自己評価を生成</button>
+      <button class="tab-btn"        onclick="switchTab('hr','advice',this)">目標設定アドバイス</button>
+    </div>
+
+    <!-- 目標管理 -->
+    <div class="tab-pane active" id="hr-tab-goals">
+      <div style="display:flex;gap:20px">
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <strong style="font-size:14px">設定中の目標</strong>
+            <button class="btn btn-primary btn-sm" onclick="openNewGoal()">＋ 目標を追加</button>
+          </div>
+          <div id="hr-goal-list"></div>
+        </div>
+        <div style="flex:0 0 280px" id="hr-goal-form-area">
+          <div class="empty" style="padding:20px 10px">
+            <div>＋ボタンで目標を追加</div>
+            <div style="font-size:12px;margin-top:6px">サンプル目標が入っています<br>内容を編集してご利用ください</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 評価生成 -->
+    <div class="tab-pane" id="hr-tab-generate">
+      <div style="max-width:700px">
+        <div class="card" style="background:#f8f4ff;border-color:#d4c8f0;margin-bottom:16px">
+          <strong style="font-size:14px;color:#6940a5">📝 使い方</strong>
+          <div style="font-size:13px;color:#37352f;margin-top:6px;line-height:1.7">
+            ① 「目標管理」タブで期初目標を設定<br>
+            ② 「業務日誌」に日々の記録を蓄積<br>
+            ③ 「自己評価を生成」ボタンで評価文を自動作成
+          </div>
+        </div>
+        <label>評価期間</label>
+        <input type="text" id="hr-term-input" placeholder="例: 2025年度上期（4〜9月）" value="2025年度上期（4〜9月）">
+        <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+          <button class="btn btn-ai" onclick="runGenerateEval()">🤖 自己評価文を生成</button>
+          <span id="hr-gen-loading" class="loading" style="display:none"><span class="spin"></span>生成中（30秒ほど）…</span>
+        </div>
+        <div id="hr-eval-result" style="display:none;margin-top:24px"></div>
+      </div>
+    </div>
+
+    <!-- 目標設定アドバイス -->
+    <div class="tab-pane" id="hr-tab-advice">
+      <div style="max-width:700px">
+        <label>現在の状況・課題を入力してください</label>
+        <textarea id="hr-situation" rows="5" placeholder="例:&#10;・今年で営業2年目&#10;・見積書作成に時間がかかっている&#10;・機種の知識が不足していると感じる&#10;・新規顧客の開拓をもっとやりたい&#10;・評価面談でうまく自分をアピールできていない"></textarea>
+        <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+          <button class="btn btn-ai" onclick="runGoalAdvice()">🤖 目標案を提案してもらう</button>
+          <span id="hr-adv-loading" class="loading" style="display:none"><span class="spin"></span>提案中…</span>
+        </div>
+        <div id="hr-advice-result" style="display:none;margin-top:24px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── AI CHAT ── -->
+<div class="page" id="page-chat" style="overflow:hidden">
+  <div id="chat-page-inner">
+    <div style="padding:20px 36px 8px;border-bottom:1px solid #e9e9e7;flex-shrink:0">
+      <div class="page-title" style="font-size:20px">🤖 AI相談</div>
+      <div class="page-sub" style="margin-bottom:0">営業・業務・製品知識・スキルアップについて何でも聞いてください</div>
+    </div>
+    <div class="quick-prompts" style="padding:10px 36px 6px">
+      <button class="qp-btn" onclick="quickPrompt('見積書を素早く作るコツを教えてください')">見積書を早く作るコツ</button>
+      <button class="qp-btn" onclick="quickPrompt('お客様のクレームへの対応方法を教えてください')">クレーム対応</button>
+      <button class="qp-btn" onclick="quickPrompt('新規顧客への初回アプローチのポイントを教えてください')">新規アプローチ</button>
+      <button class="qp-btn" onclick="quickPrompt('基板・PCBの基礎知識を営業として知っておくべき点を教えてください')">基板の基礎知識</button>
+      <button class="qp-btn" onclick="quickPrompt('仕事が忙しくて残業が続いています。優先度のつけ方を教えてください')">優先度のつけ方</button>
+      <button class="qp-btn" onclick="quickPrompt('評価面談でどうアピールすればいいか教えてください')">評価面談のコツ</button>
+    </div>
+    <div id="chat-messages">
+      <div class="chat-bubble assistant">
+        <div class="bubble-inner">こんにちは！営業専門AIアシスタントです。<br>見積書・メール・顧客対応・製品知識・評価面談など、仕事のことは何でも相談してください。<br><br>上のクイックボタンからも相談できます 👆</div>
+      </div>
+    </div>
+    <div class="chat-input-area">
+      <textarea id="chat-input" placeholder="質問を入力…（Shift+Enterで改行）" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"></textarea>
+      <button class="btn btn-primary" onclick="sendChat()" style="height:44px;padding:0 18px">送信</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CUSTOMER ── -->
+<div class="page" id="page-customer" style="flex-direction:row!important;overflow:hidden">
+  <div style="width:230px;flex-shrink:0;border-right:1px solid #e9e9e7;background:#fbfbfa;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:10px 8px 8px;flex-shrink:0;display:flex;flex-direction:column;gap:6px">
+      <input type="text" id="cust-search" placeholder="会社名・担当者で検索…" style="font-size:13px;padding:7px 10px" oninput="searchCustomers(this.value)">
+      <button class="btn btn-primary btn-full" style="font-size:13px" onclick="newCustomer()">＋ 顧客を追加</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:0 6px 8px" id="cust-list"></div>
+  </div>
+  <div id="cust-detail" style="flex:1;overflow-y:auto;padding:28px 36px">
+    <div class="empty"><div class="empty-icon">👥</div><div>左から顧客を選んでください</div><div style="font-size:12px;margin-top:6px">最終連絡日を記録すると<br>フォロー漏れを防げます</div></div>
+  </div>
+</div>
+
+<!-- ── MEETING ── -->
+<div class="page" id="page-meeting">
+  <div class="page-header">
+    <div class="page-title">📅 商談メモ</div>
+    <div class="page-sub">商談後5分で記録 → AIがフォローアップメールを自動生成</div>
+  </div>
+  <div class="page-body">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('meeting','list',this)">商談記録</button>
+      <button class="tab-btn"        onclick="switchTab('meeting','prep',this)">商談準備AI</button>
+    </div>
+    <div class="tab-pane active" id="meeting-tab-list">
+      <div style="display:flex;gap:20px">
+        <div style="flex:0 0 300px">
+          <div id="meeting-editing-badge" style="display:none;background:#fff4e0;color:#946900;font-size:12px;padding:4px 10px;border-radius:6px;margin-bottom:8px;border:1px solid #f5a623">編集中</div>
+          <input type="hidden" id="mtg-id">
+          <label>日付</label><input type="date" id="mtg-date">
+          <label>会社名</label><input type="text" id="mtg-company" placeholder="〇〇株式会社">
+          <label>担当者名</label><input type="text" id="mtg-person" placeholder="田中 様">
+          <label>商談目的</label><input type="text" id="mtg-purpose" placeholder="例: 新製品の提案、納期相談">
+          <label>商談内容・話した内容</label>
+          <textarea id="mtg-content" rows="3" placeholder="例: 基板Aの価格について交渉。先方は10%値引きを希望。当方は5%が限界と回答。"></textarea>
+          <label>自分の宿題（約束したこと）</label>
+          <textarea id="mtg-my-actions" rows="2" placeholder="例: 来週水曜までに正式見積書を送付"></textarea>
+          <label>先方の宿題</label>
+          <textarea id="mtg-their-actions" rows="2" placeholder="例: 社内で検討後、来週末までに回答"></textarea>
+          <label>次回予定日</label><input type="date" id="mtg-next-date">
+          <label>ステータス</label>
+          <select id="mtg-status"><option>フォロー中</option><option>完了</option><option>クローズ</option></select>
+          <div style="display:flex;gap:8px;margin-top:14px">
+            <button class="btn btn-primary" onclick="saveMeetingForm()">保存</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearMeetingForm()">クリア</button>
+          </div>
+        </div>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <strong style="font-size:13px;color:#787774">商談履歴</strong>
+            <span id="mtg-count" style="font-size:12px;color:#9b9a97"></span>
+          </div>
+          <div id="meeting-list"></div>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane" id="meeting-tab-prep">
+      <div style="max-width:640px">
+        <div class="card" style="background:#f0f6ff;border-color:#b3d4f5;margin-bottom:16px">
+          <strong style="font-size:13px;color:#2383e2">💡 使い方</strong>
+          <div style="font-size:13px;margin-top:6px;line-height:1.7">訪問・商談の前に会社名と目的を入力してAIに準備してもらいます。<br>過去の商談内容があれば入力すると精度が上がります。</div>
+        </div>
+        <label>会社名</label><input type="text" id="prep-company" placeholder="〇〇株式会社">
+        <label>今回の商談目的</label><input type="text" id="prep-purpose" placeholder="例: 新製品A-123の提案、価格改定の交渉">
+        <label>過去の商談・関係性（任意）</label>
+        <textarea id="prep-past" rows="3" placeholder="例: 先月、見積を送ったが返答なし。担当の田中様は価格に敏感。競合はXX社。"></textarea>
+        <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+          <button class="btn btn-ai" onclick="runMeetingPrep()">🤖 商談準備ブリーフィングを作成</button>
+          <span id="prep-loading" class="loading" style="display:none"><span class="spin"></span>準備中…</span>
+        </div>
+        <div id="prep-result" style="display:none;margin-top:18px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── NUMBERS ── -->
+<div class="page" id="page-numbers">
+  <div class="page-header">
+    <div class="page-title">📈 数値目標</div>
+    <div class="page-sub">目標 vs 実績を可視化。評価面談で「数字で語る」ための記録</div>
+  </div>
+  <div class="page-body" style="max-width:760px">
+    <div class="num-month-picker">
+      <button class="btn btn-ghost btn-sm" onclick="changeMonth(-1)">◀</button>
+      <strong id="num-month-label" style="font-size:16px;min-width:120px;text-align:center"></strong>
+      <button class="btn btn-ghost btn-sm" onclick="changeMonth(1)">▶</button>
+      <button class="btn btn-secondary btn-sm" onclick="addNumberRow()">＋ 指標を追加</button>
+      <button class="btn btn-ai btn-sm" style="margin-left:auto" onclick="runNumbersAnalysis()">🤖 AIコメント</button>
+    </div>
+    <div id="num-rows"></div>
+    <div id="num-ai-box" class="num-ai-box"></div>
+    <div class="divider" style="margin:24px 0"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <strong style="font-size:14px">📋 週次報告書（業務日誌から自動生成）</strong>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ai btn-sm" onclick="runWeeklyReport()">🤖 報告書を生成</button>
+        <span id="report-loading" class="loading" style="display:none"><span class="spin"></span>生成中…</span>
+      </div>
+    </div>
+    <div id="weekly-report-result" style="display:none"></div>
+  </div>
+</div>
+
+<div class="page" id="page-selfana">
+  <div class="page-header">
+    <div class="page-title">🔍 自己分析レポート</div>
+    <div class="page-sub">業務日誌・タスク・商談・数値目標をAIが統合分析。人事評価の自己PR文も自動生成</div>
+  </div>
+  <div class="page-body" style="max-width:780px">
+    <div class="sa-tabs">
+      <button class="sa-tab active" id="sa-tab-month" onclick="saSetPeriod('month',this)">月次振り返り</button>
+      <button class="sa-tab"        id="sa-tab-year"  onclick="saSetPeriod('year',this)">年次振り返り</button>
+    </div>
+    <div class="sa-picker">
+      <button onclick="saChangePeriod(-1)">◀</button>
+      <span class="sa-period-label" id="sa-period-label">—</span>
+      <button onclick="saChangePeriod(1)">▶</button>
+      <button class="btn btn-ai" style="margin-left:12px" onclick="runSelfAnalysis()">🤖 分析開始</button>
+      <span class="loading" id="sa-loading" style="display:none"><span class="spin"></span>AIが分析中…（30秒ほど）</span>
+    </div>
+    <div id="sa-result"></div>
+  </div>
+</div>
+
+<div class="page" id="page-news">
+  <div class="page-header">
+    <div class="page-title">📰 マーケットニュース</div>
+    <div class="page-sub">材料費高騰・中東情勢・為替など、製造業営業に関わる情報をAIが毎日要約</div>
+  </div>
+  <div class="page-body" style="max-width:760px">
+    <div class="news-header-bar">
+      <button class="btn btn-secondary btn-sm" onclick="loadNews(false)">🔄 更新（キャッシュ優先）</button>
+      <button class="btn btn-ai btn-sm" onclick="loadNews(true)">⚡ 今すぐ再取得</button>
+      <span class="news-updated" id="news-updated"></span>
+      <span id="news-alert-badge" style="margin-left:auto"></span>
+    </div>
+    <div id="news-content">
+      <div class="news-loading"><span class="spin"></span><br><br>ニュースを取得中…</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /content -->
+<div id="toast"></div>
+
+<!-- ═══════════ JAVASCRIPT ═══════════ -->
+<script>
+// ─────────────────────────────────────
+// STATE
+// ─────────────────────────────────────
+const S = {
+  memos: [], currentMemoId: null, saveTimer: null,
+  tasks: [],
+  templates: [], selectedTplId: null,
+  checkItems: [],
+  ocrBase64: null, ocrMime: null,
+  hrGoals: [],
+  chatHistory: [],
+  _logMap: {},
+  _goalMap: {},
+  _adviceMap: {},
+};
+
+// ─────────────────────────────────────
+// NAV
+// ─────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'memo')     loadMemos();
+  if (name === 'task')     loadTasks();
+  if (name === 'email')    loadTemplates();
+  if (name === 'log')      { initLogForm(); loadLogs(); }
+  if (name === 'hr')       loadHrGoals();
+  if (name === 'customer') loadCustomers();
+  if (name === 'meeting')  { initMeetingForm(); loadMeetings(); }
+  if (name === 'numbers')  initNumbers();
+  if (name === 'news')     loadNews(false);
+  if (name === 'selfana')  initSelfAna();
+}
+
+function switchTab(page, tab, btn) {
+  const prefix = page + '-tab-';
+  document.querySelectorAll(`#page-${page} .tab-pane`).forEach(p => p.classList.remove('active'));
+  document.querySelectorAll(`#page-${page} .tab-btn`).forEach(b => b.classList.remove('active'));
+  document.getElementById(prefix + tab).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (page === 'hr' && tab === 'goals') loadHrGoals();
+}
+
+// ─────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────
+let _toastT;
+function toast(msg, dur = 2200) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ─────────────────────────────────────
+// MEMO
+// ─────────────────────────────────────
+function loadMemos(q) {
+  google.script.run.withSuccessHandler(d => { S.memos = d; renderMemoList(); }).getMemos(q || null);
+}
+function renderMemoList() {
+  const el = document.getElementById('memo-list');
+  if (!S.memos.length) { el.innerHTML = '<div style="font-size:13px;color:#9b9a97;padding:10px 8px">まだメモがありません</div>'; return; }
+  el.innerHTML = S.memos.map(m =>
+    `<div class="mi ${m.id === S.currentMemoId ? 'active' : ''}" onclick="openMemo('${m.id}')">
+      <div class="mi-title">${esc(m.title || '無題')}</div>
+      <div class="mi-date">${m.updated || ''}</div>
+    </div>`
+  ).join('');
+}
+function newMemo() {
+  S.currentMemoId = null;
+  ['memo-title-input','memo-tags-input','memo-content-input'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('save-status').textContent = '新規メモ';
+  renderMemoList();
+  document.getElementById('memo-title-input').focus();
+}
+function openMemo(id) {
+  const m = S.memos.find(x => x.id === id); if (!m) return;
+  S.currentMemoId = id;
+  document.getElementById('memo-title-input').value = m.title || '';
+  document.getElementById('memo-tags-input').value = m.tags || '';
+  document.getElementById('memo-content-input').value = m.content || '';
+  document.getElementById('save-status').textContent = '更新: ' + (m.updated || '');
+  renderMemoList();
+}
+function autoSave() {
+  document.getElementById('save-status').textContent = '入力中…';
+  clearTimeout(S.saveTimer);
+  S.saveTimer = setTimeout(doSave, 1400);
+}
+function doSave() {
+  const memo = {
+    id: S.currentMemoId,
+    title: document.getElementById('memo-title-input').value || '無題',
+    content: document.getElementById('memo-content-input').value,
+    tags: document.getElementById('memo-tags-input').value,
+  };
+  google.script.run.withSuccessHandler(r => {
+    if (!r.ok) return;
+    S.currentMemoId = r.id;
+    document.getElementById('save-status').textContent = '保存済み ✓';
+    loadMemos();
+  }).saveMemo(memo);
+}
+function deleteCurrent() {
+  if (!S.currentMemoId) return;
+  if (!confirm('このメモを削除しますか？')) return;
+  google.script.run.withSuccessHandler(() => {
+    S.currentMemoId = null;
+    ['memo-title-input','memo-tags-input','memo-content-input'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('save-status').textContent = '削除しました';
+    loadMemos();
+  }).deleteMemo(S.currentMemoId);
+}
+// Search from memo page - simple: tap search from sidebar will work
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'k') { e.preventDefault(); showPage('task'); }
+});
+
+// ─────────────────────────────────────
+// TASKS
+// ─────────────────────────────────────
+function loadTasks() {
+  google.script.run.withSuccessHandler(d => { S.tasks = d; renderTasks(); }).getTasks();
+}
+function renderTasks() {
+  const el = document.getElementById('task-list');
+  const open = S.tasks.filter(t => t.status !== '完了');
+  const done = S.tasks.filter(t => t.status === '完了');
+  const badge = document.getElementById('task-badge');
+  if (open.length) { badge.textContent = open.length; badge.style.display = 'inline'; }
+  else badge.style.display = 'none';
+  const renderItem = t => `
+    <div class="task-item ${t.status === '完了' ? 'done' : ''}">
+      <input type="checkbox" class="task-check" ${t.status === '完了' ? 'checked' : ''} onclick="toggleTask('${t.id}')">
+      <div style="flex:1;min-width:0">
+        <div class="task-title ${t.status === '完了' ? 'done' : ''}">${esc(t.title)}</div>
+        <div class="task-meta">${t.deadline ? '期限: ' + t.deadline : '期限なし'}</div>
+      </div>
+      <span class="task-cat">${esc(t.category)}</span>
+      <button class="btn btn-ghost btn-sm" onclick="deleteTask('${t.id}')">✕</button>
+    </div>`;
+  el.innerHTML = (open.length ? open.map(renderItem).join('') : '<div class="empty"><div class="empty-icon">✅</div><div>未完了タスクはありません</div></div>') +
+    (done.length ? `<div style="font-size:12px;color:#9b9a97;margin:14px 0 6px">完了済み</div>${done.map(renderItem).join('')}` : '');
+}
+function addTask() {
+  const title = document.getElementById('task-input').value.trim();
+  if (!title) return;
+  const task = {
+    title,
+    deadline: document.getElementById('task-deadline').value,
+    category: document.getElementById('task-category').value,
+  };
+  google.script.run.withSuccessHandler(() => {
+    document.getElementById('task-input').value = '';
+    document.getElementById('task-deadline').value = '';
+    loadTasks();
+  }).saveTask(task);
+}
+function toggleTask(id) {
+  google.script.run.withSuccessHandler(() => loadTasks()).toggleTaskStatus(id);
+}
+function deleteTask(id) {
+  google.script.run.withSuccessHandler(() => loadTasks()).deleteTask(id);
+}
+function runTaskAnalysis() {
+  const panel = document.getElementById('ai-analysis-panel');
+  panel.style.display = 'block';
+  panel.innerHTML = '<div class="loading"><span class="spin"></span>AIが分析中…</div>';
+  google.script.run
+    .withSuccessHandler(r => {
+      if (r.error) { panel.innerHTML = `<div style="color:#eb5757">${esc(r.error)}</div>`; return; }
+      renderTaskAnalysis(r.data);
+    })
+    .withFailureHandler(e => { panel.innerHTML = `<div style="color:#eb5757">エラー: ${esc(String(e))}</div>`; })
+    .analyzeTasks();
+}
+function renderTaskAnalysis(d) {
+  const panel = document.getElementById('ai-analysis-panel');
+  if (!d) { panel.innerHTML = '<div style="color:#eb5757">分析結果を取得できませんでした</div>'; return; }
+  const pMap = {'高':'p-high','中':'p-mid','低':'p-low'};
+  const tasks = (d.tasks || []).map(t => `
+    <div class="ai-task-card ${pMap[t.priority] || ''}">
+      <div class="ai-task-title">
+        <span style="background:${t.priority==='高'?'#fdecea':t.priority==='中'?'#fff4e0':'#eefbee'};color:${t.priority==='高'?'#c94040':t.priority==='中'?'#946900':'#2d8a4e'};padding:1px 8px;border-radius:10px;font-size:12px;margin-right:8px">${t.priority}</span>
+        ${esc(t.title)}
+      </div>
+      <div class="ai-task-meta">
+        <span>📅 ${t.deadline || '期限なし'}</span>
+        <span>⏱ ${esc(t.time || '—')}</span>
+      </div>
+      <div style="font-size:12px;color:#787774;margin-top:5px">理由: ${esc(t.reason)}</div>
+      <div class="ai-tip">💡 ${esc(t.tip)}</div>
+    </div>`).join('');
+  panel.innerHTML = `
+    <div class="ai-situation">🎯 ${esc(d.situation || '')}</div>
+    <div style="font-size:13px;font-weight:600;color:#6940a5;margin-bottom:10px">優先度順のタスク一覧</div>
+    ${tasks}
+    <div class="ai-advice-box">📝 <strong>今日のアドバイス：</strong>${esc(d.advice || '')}</div>`;
+}
+
+// ─────────────────────────────────────
+// OCR
+// ─────────────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  const f = e.dataTransfer.files[0]; if (f) loadOcrFile(f);
+}
+function handleFileInput(input) {
+  const f = input.files[0]; if (f) loadOcrFile(f); input.value = '';
+}
+function loadOcrFile(f) {
+  if (f.size > 10 * 1024 * 1024) { toast('10MB以下のファイルを選択してください'); return; }
+  const r = new FileReader();
+  r.onload = e => {
+    S.ocrBase64 = e.target.result.split(',')[1];
+    S.ocrMime = f.type;
+    document.getElementById('dz-icon').textContent = f.type.includes('pdf') ? '📑' : '🖼';
+    document.getElementById('dz-main').textContent = f.name;
+    document.getElementById('dz-sub').textContent = (f.size / 1024).toFixed(0) + ' KB';
+    document.getElementById('ocr-actions').style.display = 'block';
+    document.getElementById('ocr-result-area').style.display = 'none';
+  };
+  r.readAsDataURL(f);
+}
+function resetOcr() {
+  S.ocrBase64 = null; S.ocrMime = null;
+  document.getElementById('dz-icon').textContent = '📄';
+  document.getElementById('dz-main').textContent = 'クリックまたはドロップでファイルを選択';
+  document.getElementById('dz-sub').textContent = '対応: JPG・PNG・PDF（最大10MB）';
+  document.getElementById('ocr-actions').style.display = 'none';
+  document.getElementById('ocr-result-area').style.display = 'none';
+}
+function runOcr() {
+  if (!S.ocrBase64) { toast('ファイルを選択してください'); return; }
+  document.getElementById('ocr-loading').style.display = 'inline';
+  google.script.run
+    .withSuccessHandler(r => {
+      document.getElementById('ocr-loading').style.display = 'none';
+      if (r.error) { toast('エラー: ' + r.error, 5000); return; }
+      document.getElementById('ocr-result-box').textContent = r.text;
+      document.getElementById('ocr-result-area').style.display = 'block';
+    })
+    .processFile(S.ocrBase64, S.ocrMime, document.getElementById('ocr-prompt').value || null);
+}
+function copyOcrText() {
+  navigator.clipboard.writeText(document.getElementById('ocr-result-box').textContent)
+    .then(() => toast('コピーしました'));
+}
+function saveOcrAsMemo() {
+  const text = document.getElementById('ocr-result-box').textContent;
+  google.script.run.withSuccessHandler(r => {
+    if (r.ok) { toast('メモに保存しました'); showPage('memo'); }
+  }).saveMemo({ title: 'OCR ' + new Date().toLocaleDateString('ja-JP'), content: text, tags: 'OCR' });
+}
+
+// ─────────────────────────────────────
+// EMAIL TEMPLATES
+// ─────────────────────────────────────
+function loadTemplates() {
+  google.script.run.withSuccessHandler(d => { S.templates = d; renderTplList(); }).getTemplates();
+}
+function renderTplList() {
+  document.getElementById('tpl-list').innerHTML = S.templates.map(t =>
+    `<div class="card card-hover ${t.id === S.selectedTplId ? 'selected' : ''}" onclick="selectTpl('${t.id}')">
+      <div style="font-size:13px;font-weight:600">${esc(t.name)}</div>
+      <div style="font-size:12px;color:#787774;margin-top:2px">${esc(t.subject.slice(0, 30))}…</div>
+    </div>`
+  ).join('') + `<div class="card card-hover" style="border-style:dashed;text-align:center;color:#9b9a97;font-size:13px" onclick="openNewTpl()">＋ 新規テンプレート</div>`;
+}
+function extractVars(tpl) {
+  const m = ((tpl.subject || '') + ' ' + (tpl.body || '')).match(/\{[^}]+\}/g) || [];
+  return [...new Set(m)];
+}
+function selectTpl(id) {
+  S.selectedTplId = id; renderTplList();
+  const tpl = S.templates.find(t => t.id === id); if (!tpl) return;
+  const vars = extractVars(tpl);
+  const el = document.getElementById('tpl-fill-area');
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <strong style="font-size:15px">${esc(tpl.name)}</strong>
+      <button class="btn btn-danger btn-sm" onclick="deleteTpl('${id}')">削除</button>
+    </div>
+    ${vars.length ? `<div style="margin-bottom:10px">${vars.map(v=>`<span class="var-chip">${esc(v)}</span>`).join('')}</div>
+    ${vars.map(v=>`<label>${esc(v)}</label><input type="text" id="var_${v.replace(/[{}]/g,'')}" placeholder="${esc(v)}">`).join('')}` : ''}
+    <label>送信先メール（任意）</label>
+    <input type="email" id="tpl-to" placeholder="example@company.com">
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="previewTpl('${id}')">プレビュー</button>
+      <button class="btn btn-primary" onclick="createDraft('${id}')">✉️ Gmail下書きを作成</button>
+    </div>
+    <div id="tpl-preview" style="display:none;margin-top:14px"></div>`;
+}
+function applyVars(str, vars) {
+  let r = str;
+  for (const [k, v] of Object.entries(vars)) r = r.split(k).join(v || k);
+  return r.replace(/\{日付\}/g, new Date().toLocaleDateString('ja-JP'));
+}
+function getVarMap(tpl) {
+  const vars = extractVars(tpl);
+  const m = {};
+  vars.forEach(v => { const el = document.getElementById('var_' + v.replace(/[{}]/g, '')); m[v] = el ? el.value : ''; });
+  return m;
+}
+function previewTpl(id) {
+  const tpl = S.templates.find(t => t.id === id); if (!tpl) return;
+  const map = getVarMap(tpl);
+  const el = document.getElementById('tpl-preview');
+  el.style.display = 'block';
+  el.innerHTML = `<div style="font-size:12px;color:#787774;margin-bottom:4px">件名</div>
+    <div style="font-weight:600;font-size:14px;margin-bottom:12px">${esc(applyVars(tpl.subject, map))}</div>
+    <div style="font-size:12px;color:#787774;margin-bottom:4px">本文</div>
+    <div class="preview-box">${esc(applyVars(tpl.body, map))}</div>`;
+}
+function createDraft(id) {
+  const tpl = S.templates.find(t => t.id === id); if (!tpl) return;
+  const map = getVarMap(tpl);
+  google.script.run.withSuccessHandler(() => toast('Gmail に下書きを作成しました ✓'))
+    .createGmailDraft(document.getElementById('tpl-to')?.value || '', applyVars(tpl.subject, map), applyVars(tpl.body, map));
+}
+function openNewTpl() {
+  S.selectedTplId = null; renderTplList();
+  document.getElementById('tpl-fill-area').innerHTML = `
+    <strong style="font-size:15px">新規テンプレート</strong>
+    <label>名前</label><input type="text" id="new-tpl-name" placeholder="見積書送付">
+    <label>件名（変数は {顧客名} の形式）</label>
+    <input type="text" id="new-tpl-subject" placeholder="【見積書】{顧客名}様">
+    <label>本文</label>
+    <textarea id="new-tpl-body" rows="7" placeholder="{顧客名} 様&#10;&#10;お世話になっております。…"></textarea>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-primary" onclick="saveTpl()">保存</button>
+      <button class="btn btn-secondary" onclick="loadTemplates()">キャンセル</button>
+    </div>`;
+}
+function saveTpl() {
+  google.script.run.withSuccessHandler(() => { toast('保存しました'); loadTemplates(); })
+    .saveTemplate({
+      name: document.getElementById('new-tpl-name')?.value || 'テンプレート',
+      subject: document.getElementById('new-tpl-subject')?.value || '',
+      body: document.getElementById('new-tpl-body')?.value || '',
+    });
+}
+function deleteTpl(id) {
+  if (!confirm('このテンプレートを削除しますか？')) return;
+  google.script.run.withSuccessHandler(() => {
+    toast('削除しました'); S.selectedTplId = null; loadTemplates();
+    document.getElementById('tpl-fill-area').innerHTML = '<div class="empty"><div class="empty-icon">👈</div><div>テンプレートを選んでください</div></div>';
+  }).deleteTemplate(id);
+}
+
+// ─────────────────────────────────────
+// EMAIL PROOFREADING
+// ─────────────────────────────────────
+function runProofread() {
+  const text = document.getElementById('proof-input').value.trim();
+  if (!text) { toast('メール本文を入力してください'); return; }
+  document.getElementById('proof-loading').style.display = 'inline';
+  document.getElementById('proof-result').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(r => {
+      document.getElementById('proof-loading').style.display = 'none';
+      if (r.error) { toast('エラー: ' + r.error, 5000); return; }
+      renderProofResult(r.data);
+    })
+    .proofreadEmail(text, document.getElementById('proof-context').value);
+}
+function renderProofResult(d) {
+  const el = document.getElementById('proof-result');
+  if (!d) { el.innerHTML = '<div style="color:#eb5757">結果を取得できませんでした</div>'; el.style.display = 'block'; return; }
+  const score = d.score || 0;
+  const cls = score >= 80 ? 'score-high' : score >= 60 ? 'score-mid' : 'score-low';
+  const issues = (d.issues || []).map(i => `<div class="proof-issue"><span>⚠️</span><div><strong>${esc(i.type)}</strong>: ${esc(i.text)}</div></div>`).join('');
+  const goods = (d.good_points || []).map(g => `<div class="proof-good"><span>✓</span><div>${esc(g)}</div></div>`).join('');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+      <div class="score-ring ${cls}">${score}</div>
+      <div>
+        <div style="font-size:16px;font-weight:700">${esc(d.verdict || '')}</div>
+        <div style="font-size:13px;color:#787774">スコア: ${score}/100</div>
+      </div>
+    </div>
+    ${issues ? `<div style="margin-bottom:14px"><strong style="font-size:13px;color:#787774;display:block;margin-bottom:6px">問題点・改善提案</strong>${issues}</div>` : ''}
+    ${goods ? `<div style="margin-bottom:14px"><strong style="font-size:13px;color:#787774;display:block;margin-bottom:6px">良かった点</strong>${goods}</div>` : ''}
+    ${d.corrected_body ? `
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <strong style="font-size:13px;color:#6940a5">✨ 修正後の本文</strong>
+        <button class="btn btn-secondary btn-sm" onclick="copyText('proof-corrected')">コピー</button>
+      </div>
+      <div class="corrected-area" id="proof-corrected" contenteditable="true">${esc(d.corrected_body)}</div>
+    </div>` : ''}`;
+}
+
+// ─────────────────────────────────────
+// CHECKLIST
+// ─────────────────────────────────────
+function loadChecklist(type) {
+  google.script.run.withSuccessHandler(items => {
+    S.checkItems = items.map((text, i) => ({ id: i, text, done: false }));
+    renderChecklist();
+  }).getChecklist(type);
+}
+function renderChecklist() {
+  document.getElementById('checklist-items').innerHTML = S.checkItems.map(item =>
+    `<div class="check-item ${item.done ? 'done' : ''}" onclick="toggleCheck(${item.id})">
+      <input type="checkbox" ${item.done ? 'checked' : ''} onclick="event.stopPropagation();toggleCheck(${item.id})">
+      <span>${esc(item.text)}</span>
+    </div>`
+  ).join('');
+  const done = S.checkItems.filter(x => x.done).length;
+  const total = S.checkItems.length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('checklist-count').textContent = total ? `${done} / ${total} 完了 (${pct}%)` : '種類を選択してください';
+  if (total && done === total) setTimeout(() => toast('全項目チェック完了！送信できます ✓'), 200);
+}
+function toggleCheck(id) {
+  const item = S.checkItems.find(x => x.id === id); if (item) { item.done = !item.done; renderChecklist(); }
+}
+function resetChecklist() { S.checkItems.forEach(x => x.done = false); renderChecklist(); }
+
+// ─────────────────────────────────────
+// DAILY LOG
+// ─────────────────────────────────────
+function initLogForm() {
+  const now = new Date();
+  const today = now.getFullYear() + '-' +
+    String(now.getMonth() + 1).padStart(2, '0') + '-' +
+    String(now.getDate()).padStart(2, '0');
+  document.getElementById('log-date').value = today;
+}
+function clearLogForm() {
+  document.getElementById('log-editing-id').value = '';
+  document.getElementById('log-editing-badge').style.display = 'none';
+  initLogForm();
+  ['log-work','log-achievements','log-issues'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('log-hours').value = '';
+  document.getElementById('log-tags').value = '';
+}
+function loadLogs() {
+  google.script.run.withSuccessHandler(d => {
+    S._logMap = {};
+    d.forEach(l => { S._logMap[l.id] = l; });
+    document.getElementById('log-count').textContent = d.length + '件の記録';
+    document.getElementById('log-list').innerHTML = d.length ? d.map(l => `
+      <div class="log-item">
+        <div class="log-date">${esc(l.date)}<span class="log-hours">⏱ ${l.hours}時間</span>
+          <span style="float:right;display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="editLogById('${l.id}')">編集</button>
+            <button class="btn btn-ghost btn-sm" onclick="deleteLog('${l.id}')">削除</button>
+          </span>
+        </div>
+        ${l.work ? `<div class="log-section">業務内容</div><div class="log-text">${esc(l.work)}</div>` : ''}
+        ${l.achievements ? `<div class="log-section">達成・成果</div><div class="log-text">${esc(l.achievements)}</div>` : ''}
+        ${l.issues ? `<div class="log-section">課題</div><div class="log-text">${esc(l.issues)}</div>` : ''}
+      </div>`).join('') : '<div class="empty"><div class="empty-icon">📓</div><div>まだ記録がありません</div></div>';
+  }).getDailyLogs(null);
+}
+function saveLog() {
+  const log = {
+    id: document.getElementById('log-editing-id').value || null,
+    date: document.getElementById('log-date').value,
+    work: document.getElementById('log-work').value,
+    achievements: document.getElementById('log-achievements').value,
+    issues: document.getElementById('log-issues').value,
+    hours: document.getElementById('log-hours').value,
+    tags: document.getElementById('log-tags').value,
+  };
+  if (!log.work && !log.achievements) { toast('業務内容か達成したことを入力してください'); return; }
+  google.script.run.withSuccessHandler(() => {
+    toast('保存しました ✓'); clearLogForm(); loadLogs();
+  }).saveDailyLog(log);
+}
+function editLogById(id) {
+  const log = S._logMap[id]; if (!log) return;
+  document.getElementById('log-editing-id').value = log.id;
+  document.getElementById('log-editing-badge').style.display = 'block';
+  document.getElementById('log-date').value = log.date ? log.date.replace(/\//g, '-') : '';
+  document.getElementById('log-work').value = log.work || '';
+  document.getElementById('log-achievements').value = log.achievements || '';
+  document.getElementById('log-issues').value = log.issues || '';
+  document.getElementById('log-hours').value = log.hours || '';
+  document.getElementById('log-tags').value = log.tags || '';
+}
+function deleteLog(id) {
+  if (!confirm('この日誌を削除しますか？')) return;
+  google.script.run.withSuccessHandler(() => { toast('削除しました'); loadLogs(); }).deleteDailyLog(id);
+}
+
+// ─────────────────────────────────────
+// HR EVALUATION
+// ─────────────────────────────────────
+function loadHrGoals() {
+  google.script.run.withSuccessHandler(d => { S.hrGoals = d; renderHrGoals(); }).getHrGoals();
+}
+function renderHrGoals() {
+  S._goalMap = {};
+  S.hrGoals.forEach(g => { S._goalMap[g.id] = g; });
+  const el = document.getElementById('hr-goal-list');
+  el.innerHTML = S.hrGoals.length ? S.hrGoals.map(g => `
+    <div class="goal-card">
+      <div class="goal-title">${esc(g.title)}</div>
+      <div><span class="goal-kpi">${esc(g.kpi)}</span></div>
+      <div class="goal-detail" style="margin-top:6px">${esc(g.detail)}</div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="btn btn-ghost btn-sm" onclick="openEditGoalById('${g.id}')">編集</button>
+        <button class="btn btn-ghost btn-sm" onclick="deleteGoal('${g.id}')">削除</button>
+      </div>
+    </div>`).join('') : '<div class="empty"><div>目標がまだありません</div></div>';
+}
+function openNewGoal() {
+  const el = document.getElementById('hr-goal-form-area');
+  el.innerHTML = `
+    <strong style="font-size:14px">目標を追加</strong>
+    <label>評価期</label><input type="text" id="gf-term" placeholder="2025年度上期（4〜9月）">
+    <label>目標タイトル</label><input type="text" id="gf-title" placeholder="例: 見積書作成時間を50%短縮">
+    <label>測定指標（KPI）</label><input type="text" id="gf-kpi" placeholder="例: 作成時間 現状比50%削減">
+    <label>詳細・取り組み方</label>
+    <textarea id="gf-detail" rows="4" placeholder="例: テンプレートを整備し…"></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-primary" onclick="saveGoal(null)">保存</button>
+      <button class="btn btn-secondary" onclick="clearGoalForm()">キャンセル</button>
+    </div>`;
+}
+function openEditGoalById(id) {
+  const g = S._goalMap[id]; if (!g) return;
+  openEditGoalForm(g);
+}
+function openEditGoalForm(g) {
+  const el = document.getElementById('hr-goal-form-area');
+  el.innerHTML = `
+    <strong style="font-size:14px">目標を編集</strong>
+    <input type="hidden" id="gf-id" value="${esc(g.id)}">
+    <label>評価期</label><input type="text" id="gf-term" value="${esc(g.term)}">
+    <label>目標タイトル</label><input type="text" id="gf-title" value="${esc(g.title)}">
+    <label>測定指標（KPI）</label><input type="text" id="gf-kpi" value="${esc(g.kpi)}">
+    <label>詳細・取り組み方</label>
+    <textarea id="gf-detail" rows="4">${esc(g.detail)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-primary" onclick="saveGoal('${esc(g.id)}')">更新</button>
+      <button class="btn btn-secondary" onclick="clearGoalForm()">キャンセル</button>
+    </div>`;
+}
+function clearGoalForm() {
+  document.getElementById('hr-goal-form-area').innerHTML = '<div class="empty" style="padding:20px 10px"><div>＋ボタンで目標を追加</div></div>';
+}
+function saveGoal(id) {
+  const goal = {
+    id: id || document.getElementById('gf-id')?.value || null,
+    term: document.getElementById('gf-term')?.value || '',
+    title: document.getElementById('gf-title')?.value || '',
+    kpi: document.getElementById('gf-kpi')?.value || '',
+    detail: document.getElementById('gf-detail')?.value || '',
+  };
+  if (!goal.title) { toast('目標タイトルを入力してください'); return; }
+  google.script.run.withSuccessHandler(() => { toast('保存しました'); clearGoalForm(); loadHrGoals(); }).saveHrGoal(goal);
+}
+function deleteGoal(id) {
+  if (!confirm('この目標を削除しますか？')) return;
+  google.script.run.withSuccessHandler(() => { toast('削除しました'); loadHrGoals(); }).deleteHrGoal(id);
+}
+function runGenerateEval() {
+  const term = document.getElementById('hr-term-input').value;
+  document.getElementById('hr-gen-loading').style.display = 'inline';
+  document.getElementById('hr-eval-result').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(r => {
+      document.getElementById('hr-gen-loading').style.display = 'none';
+      if (r.error) { toast('エラー: ' + r.error, 6000); return; }
+      renderEvalResult(r.data);
+    })
+    .withFailureHandler(e => { document.getElementById('hr-gen-loading').style.display = 'none'; toast('エラー: ' + e, 5000); })
+    .generateEvaluation(term);
+}
+function renderEvalResult(d) {
+  const el = document.getElementById('hr-eval-result');
+  if (!d) { el.innerHTML = '<div style="color:#eb5757">結果を取得できませんでした</div>'; el.style.display = 'block'; return; }
+  const achievements = (d.achievements || []).map(a => `<div class="eval-item">・${esc(a)}</div>`).join('');
+  const appeals = (d.appeal_points || []).map(a => `<div class="eval-item">⭐ ${esc(a)}</div>`).join('');
+  const nextGoals = (d.next_goals || []).map(g => `<div class="eval-item">→ ${esc(g)}</div>`).join('');
+  const tips = (d.interview_tips || []).map(t => `<div class="interview-tip">💬 ${esc(t)}</div>`).join('');
+  el.style.display = 'block';
+  el.innerHTML = `
+    ${achievements ? `<div class="eval-section"><div class="eval-section-title">達成・実績</div>${achievements}</div>` : ''}
+    <div class="eval-section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div class="eval-section-title" style="margin-bottom:0">自己評価文（コピーして使用）</div>
+        <button class="btn btn-secondary btn-sm" onclick="copyText('eval-body-text')">コピー</button>
+      </div>
+      <div class="eval-body" id="eval-body-text" contenteditable="true">${esc(d.self_eval || '')}</div>
+    </div>
+    ${appeals ? `<div class="eval-section"><div class="eval-section-title">アピールポイント</div>${appeals}</div>` : ''}
+    ${d.growth ? `<div class="eval-section"><div class="eval-section-title">成長・改善の記録</div><div class="eval-body" contenteditable="true">${esc(d.growth)}</div></div>` : ''}
+    ${nextGoals ? `<div class="eval-section"><div class="eval-section-title">次期目標案</div>${nextGoals}</div>` : ''}
+    ${tips ? `<div class="eval-section"><div class="eval-section-title">面談アドバイス</div>${tips}</div>` : ''}`;
+}
+function runGoalAdvice() {
+  const sit = document.getElementById('hr-situation').value.trim();
+  if (!sit) { toast('現在の状況を入力してください'); return; }
+  document.getElementById('hr-adv-loading').style.display = 'inline';
+  document.getElementById('hr-advice-result').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(r => {
+      document.getElementById('hr-adv-loading').style.display = 'none';
+      if (r.error) { toast('エラー: ' + r.error, 5000); return; }
+      renderGoalAdvice(r.data);
+    })
+    .generateGoalAdvice(sit);
+}
+function renderGoalAdvice(d) {
+  const el = document.getElementById('hr-advice-result');
+  el.style.display = 'block';
+  S._adviceMap = {};
+  (d.goals || []).forEach((g, i) => { S._adviceMap[i] = g; });
+  const goals = (d.goals || []).map((g, i) => `
+    <div class="goal-advice-card">
+      <div class="gac-cat">${esc(g.category)}</div>
+      <div class="gac-title">${esc(g.title)}</div>
+      <div class="gac-kpi">📊 ${esc(g.kpi)}</div>
+      <div style="font-size:13px;line-height:1.6;color:#37352f;margin-bottom:4px">${esc(g.detail)}</div>
+      <div class="gac-why">💡 ${esc(g.why)}</div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="useGoalAdvice(${i})">この目標を使う</button>
+    </div>`).join('');
+  el.innerHTML = `
+    ${goals}
+    ${d.advice ? `<div class="ai-advice-box" style="margin-top:10px">📝 ${esc(d.advice)}</div>` : ''}
+    ${d.caution ? `<div style="margin-top:8px;padding:10px 14px;background:#fdecea;border-radius:8px;font-size:13px;border-left:3px solid #eb5757">⚠️ ${esc(d.caution)}</div>` : ''}`;
+}
+function useGoalAdvice(idx) {
+  const g = S._adviceMap[idx]; if (!g) return;
+  document.querySelectorAll('#page-hr .tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#page-hr .tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('hr-tab-goals').classList.add('active');
+  document.querySelectorAll('#page-hr .tab-btn')[0].classList.add('active');
+  openNewGoal();
+  setTimeout(() => {
+    document.getElementById('gf-title').value = g.title || '';
+    document.getElementById('gf-kpi').value   = g.kpi   || '';
+    document.getElementById('gf-detail').value = g.detail || '';
+    document.getElementById('gf-term').value  = '2025年度下期（10〜3月）';
+  }, 50);
+}
+
+// ─────────────────────────────────────
+// AI CHAT
+// ─────────────────────────────────────
+function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  S.chatHistory.push({ role: 'user', content: text });
+  input.value = '';
+  appendBubble('user', text);
+  const loadingId = 'loading-' + Date.now();
+  appendBubble('assistant', '<span class="spin"></span>考え中…', loadingId);
+  google.script.run
+    .withSuccessHandler(r => {
+      const el = document.getElementById(loadingId);
+      if (el) el.remove();
+      if (r.error) { appendBubble('assistant', 'エラー: ' + r.error); return; }
+      S.chatHistory.push({ role: 'assistant', content: r.text });
+      appendBubble('assistant', r.text);
+    })
+    .aiChat(S.chatHistory);
+}
+function appendBubble(role, text, id) {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-bubble ' + role;
+  if (id) div.id = id;
+  div.innerHTML = `<div class="bubble-inner">${role === 'assistant' ? escHtml(text) : esc(text)}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+function quickPrompt(text) {
+  document.getElementById('chat-input').value = text;
+  sendChat();
+}
+function escHtml(str) {
+  // For assistant messages, allow basic formatting
+  return esc(str).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+// ─────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function copyText(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent || el.innerText)
+    .then(() => toast('コピーしました'));
+}
+
+// ─────────────────────────────────────
+// CUSTOMERS
+// ─────────────────────────────────────
+let _custMap = {}, _currentCustId = null;
+
+function loadCustomers(q) {
+  google.script.run.withSuccessHandler(d => {
+    _custMap = {};
+    d.forEach(c => { _custMap[c.id] = c; });
+    renderCustList(d);
+  }).getCustomers(q || null);
+}
+
+function searchCustomers(q) {
+  clearTimeout(S.saveTimer);
+  S.saveTimer = setTimeout(() => loadCustomers(q), 300);
+}
+
+function renderCustList(list) {
+  const el = document.getElementById('cust-list');
+  if (!list.length) {
+    el.innerHTML = '<div style="font-size:13px;color:#9b9a97;padding:10px 8px">顧客がいません</div>';
+    return;
+  }
+  el.innerHTML = list.map(c => {
+    const days = c.last_contact ? daysSince(c.last_contact) : null;
+    const daysLabel = days === null ? '未連絡' : days + '日前';
+    const daysCls = days === null || days > 30 ? 'days-hot' : days > 14 ? 'days-warm' : '';
+    return `<div class="cust-item ${c.id === _currentCustId ? 'active' : ''}" onclick="openCustomer('${c.id}')">
+      <span class="rank-badge rank-${c.rank}">${c.rank}</span>
+      <div style="flex:1;min-width:0">
+        <div class="cust-company">${esc(c.company)}</div>
+        <div class="cust-name">${esc(c.name)}</div>
+      </div>
+      <span class="last-contact ${daysCls}">${daysLabel}</span>
+    </div>`;
+  }).join('');
+}
+
+function daysSince(dateStr) {
+  if (!dateStr) return null;
+  const parts = dateStr.replace(/\//g, '-').split('-');
+  if (parts.length < 3) return null;
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
+function newCustomer() {
+  _currentCustId = null;
+  renderCustDetail(null);
+}
+
+function openCustomer(id) {
+  _currentCustId = id;
+  renderCustDetail(_custMap[id]);
+  document.querySelectorAll('.cust-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.cust-item').forEach(el => {
+    if (el.getAttribute('onclick') === `openCustomer('${id}')`) el.classList.add('active');
+  });
+}
+
+function renderCustDetail(c) {
+  const el = document.getElementById('cust-detail');
+  const isNew = !c;
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <strong style="font-size:16px">${isNew ? '新規顧客' : esc(c.company)}</strong>
+      ${!isNew ? `<button class="btn btn-danger btn-sm" onclick="deleteCustomerById('${c.id}')">削除</button>` : ''}
+    </div>
+    <div class="form-row">
+      <div><label>ランク</label>
+        <select id="cf-rank" style="width:80px">
+          ${['A','B','C'].map(r => `<option ${!isNew && c.rank===r?'selected':''}>${r}</option>`).join('')}
+        </select>
+      </div>
+      <div><label>最終連絡日</label>
+        <input type="date" id="cf-lastcontact" value="${!isNew && c.last_contact ? c.last_contact.replace(/\//g,'-') : ''}">
+      </div>
+    </div>
+    <label>会社名</label><input type="text" id="cf-company" value="${isNew ? '' : esc(c.company)}" placeholder="〇〇株式会社">
+    <div class="form-row">
+      <div><label>担当者名</label><input type="text" id="cf-name" value="${isNew ? '' : esc(c.name)}" placeholder="田中 太郎"></div>
+      <div><label>役職</label><input type="text" id="cf-role" value="${isNew ? '' : esc(c.role)}" placeholder="購買部長"></div>
+    </div>
+    <div class="form-row">
+      <div><label>電話</label><input type="text" id="cf-phone" value="${isNew ? '' : esc(c.phone)}"></div>
+      <div><label>メール</label><input type="text" id="cf-email" value="${isNew ? '' : esc(c.email)}"></div>
+    </div>
+    <label>メモ・特記事項</label>
+    <textarea id="cf-notes" rows="3" placeholder="価格交渉の余地あり、担当者は技術的な話が好き、など">${isNew ? '' : esc(c.notes)}</textarea>
+    <label>タグ</label>
+    <input type="text" id="cf-tags" value="${isNew ? '' : esc(c.tags)}" placeholder="既存客,大手,精密機器">
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="saveCustomerForm('${isNew ? '' : c.id}')">保存</button>
+      ${!isNew ? `<button class="btn btn-secondary" onclick="openMeetingForCustomer('${esc(c.company)}')">📅 商談メモを追加</button>` : ''}
+      ${!isNew && c.email ? `<button class="btn btn-ghost btn-sm" onclick="openEmailForCustomer('${esc(c.company)}','${esc(c.name)}','${esc(c.email)}')">✉️ メール作成</button>` : ''}
+    </div>`;
+}
+
+function saveCustomerForm(id) {
+  const c = {
+    id: id || null,
+    rank: document.getElementById('cf-rank').value,
+    last_contact: document.getElementById('cf-lastcontact').value,
+    company: document.getElementById('cf-company').value,
+    name: document.getElementById('cf-name').value,
+    role: document.getElementById('cf-role').value,
+    phone: document.getElementById('cf-phone').value,
+    email: document.getElementById('cf-email').value,
+    notes: document.getElementById('cf-notes').value,
+    tags: document.getElementById('cf-tags').value,
+  };
+  if (!c.company) { toast('会社名を入力してください'); return; }
+  google.script.run.withSuccessHandler(r => {
+    if (r.ok) { toast('保存しました ✓'); _currentCustId = r.id || id; loadCustomers(); }
+  }).saveCustomer(c);
+}
+
+function deleteCustomerById(id) {
+  if (!confirm('この顧客を削除しますか？')) return;
+  google.script.run.withSuccessHandler(() => {
+    toast('削除しました');
+    _currentCustId = null;
+    document.getElementById('cust-detail').innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div>顧客を選んでください</div></div>';
+    loadCustomers();
+  }).deleteCustomer(id);
+}
+
+function openMeetingForCustomer(company) {
+  showPage('meeting');
+  setTimeout(() => { document.getElementById('mtg-company').value = company; }, 100);
+}
+
+function openEmailForCustomer(company, name, email) {
+  showPage('email');
+  setTimeout(() => {
+    if (S.templates.length) {
+      selectTpl(S.templates[0].id);
+      const toEl = document.getElementById('tpl-to');
+      if (toEl) toEl.value = email;
+    }
+  }, 300);
+}
+
+// ─────────────────────────────────────
+// MEETINGS
+// ─────────────────────────────────────
+let _mtgMap = {};
+
+function initMeetingForm() {
+  const now = new Date();
+  const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  document.getElementById('mtg-date').value = today;
+}
+
+function loadMeetings() {
+  google.script.run.withSuccessHandler(d => {
+    _mtgMap = {};
+    d.forEach(m => { _mtgMap[m.id] = m; });
+    document.getElementById('mtg-count').textContent = d.length + '件';
+    document.getElementById('meeting-list').innerHTML = d.length ? d.map(m => `
+      <div class="meeting-card">
+        <div class="mc-header">
+          <div>
+            <div class="mc-company">${esc(m.company)} <span style="font-weight:400;color:#787774">${esc(m.person)}</span></div>
+            <div class="mc-date">${esc(m.date)} ${m.purpose ? '/ ' + esc(m.purpose) : ''}</div>
+          </div>
+          <span class="status-badge status-${m.status}" style="margin-left:auto">${esc(m.status)}</span>
+        </div>
+        ${m.content ? `<div class="mc-content">${esc(m.content)}</div>` : ''}
+        ${m.my_actions ? `<div class="mc-action">🙋 自分の宿題: ${esc(m.my_actions)}</div>` : ''}
+        ${m.their_actions ? `<div class="mc-action">📌 先方の宿題: ${esc(m.their_actions)}</div>` : ''}
+        ${m.next_date ? `<div style="font-size:12px;color:#6940a5;margin-top:6px">📅 次回: ${esc(m.next_date)}</div>` : ''}
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="editMeetingById('${m.id}')">編集</button>
+          <button class="btn btn-ai btn-sm" onclick="genFollowupEmail('${m.id}')">✉️ フォローアップメール生成</button>
+          <button class="btn btn-ghost btn-sm" onclick="deleteMeetingById('${m.id}')">削除</button>
+        </div>
+      </div>`).join('') : '<div class="empty"><div class="empty-icon">📅</div><div>商談記録がありません</div></div>';
+  }).getMeetings(null);
+}
+
+function saveMeetingForm() {
+  const m = {
+    id: document.getElementById('mtg-id').value || null,
+    date: document.getElementById('mtg-date').value,
+    company: document.getElementById('mtg-company').value,
+    person: document.getElementById('mtg-person').value,
+    purpose: document.getElementById('mtg-purpose').value,
+    content: document.getElementById('mtg-content').value,
+    my_actions: document.getElementById('mtg-my-actions').value,
+    their_actions: document.getElementById('mtg-their-actions').value,
+    next_date: document.getElementById('mtg-next-date').value,
+    status: document.getElementById('mtg-status').value,
+  };
+  if (!m.company) { toast('会社名を入力してください'); return; }
+  google.script.run.withSuccessHandler(() => {
+    toast('保存しました ✓'); clearMeetingForm(); loadMeetings();
+  }).saveMeeting(m);
+}
+
+function clearMeetingForm() {
+  document.getElementById('mtg-id').value = '';
+  document.getElementById('meeting-editing-badge').style.display = 'none';
+  initMeetingForm();
+  ['mtg-company','mtg-person','mtg-purpose','mtg-content','mtg-my-actions','mtg-their-actions','mtg-next-date'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('mtg-status').value = 'フォロー中';
+}
+
+function editMeetingById(id) {
+  const m = _mtgMap[id]; if (!m) return;
+  document.getElementById('mtg-id').value = m.id;
+  document.getElementById('meeting-editing-badge').style.display = 'block';
+  document.getElementById('mtg-date').value = m.date ? m.date.replace(/\//g,'-') : '';
+  document.getElementById('mtg-company').value = m.company || '';
+  document.getElementById('mtg-person').value = m.person || '';
+  document.getElementById('mtg-purpose').value = m.purpose || '';
+  document.getElementById('mtg-content').value = m.content || '';
+  document.getElementById('mtg-my-actions').value = m.my_actions || '';
+  document.getElementById('mtg-their-actions').value = m.their_actions || '';
+  document.getElementById('mtg-next-date').value = m.next_date ? m.next_date.replace(/\//g,'-') : '';
+  document.getElementById('mtg-status').value = m.status || 'フォロー中';
+}
+
+function deleteMeetingById(id) {
+  if (!confirm('この商談記録を削除しますか？')) return;
+  google.script.run.withSuccessHandler(() => { toast('削除しました'); loadMeetings(); }).deleteMeeting(id);
+}
+
+function genFollowupEmail(id) {
+  toast('メール生成中…', 5000);
+  google.script.run.withSuccessHandler(r => {
+    if (r.error) { toast('エラー: ' + r.error, 5000); return; }
+    // Switch to email page and fill proofreading tab with generated email
+    showPage('email');
+    setTimeout(() => {
+      switchTab('email', 'proofread', document.querySelectorAll('#page-email .tab-btn')[1]);
+      document.getElementById('proof-input').value = r.text;
+      toast('フォローアップメールを生成しました。送信前にAI添削も活用できます ✓');
+    }, 200);
+  }).generateFollowupEmail(id);
+}
+
+function runMeetingPrep() {
+  const company = document.getElementById('prep-company').value.trim();
+  const purpose = document.getElementById('prep-purpose').value.trim();
+  if (!company || !purpose) { toast('会社名と商談目的を入力してください'); return; }
+  document.getElementById('prep-loading').style.display = 'inline';
+  document.getElementById('prep-result').style.display = 'none';
+  google.script.run.withSuccessHandler(r => {
+    document.getElementById('prep-loading').style.display = 'none';
+    if (r.error) { toast('エラー: ' + r.error, 5000); return; }
+    renderPrepResult(r.data);
+  }).generateMeetingPrep(company, purpose, document.getElementById('prep-past').value);
+}
+
+function renderPrepResult(d) {
+  if (!d) return;
+  const el = document.getElementById('prep-result');
+  el.style.display = 'block';
+  const kp = (d.key_points || []).map(p => `<div class="prep-item">📌 ${esc(p)}</div>`).join('');
+  const qs = (d.questions || []).map(q => `<div class="prep-item">❓ ${esc(q)}</div>`).join('');
+  const wo = (d.watch_out || []).map(w => `<div class="prep-item" style="border-left-color:#eb5757">⚠️ ${esc(w)}</div>`).join('');
+  el.innerHTML = `<div class="prep-result">
+    ${d.goal ? `<div style="font-size:15px;font-weight:700;color:#6940a5;margin-bottom:14px;padding:10px 14px;background:#fff;border-radius:8px">🎯 ゴール: ${esc(d.goal)}</div>` : ''}
+    ${d.opening ? `<div class="prep-section"><div class="prep-label">最初の一言</div><div class="prep-item">💬 ${esc(d.opening)}</div></div>` : ''}
+    ${kp ? `<div class="prep-section"><div class="prep-label">必ず押さえるポイント</div>${kp}</div>` : ''}
+    ${qs ? `<div class="prep-section"><div class="prep-label">顧客に聞く質問</div>${qs}</div>` : ''}
+    ${wo ? `<div class="prep-section"><div class="prep-label">注意・リスク</div>${wo}</div>` : ''}
+  </div>`;
+}
+
+// ─────────────────────────────────────
+// NUMBERS & WEEKLY REPORT
+// ─────────────────────────────────────
+let _currentYM = '', _numData = [];
+const _defaultCategories = [
+  { category: '受注件数', unit: '件' },
+  { category: '売上金額', unit: '万円' },
+  { category: '新規商談数', unit: '件' },
+  { category: '訪問件数', unit: '件' },
+];
+
+function initNumbers() {
+  if (_currentYM) { loadNumbers(); return; }
+  const now = new Date();
+  _currentYM = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  updateMonthLabel();
+  loadNumbers();
+}
+
+function changeMonth(delta) {
+  const [y, m] = _currentYM.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  _currentYM = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  updateMonthLabel();
+  loadNumbers();
+}
+
+function updateMonthLabel() {
+  const [y, m] = _currentYM.split('-');
+  document.getElementById('num-month-label').textContent = y + '年' + parseInt(m) + '月';
+}
+
+function loadNumbers() {
+  google.script.run.withSuccessHandler(d => {
+    _numData = d;
+    // Ensure default categories exist
+    const existing = d.map(x => x.category);
+    _defaultCategories.forEach(cat => {
+      if (!existing.includes(cat.category)) {
+        _numData.push({ id: null, year_month: _currentYM, category: cat.category, target: 0, actual: 0, unit: cat.unit });
+      }
+    });
+    renderNumbers();
+  }).getNumbers(_currentYM);
+}
+
+function renderNumbers() {
+  const el = document.getElementById('num-rows');
+  el.innerHTML = _numData.map((n, i) => {
+    const pct = n.target > 0 ? Math.min(Math.round(n.actual / n.target * 100), 200) : 0;
+    const barW = Math.min(pct, 100);
+    const barCls = pct >= 100 ? 'num-bar-over' : pct >= 70 ? 'num-bar-ok' : pct >= 40 ? 'num-bar-warn' : 'num-bar-low';
+    const pctColor = pct >= 100 ? '#2d8a4e' : pct >= 70 ? '#2383e2' : pct >= 40 ? '#946900' : '#c94040';
+    return `<div class="num-row">
+      <div class="num-cat">${esc(n.category)}</div>
+      <div class="num-bar-wrap">
+        <div style="font-size:11px;color:#787774">${n.actual}${esc(n.unit)} / 目標 ${n.target}${esc(n.unit)}</div>
+        <div class="num-bar-bg"><div class="num-bar-fill ${barCls}" style="width:${barW}%"></div></div>
+      </div>
+      <div class="num-pct" style="color:${pctColor}">${pct}%</div>
+      <div class="num-inputs">
+        <input type="number" placeholder="目標" value="${n.target}" onchange="updateNum(${i},'target',this.value)">
+        <input type="number" placeholder="実績" value="${n.actual}" onchange="updateNum(${i},'actual',this.value)">
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateNum(i, field, val) {
+  _numData[i][field] = Number(val) || 0;
+  const n = _numData[i];
+  google.script.run.withSuccessHandler(r => {
+    if (r.ok && r.id && !n.id) { _numData[i].id = r.id; }
+    renderNumbers();
+  }).saveNumber({ id: n.id, year_month: _currentYM, category: n.category, target: n.target, actual: n.actual, unit: n.unit });
+}
+
+function addNumberRow() {
+  const cat = prompt('指標名を入力してください（例: 新規アポ数）');
+  if (!cat) return;
+  const unit = prompt('単位を入力してください（例: 件、万円）') || '件';
+  _numData.push({ id: null, year_month: _currentYM, category: cat, target: 0, actual: 0, unit });
+  renderNumbers();
+}
+
+function runNumbersAnalysis() {
+  const box = document.getElementById('num-ai-box');
+  box.style.display = 'block';
+  box.innerHTML = '<div class="loading"><span class="spin"></span>AIが分析中…</div>';
+  google.script.run.withSuccessHandler(r => {
+    if (r.error) { box.innerHTML = `<div style="color:#eb5757">${esc(r.error)}</div>`; return; }
+    const d = r.data;
+    box.innerHTML = `
+      <div style="font-size:14px;font-weight:700;color:#6940a5;margin-bottom:12px">🤖 ${esc(d.overall || '')}</div>
+      <div class="ai-metric"><span class="ai-metric-label">できてる</span><span>${esc(d.best || '')}</span></div>
+      <div class="ai-metric"><span class="ai-metric-label">注力を</span><span>${esc(d.focus || '')}</span></div>
+      <div class="ai-metric"><span class="ai-metric-label">アドバイス</span><span>${esc(d.tip || '')}</span></div>`;
+  }).analyzeNumbers(_currentYM);
+}
+
+function runWeeklyReport() {
+  document.getElementById('report-loading').style.display = 'inline';
+  document.getElementById('weekly-report-result').style.display = 'none';
+  google.script.run.withSuccessHandler(r => {
+    document.getElementById('report-loading').style.display = 'none';
+    if (r.error) { toast('エラー: ' + r.error, 5000); return; }
+    renderWeeklyReport(r.data);
+  }).generateWeeklyReport();
+}
+
+function renderWeeklyReport(d) {
+  if (!d) return;
+  const el = document.getElementById('weekly-report-result');
+  el.style.display = 'block';
+  const ach = (d.achievements || []).map(a => `<div class="report-item">✅ ${esc(a)}</div>`).join('');
+  const iss = (d.issues || []).map(i => `<div class="report-item" style="border-left-color:#f5a623">⚠️ ${esc(i)}</div>`).join('');
+  const nxt = (d.next_week || []).map(n => `<div class="report-item" style="border-left-color:#2383e2">→ ${esc(n)}</div>`).join('');
+  el.innerHTML = `
+    ${d.subject ? `<div style="font-size:14px;font-weight:600;margin-bottom:14px;padding:10px 14px;background:#f8f4ff;border-radius:8px;border-left:4px solid #6940a5">📧 件名: ${esc(d.subject)}</div>` : ''}
+    <div class="report-section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div class="report-label">サマリー</div>
+        <button class="btn btn-secondary btn-sm" onclick="copyText('rpt-summary')">コピー</button>
+      </div>
+      <div class="report-body" id="rpt-summary" contenteditable="true">${esc(d.summary || '')}</div>
+    </div>
+    ${ach ? `<div class="report-section"><div class="report-label">今週の成果</div>${ach}</div>` : ''}
+    ${iss ? `<div class="report-section"><div class="report-label">課題・懸念事項</div>${iss}</div>` : ''}
+    ${nxt ? `<div class="report-section"><div class="report-label">来週の予定</div>${nxt}</div>` : ''}
+    ${d.message ? `<div style="margin-top:12px;padding:10px 14px;background:#eefbee;border-radius:8px;font-size:13px;border-left:3px solid #2d8a4e">💬 ${esc(d.message)}</div>` : ''}`;
+}
+
+// ─────────────────────────────────────
+// SELF ANALYSIS
+// ─────────────────────────────────────
+const SA = { period: 'month', year: 0, month: 0 };
+
+function initSelfAna() {
+  const now = new Date();
+  if (!SA.year) { SA.year = now.getFullYear(); SA.month = now.getMonth() + 1; }
+  updateSaLabel();
+  document.getElementById('sa-result').innerHTML =
+    '<div class="sa-loading" style="color:var(--muted);padding:60px 0;text-align:center">期間を選んで「分析開始」を押してください<br><br>' +
+    '<small>業務日誌・タスク・商談・数値目標・人事評価目標を統合分析します</small></div>';
+}
+
+function saSetPeriod(p, btn) {
+  SA.period = p;
+  document.querySelectorAll('.sa-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateSaLabel();
+}
+
+function saChangePeriod(d) {
+  if (SA.period === 'month') {
+    SA.month += d;
+    if (SA.month > 12) { SA.month = 1; SA.year++; }
+    if (SA.month < 1)  { SA.month = 12; SA.year--; }
+  } else {
+    SA.year += d;
+  }
+  updateSaLabel();
+}
+
+function updateSaLabel() {
+  const el = document.getElementById('sa-period-label');
+  el.textContent = SA.period === 'month'
+    ? SA.year + '年' + SA.month + '月'
+    : SA.year + '年';
+}
+
+function runSelfAnalysis() {
+  const targetPeriod = SA.period === 'month'
+    ? SA.year + '-' + String(SA.month).padStart(2, '0')
+    : String(SA.year);
+  document.getElementById('sa-loading').style.display = '';
+  document.getElementById('sa-result').innerHTML = '';
+  google.script.run
+    .withSuccessHandler(d => { document.getElementById('sa-loading').style.display = 'none'; renderSelfAnalysis(d); })
+    .withFailureHandler(e => {
+      document.getElementById('sa-loading').style.display = 'none';
+      document.getElementById('sa-result').innerHTML =
+        `<div class="empty-state">分析に失敗しました。<br><small>${esc(e.message||'')}</small></div>`;
+    })
+    .getSelfAnalysis(SA.period, targetPeriod);
+}
+
+function renderSelfAnalysis(d) {
+  if (d.error) {
+    document.getElementById('sa-result').innerHTML = `<div class="empty-state">${esc(d.error)}</div>`;
+    return;
+  }
+  const st = d.rawStats || {};
+  const score = Number(d.growthScore) || 0;
+  const moodPct = st.avgMood !== '-' ? Math.round((parseFloat(st.avgMood) / 5) * 100) : 0;
+
+  // ── stats bar ──
+  let html = `<div class="sa-stats-row">
+    <div class="sa-stat"><div class="sa-stat-num">${st.logCount||0}</div><div class="sa-stat-label">業務日誌</div></div>
+    <div class="sa-stat"><div class="sa-stat-num">${st.taskCount||0}</div><div class="sa-stat-label">完了タスク</div></div>
+    <div class="sa-stat"><div class="sa-stat-num">${st.meetingCount||0}</div><div class="sa-stat-label">商談件数</div></div>
+    <div class="sa-stat"><div class="sa-stat-num">${st.companyCount||0}</div><div class="sa-stat-label">訪問先企業</div></div>
+    <div class="sa-stat">
+      <div class="sa-stat-num" style="font-size:18px">${st.avgMood !== '-' ? st.avgMood+'/5' : '-'}</div>
+      <div class="sa-stat-label">平均コンディション</div>
+      ${moodPct ? `<div class="sa-mood-bar"><div class="sa-mood-fill" style="width:${moodPct}%"></div></div>` : ''}
+    </div>
+    <div class="sa-stat"><div class="sa-stat-num">${st.numAchieved||0}/${st.numTotal||0}</div><div class="sa-stat-label">数値目標達成</div></div>
+  </div>`;
+
+  // ── growth score ──
+  html += `<div class="sa-score-wrap">
+    <div>
+      <div class="sa-score-label">成長スコア（AI評価）</div>
+      <div class="sa-score-num">${score}<span style="font-size:20px;opacity:.7">/10</span></div>
+    </div>
+    <div class="sa-score-comment">${esc(d.growthComment||'')}<br><small style="opacity:.65">分析: ${d.generatedAt||''}</small></div>
+  </div>`;
+
+  // ── highlights ──
+  if ((d.highlights||[]).length) {
+    html += `<div class="sa-section">
+      <div class="sa-section-title">🏆 成果・実績ハイライト</div>
+      <div class="sa-card"><ul class="sa-list">${(d.highlights||[]).map(h=>`<li>${esc(h)}</li>`).join('')}</ul></div>
+    </div>`;
+  }
+
+  // ── strengths & challenges ──
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+    <div class="sa-section">
+      <div class="sa-section-title">💪 この期間の強み</div>
+      <div class="sa-card" style="height:100%"><ul class="sa-list">${(d.strengths||[]).map(s=>`<li>${esc(s)}</li>`).join('')}</ul></div>
+    </div>
+    <div class="sa-section">
+      <div class="sa-section-title">💡 改善ポイント</div>
+      <div class="sa-card" style="height:100%"><ul class="sa-list challenge">${(d.challenges||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul></div>
+    </div>
+  </div>`;
+
+  // ── goal achievement ──
+  if (d.goalAchievement) {
+    html += `<div class="sa-section">
+      <div class="sa-section-title">🎯 目標達成度の総評</div>
+      <div class="sa-card" style="font-size:13px;line-height:1.8">${esc(d.goalAchievement)}</div>
+    </div>`;
+  }
+
+  // ── condition trend ──
+  if (d.conditionTrend) {
+    html += `<div class="sa-section">
+      <div class="sa-section-title">😊 コンディション傾向</div>
+      <div class="sa-card" style="font-size:13px;line-height:1.8">${esc(d.conditionTrend)}</div>
+    </div>`;
+  }
+
+  // ── HR self PR ──
+  html += `<div class="sa-section">
+    <div class="sa-section-title">📝 人事評価用 自己PR文 <span style="font-weight:400;font-size:11px;color:var(--muted)">（そのまま提出できます）</span></div>
+    <textarea class="sa-pr-box" id="sa-pr-text">${esc(d.hrSelfPR||'')}</textarea>
+    <button class="btn btn-secondary sa-copy-btn" onclick="copyPR('sa-pr-text','自己PR文')">📋 コピー</button>
+  </div>`;
+
+  // ── HR goal proposal ──
+  if (d.hrGoalProposal) {
+    html += `<div class="sa-section">
+      <div class="sa-section-title">🎯 次期目標の提案文 <span style="font-weight:400;font-size:11px;color:var(--muted)">（SMART形式）</span></div>
+      <textarea class="sa-pr-box" id="sa-goal-text" style="min-height:90px">${esc(d.hrGoalProposal||'')}</textarea>
+      <button class="btn btn-secondary sa-copy-btn" onclick="copyPR('sa-goal-text','目標提案文')">📋 コピー</button>
+    </div>`;
+  }
+
+  // ── hidden strength ──
+  if (d.hiddenStrength) {
+    html += `<div class="sa-hidden-strength">
+      <div class="sa-hidden-label">✨ AIが発見した潜在的強み</div>
+      ${esc(d.hiddenStrength)}
+    </div>`;
+  }
+
+  // ── coach message ──
+  if (d.coachMessage) {
+    html += `<div class="sa-section" style="margin-top:14px">
+      <div class="sa-section-title">🎓 コーチからのメッセージ</div>
+      <div class="sa-coach">${esc(d.coachMessage)}</div>
+    </div>`;
+  }
+
+  // ── next actions ──
+  if ((d.nextActions||[]).length) {
+    html += `<div class="sa-section">
+      <div class="sa-section-title">⚡ 来期へのアクション</div>
+      <div class="sa-card"><ul class="sa-list action">${(d.nextActions||[]).map(a=>`<li>${esc(a)}</li>`).join('')}</ul></div>
+    </div>`;
+  }
+
+  document.getElementById('sa-result').innerHTML = html;
+}
+
+function copyPR(id, label) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.value).then(() => toast(label + 'をコピーしました'));
+}
+
+// ─────────────────────────────────────
+// NEWS
+// ─────────────────────────────────────
+function loadNews(force) {
+  document.getElementById('news-content').innerHTML =
+    '<div class="news-loading"><span class="spin"></span><br><br>AIがニュースを分析中…（初回は30秒ほどかかります）</div>';
+  document.getElementById('news-updated').textContent = '';
+  document.getElementById('news-alert-badge').innerHTML = '';
+  google.script.run
+    .withSuccessHandler(renderNews)
+    .withFailureHandler(e => {
+      document.getElementById('news-content').innerHTML =
+        `<div class="empty-state">取得に失敗しました。<br><small>${esc(e.message||'')}</small><br><br>` +
+        `<button class="btn btn-secondary" onclick="loadNews(true)">再試行</button></div>`;
+    })
+    .getNewsSummary(force);
+}
+
+function renderNews(d) {
+  if (!d) return;
+  const alertMap = { green: '🟢 平常', yellow: '🟡 注意', red: '🔴 警戒' };
+  const level = d.alertLevel || 'green';
+  document.getElementById('news-alert-badge').innerHTML =
+    `<span class="news-alert ${level}">${alertMap[level]}${d.alertReason ? ': ' + esc(d.alertReason) : ''}</span>`;
+  document.getElementById('news-updated').textContent =
+    `最終更新: ${d.updatedAt}  |  取得記事数: ${d.articleCount}件`;
+
+  let html = '';
+
+  if (d.briefing) {
+    html += `<div class="news-briefing">
+      <div class="news-briefing-title">📋 今日の営業ブリーフィング</div>
+      <div class="news-briefing-body">${esc(d.briefing)}</div>
+    </div>`;
+  }
+
+  if (d.keywords && d.keywords.length) {
+    html += `<div class="news-keywords">${d.keywords.map(k => `<span class="news-kw">${esc(k)}</span>`).join('')}</div>`;
+  }
+
+  (d.sections || []).forEach(s => {
+    html += `<div class="news-card">
+      <div class="news-card-title">${s.icon || ''} ${esc(s.title)}</div>
+      <div class="news-card-body">${esc(s.summary)}</div>
+      ${s.salesTip ? `<div class="news-sales-tip">💼 営業ヒント: ${esc(s.salesTip)}</div>` : ''}
+    </div>`;
+  });
+
+  html += `<div class="news-sources">
+    情報源: NHK経済・国際 RSS / Google News（製造業材料費・中東エネルギー・為替・素材市況）<br>
+    ※ AIによる要約です。投資・調達判断は必ず一次情報をご確認ください。キャッシュは6時間有効です。
+  </div>`;
+
+  document.getElementById('news-content').innerHTML = html;
+}
+
+// ─────────────────────────────────────
+// INIT
+// ─────────────────────────────────────
+loadMemos();
+google.script.run.withSuccessHandler(url => {
+  if (url) document.getElementById('db-link').href = url;
+}).getDbUrl();
+</script>
+</body>
+</html>
