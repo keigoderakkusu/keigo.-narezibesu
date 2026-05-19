@@ -1653,3 +1653,207 @@ function getChecklist(type) {
   };
   return lists[type] || [];
 }
+
+// ─────────────────────────────────────────────
+// 報連相 & 通勤モード & 音声メモ
+// ─────────────────────────────────────────────
+
+function getHosorenSettings() {
+  var p = PropertiesService.getScriptProperties();
+  return {
+    bossEmail:    p.getProperty('BOSS_EMAIL') || '',
+    bossName:     p.getProperty('BOSS_NAME')  || '上司',
+    autoMorning:  p.getProperty('HOSOREN_AUTO_MORNING')  === 'true',
+    autoEvening:  p.getProperty('HOSOREN_AUTO_EVENING')  === 'true',
+    weeklyReport: p.getProperty('HOSOREN_WEEKLY')        === 'true',
+    myName:       p.getProperty('MY_NAME') || ''
+  };
+}
+
+function saveHosorenSettings(s) {
+  var p = PropertiesService.getScriptProperties();
+  p.setProperty('BOSS_EMAIL',            s.bossEmail    || '');
+  p.setProperty('BOSS_NAME',             s.bossName     || '上司');
+  p.setProperty('MY_NAME',               s.myName       || '');
+  p.setProperty('HOSOREN_AUTO_MORNING',  s.autoMorning  ? 'true' : 'false');
+  p.setProperty('HOSOREN_AUTO_EVENING',  s.autoEvening  ? 'true' : 'false');
+  p.setProperty('HOSOREN_WEEKLY',        s.weeklyReport ? 'true' : 'false');
+  return { ok: true };
+}
+
+function generateBossReport(type) {
+  var settings = getHosorenSettings();
+  var bossName  = settings.bossName;
+  var myName    = settings.myName || '[名前]';
+  var todayStr  = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'M月d日(E)');
+  var today     = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+
+  // Tasks
+  var tVals = _sheet('tasks', ['id','createdAt','title','priority','deadline','status','note']).getDataRange().getValues().slice(1);
+  var pendingTasks = tVals.filter(function(r){ return r[5] !== '完了'; });
+  var doneTasks    = tVals.filter(function(r){ return r[5] === '完了'; });
+
+  // Calendar
+  var calLines = [];
+  try {
+    var cal = CalendarApp.getDefaultCalendar();
+    var s = new Date(); s.setHours(0,0,0,0);
+    var e = new Date(); e.setHours(23,59,59,999);
+    calLines = cal.getEvents(s, e).map(function(ev){
+      return Utilities.formatDate(ev.getStartTime(),'Asia/Tokyo','HH:mm') + ' ' + ev.getTitle();
+    });
+  } catch(ignore) {}
+
+  // Daily log
+  var logVals  = _sheet('daily_logs', ['id','date','activity','achievement','issue','nextAction']).getDataRange().getValues().slice(1);
+  var todayLog = logVals.filter(function(r){ return String(r[1]).startsWith(today); });
+
+  // Minutes
+  var minVals  = _sheet('minutes', ['id','createdAt','title','meetingType','summary','decisions','actions','glossary']).getDataRange().getValues().slice(1);
+  var recentMin = minVals.slice(-2).map(function(r){ return r[2]; });
+
+  var prompt = '';
+  if (type === 'morning') {
+    prompt = '製造業（部品・基板・機械構成）の2年目営業担当として上司への朝の報告メールを作成。\n\n' +
+      '今日の日付: ' + todayStr + '\n' +
+      '今日のカレンダー予定:\n' + (calLines.length ? calLines.join('\n') : '（予定なし）') + '\n\n' +
+      '本日の未完了タスク:\n' + (pendingTasks.slice(0,8).map(function(r){ return '・' + r[2] + (r[3] ? '【' + r[3] + '】' : ''); }).join('\n') || '（なし）') + '\n\n' +
+      '【出力形式】ビジネスメール形式で。件名: 【朝報】' + todayStr + ' 本日の活動予定\n宛名: ' + bossName + '様\n本文: 今日の重点活動3〜4項目を箇条書き＋確認事項\n末尾署名: ' + myName + '\n全体200文字以内で簡潔に。';
+  } else if (type === 'evening') {
+    prompt = '製造業（部品・基板・機械構成）の2年目営業担当として上司への夕方報告メールを作成。\n\n' +
+      '今日の日付: ' + todayStr + '\n' +
+      '完了タスク: ' + doneTasks.length + '件 / 未完了: ' + pendingTasks.length + '件\n' +
+      '業務日誌（本日）:\n' + (todayLog.length ? '成果: ' + todayLog[0][3] + '\n課題: ' + todayLog[0][4] : '（未記入）') + '\n\n' +
+      '【出力形式】件名: 【夕報】' + todayStr + ' 本日の活動報告\n宛名: ' + bossName + '様\n本文: 本日成果・課題・明日の重点\n末尾署名: ' + myName + '\n250文字以内で簡潔に。';
+  } else {
+    prompt = '製造業（部品・基板・機械構成）の2年目営業担当として上司への週次報告メールを作成。\n\n' +
+      '報告週末日: ' + todayStr + '\n' +
+      '今週の完了タスク: ' + doneTasks.length + '件 / 未完了: ' + pendingTasks.length + '件\n' +
+      '直近の会議録タイトル: ' + (recentMin.join('、') || 'なし') + '\n' +
+      '今週の業務日誌:\n' + (logVals.slice(-5).map(function(r){ return r[1] + ': ' + r[3]; }).join('\n') || '（なし）') + '\n\n' +
+      '【出力形式】件名: 【週報】' + todayStr + ' 今週の活動サマリー\n宛名: ' + bossName + '様\n本文: 成果・KPI・商談動向・課題・来週重点\n末尾署名: ' + myName + '\n350文字以内。';
+  }
+
+  var content = _callGemini(prompt, false);
+  _sheet('hosoren_log', ['id','type','generatedAt','content','sentAt','status'])
+    .appendRow([_uuid(), type, _fmt(), content, '', '下書き']);
+  return { ok: true, content: content, type: type };
+}
+
+function sendBossReport(content, type) {
+  var settings = getHosorenSettings();
+  if (!settings.bossEmail) return { ok: false, error: '上司のメールアドレスが未設定です（設定タブで入力してください）' };
+  var todayStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'M月d日(E)');
+  var labels   = { morning: '【朝報】', evening: '【夕報】', weekly: '【週報】' };
+  var subject  = (labels[type] || '【報告】') + todayStr + ' 活動報告';
+  var m = content.match(/件名[:：]\s*(.+)/);
+  if (m) subject = m[1].trim();
+  GmailApp.sendEmail(settings.bossEmail, subject, content);
+  var sh = _sheet('hosoren_log', ['id','type','generatedAt','content','sentAt','status']);
+  var vs = sh.getDataRange().getValues();
+  for (var i = vs.length - 1; i >= 1; i--) {
+    if (vs[i][1] === type && vs[i][5] === '下書き') {
+      sh.getRange(i+1, 5).setValue(_fmt());
+      sh.getRange(i+1, 6).setValue('送信済み');
+      break;
+    }
+  }
+  return { ok: true };
+}
+
+function getHosorenLog(limit) {
+  var vs = _sheet('hosoren_log', ['id','type','generatedAt','content','sentAt','status'])
+    .getDataRange().getValues().slice(1).reverse();
+  return vs.slice(0, limit || 20).map(function(r){
+    return { id: r[0], type: r[1], generatedAt: r[2], content: r[3], sentAt: r[4], status: r[5] };
+  });
+}
+
+function setupHosorenTriggers() {
+  ScriptApp.getProjectTriggers().forEach(function(t){
+    var fn = t.getHandlerFunction();
+    if (fn === 'autoMorningReport' || fn === 'autoEveningReport') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('autoMorningReport').timeBased().everyDays(1).atHour(8).create();
+  ScriptApp.newTrigger('autoEveningReport').timeBased().everyDays(1).atHour(17).create();
+  return { ok: true };
+}
+
+function autoMorningReport() {
+  var s = getHosorenSettings();
+  if (!s.autoMorning || !s.bossEmail) return;
+  var r = generateBossReport('morning');
+  if (r.ok) sendBossReport(r.content, 'morning');
+}
+
+function autoEveningReport() {
+  var s = getHosorenSettings();
+  if (!s.autoEvening || !s.bossEmail) return;
+  var r = generateBossReport('evening');
+  if (r.ok) sendBossReport(r.content, 'evening');
+}
+
+function getCommuteData() {
+  var now = new Date();
+  // Tasks
+  var tVals = _sheet('tasks', ['id','createdAt','title','priority','deadline','status','note'])
+    .getDataRange().getValues().slice(1)
+    .filter(function(r){ return r[5] !== '完了'; })
+    .slice(0, 6)
+    .map(function(r){ return { id:r[0], title:r[2], priority:r[3], deadline:r[4] }; });
+
+  // Calendar (remaining today)
+  var calEvs = [];
+  try {
+    var cal = CalendarApp.getDefaultCalendar();
+    var cs = new Date(now); cs.setHours(now.getHours(), now.getMinutes(), 0, 0);
+    var ce = new Date(now); ce.setHours(23,59,59,999);
+    calEvs = cal.getEvents(cs, ce).slice(0, 5).map(function(e){
+      return { title: e.getTitle(),
+               start: Utilities.formatDate(e.getStartTime(),'Asia/Tokyo','HH:mm'),
+               end:   Utilities.formatDate(e.getEndTime(),  'Asia/Tokyo','HH:mm'),
+               loc:   e.getLocation() };
+    });
+  } catch(ignore) {}
+
+  // News cache
+  var news = null;
+  try {
+    var nc = PropertiesService.getScriptProperties().getProperty('NEWS_CACHE');
+    if (nc) { var cc = JSON.parse(nc); if (Date.now()-cc.ts < 6*3600*1000) news = cc.data; }
+  } catch(ignore) {}
+
+  // Latest minutes
+  var mVals = _sheet('minutes', ['id','createdAt','title','meetingType','summary','decisions','actions','glossary'])
+    .getDataRange().getValues().slice(1);
+  var latestMin = mVals.length ? { title: mVals[mVals.length-1][2], summary: mVals[mVals.length-1][4], date: mVals[mVals.length-1][1] } : null;
+
+  // Latest report draft
+  var hVals = _sheet('hosoren_log', ['id','type','generatedAt','content','sentAt','status'])
+    .getDataRange().getValues().slice(1).reverse();
+  var draft = hVals.length ? { type: hVals[0][1], content: hVals[0][3], status: hVals[0][5] } : null;
+
+  return {
+    tasks:         tVals,
+    calEvents:     calEvs,
+    newsKeywords:  news ? news.keywords   : [],
+    newsBriefing:  news ? news.briefing   : '',
+    latestMinutes: latestMin,
+    reportDraft:   draft,
+    currentTime:   Utilities.formatDate(now,'Asia/Tokyo','HH:mm'),
+    dateStr:       Utilities.formatDate(now,'Asia/Tokyo','M月d日(E)')
+  };
+}
+
+function saveVoiceMemo(text, saveAs) {
+  if (!text || !text.trim()) return { ok: false, error: '音声テキストが空です' };
+  var t = text.trim();
+  if (saveAs === 'task') {
+    _sheet('tasks', ['id','createdAt','title','priority','deadline','status','note'])
+      .appendRow([_uuid(), _fmt(), t, '中', '', '未着手', '🎙️音声入力']);
+    return { ok: true, savedTo: 'task', message: 'タスクに追加しました' };
+  }
+  _sheet('memos', ['id','createdAt','title','content','tags'])
+    .appendRow([_uuid(), _fmt(), '🎙️' + t.substring(0,20), t, '音声メモ']);
+  return { ok: true, savedTo: 'memo', message: 'メモに保存しました' };
+}

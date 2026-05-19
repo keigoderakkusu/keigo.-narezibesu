@@ -2,7 +2,12 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="営業秘書">
+<meta name="theme-color" content="#ffffff">
 <title>営業ナレッジ Pro</title>
 <style>
 /* ── Reset ── */
@@ -571,9 +576,62 @@ textarea{resize:vertical;min-height:90px;line-height:1.7}
   .chat-input-area{padding:10px 16px 16px}
   .quick-prompts{padding:0 16px 8px}
 }
+/* ── モバイル底部ナビ & レスポンシブ ── */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:60px;background:#fff;border-top:1px solid var(--border);z-index:200;flex-direction:row;align-items:stretch}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px;color:var(--muted);cursor:pointer;padding:4px 0;border:none;background:none;-webkit-tap-highlight-color:transparent}
+.bn-item.active{color:var(--accent)}
+.bn-item .bn-icon{font-size:20px;line-height:1}
+/* フローティング音声ボタン */
+.voice-fab{display:none;position:fixed;bottom:72px;right:16px;z-index:300;width:52px;height:52px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:22px;box-shadow:0 4px 12px rgba(0,0,0,0.2);cursor:pointer;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+.voice-fab.recording{background:#ef4444;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 0 12px rgba(239,68,68,0)}}
+/* 音声モーダル */
+.voice-modal{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,0.5);align-items:flex-end}
+.voice-modal.open{display:flex}
+.voice-sheet{background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-height:80vh;overflow-y:auto}
+.voice-wave{text-align:center;font-size:40px;margin:12px 0}
+/* 通勤モード */
+.cm-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px}
+.cm-card-title{font-weight:700;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.cm-task-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+.cm-task-item:last-child{border-bottom:none}
+.cm-priority{font-size:11px;padding:2px 6px;border-radius:10px;font-weight:600}
+.cm-priority.高{background:#fee2e2;color:#991b1b}
+.cm-priority.中{background:#fef3c7;color:#92400e}
+.cm-priority.低{background:#d1fae5;color:#065f46}
+.cm-cal-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:flex-start}
+.cm-cal-item:last-child{border-bottom:none}
+.cm-cal-time{font-size:12px;font-weight:700;color:var(--accent);min-width:50px}
+.cm-report-preview{background:#f8f9fa;border-radius:8px;padding:12px;font-size:13px;line-height:1.7;white-space:pre-wrap;max-height:200px;overflow-y:auto}
+/* 報連相 */
+.hr-type-btn{border:1px solid var(--border);border-radius:8px;padding:10px 16px;cursor:pointer;background:#fff;font-size:14px;flex:1;transition:all .15s}
+.hr-type-btn.active,.hr-type-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.hr-report-box{background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:14px;font-size:13px;line-height:1.8;white-space:pre-wrap;min-height:160px;margin:12px 0}
+.hr-log-item{padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px}
+.hr-log-type{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;display:inline-block;margin-bottom:4px}
+.hr-log-type.morning{background:#dbeafe;color:#1e40af}
+.hr-log-type.evening{background:#fef9c3;color:#854d0e}
+.hr-log-type.weekly{background:#f0fdf4;color:#166534}
+.hr-status-sent{color:#16a34a;font-weight:600}
+.hr-status-draft{color:#ca8a04;font-weight:600}
+@media(max-width:640px){
+  .bottom-nav{display:flex}
+  .voice-fab{display:flex}
+  #sidebar{transform:translateX(-100%);transition:transform .25s;z-index:150}
+  #sidebar.open{transform:translateX(0)}
+  .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:140}
+  .sidebar-overlay.show{display:block}
+  #content{margin-left:0!important;padding-bottom:72px}
+  .top-bar{padding-left:52px}
+}
 </style>
 </head>
 <body>
+
+<!-- サイドバーオーバーレイ（モバイル） -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+<!-- ハンバーガーボタン（モバイル） -->
+<button class="hamburger-btn" onclick="toggleSidebar()" style="display:none;position:fixed;left:12px;top:12px;background:none;border:none;font-size:22px;cursor:pointer;z-index:160;padding:4px" id="hamburger-btn">☰</button>
 
 <!-- ═══════════ SIDEBAR ═══════════ -->
 <nav id="sidebar">
@@ -599,6 +657,9 @@ textarea{resize:vertical;min-height:90px;line-height:1.7}
     <div class="nav-item"        id="nav-quoteled"  onclick="showPage('quoteled')"> <span class="ni-icon">📊</span><span>見積台帳</span></div>
     <div class="nav-item"        id="nav-emailmon"  onclick="showPage('emailmon')"> <span class="ni-icon">📬</span><span>メール管理</span></div>
     <div class="nav-item"        id="nav-calendar"  onclick="showPage('calendar')"> <span class="ni-icon">📅</span><span>カレンダー</span></div>
+    <div class="nav-sep">──── モバイル秘書 ────</div>
+    <div class="nav-item"        id="nav-commute"   onclick="showPage('commute')">  <span class="ni-icon">🚃</span><span>通勤モード</span></div>
+    <div class="nav-item"        id="nav-hosoren"   onclick="showPage('hosoren')">  <span class="ni-icon">📨</span><span>報連相</span></div>
   </div>
   <div class="sidebar-footer"><a id="db-link" href="#" target="_blank">📊 データベース</a></div>
 </nav>
@@ -1346,6 +1407,162 @@ textarea{resize:vertical;min-height:90px;line-height:1.7}
 <div id="toast"></div>
 
 <!-- ═══════════ JAVASCRIPT ═══════════ -->
+<!-- 底部ナビゲーション（モバイル） -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bn-item active" id="bn-commute" onclick="showPage('commute')"><span class="bn-icon">🚃</span>通勤</button>
+  <button class="bn-item" id="bn-task" onclick="showPage('task')"><span class="bn-icon">📋</span>タスク</button>
+  <button class="bn-item" id="bn-hosoren" onclick="showPage('hosoren')"><span class="bn-icon">📨</span>報連相</button>
+  <button class="bn-item" id="bn-calendar" onclick="showPage('calendar')"><span class="bn-icon">📅</span>予定</button>
+  <button class="bn-item" id="bn-chat" onclick="showPage('chat')"><span class="bn-icon">🤖</span>AI</button>
+</nav>
+
+<!-- 音声入力FAB -->
+<button class="voice-fab" id="voice-fab" onclick="openVoiceModal()" title="音声メモ">🎙️</button>
+
+<!-- 音声入力モーダル -->
+<div class="voice-modal" id="voice-modal">
+  <div class="voice-sheet">
+    <h3 style="margin:0 0 4px;font-size:18px">🎙️ 音声メモ入力</h3>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 16px">マイクに向かって話してください</p>
+    <div class="voice-wave" id="voice-wave">🎤</div>
+    <div id="voice-interim" style="min-height:60px;background:#f8f9fa;border-radius:8px;padding:12px;font-size:14px;color:var(--muted);margin-bottom:12px">ここに認識結果が表示されます…</div>
+    <textarea id="voice-text" rows="4" class="inp" placeholder="認識されたテキストを確認・編集できます" style="width:100%;margin-bottom:12px"></textarea>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn" id="voice-start-btn" onclick="startVoice()" style="flex:1">🎙️ 録音開始</button>
+      <button class="btn btn-outline" onclick="stopVoice()" style="flex:1">⏹️ 停止</button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="submitVoice('memo')" style="flex:1;background:#6366f1">📝 メモ保存</button>
+      <button class="btn" onclick="submitVoice('task')" style="flex:1;background:#f59e0b">📋 タスク登録</button>
+    </div>
+    <button class="btn btn-outline" onclick="closeVoiceModal()" style="width:100%;margin-top:8px">閉じる</button>
+  </div>
+</div>
+
+<!-- 通勤モード -->
+<div class="page" id="page-commute">
+  <div class="page-header">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div>
+      <h2 style="margin:0;font-size:20px">🚃 通勤モード</h2>
+      <div id="cm-datetime" style="color:var(--muted);font-size:13px"></div>
+    </div>
+    <button class="btn btn-outline" onclick="loadCommuteData()" style="font-size:12px">🔄 更新</button>
+  </div>
+  </div>
+  <div class="page-body">
+  <div id="cm-loading" style="text-align:center;padding:40px;color:var(--muted)">⏳ 読み込み中…</div>
+  <div id="cm-content" style="display:none">
+    <!-- 今日のカレンダー -->
+    <div class="cm-card">
+      <div class="cm-card-title">📅 今日の残り予定</div>
+      <div id="cm-cal"></div>
+    </div>
+    <!-- タスク -->
+    <div class="cm-card">
+      <div class="cm-card-title">📋 未完了タスク（上位）</div>
+      <div id="cm-tasks"></div>
+    </div>
+    <!-- 報告書確認 -->
+    <div class="cm-card">
+      <div class="cm-card-title">📨 最新の報告書
+        <span id="cm-report-status" style="font-size:11px;padding:2px 6px;border-radius:8px;font-weight:600"></span>
+      </div>
+      <div id="cm-report" class="cm-report-preview">（報告書なし — 報連相タブで生成できます）</div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-outline" onclick="showPage('hosoren')" style="flex:1;font-size:12px">✏️ 編集・送信</button>
+        <button class="btn" id="cm-send-btn" onclick="cmSendReport()" style="flex:1;font-size:12px;display:none">📤 そのまま送信</button>
+      </div>
+    </div>
+    <!-- ニュース -->
+    <div class="cm-card">
+      <div class="cm-card-title">📰 今朝のニュースポイント</div>
+      <div id="cm-news-briefing" style="font-size:13px;line-height:1.8;color:#374151"></div>
+      <div id="cm-news-keywords" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
+    <!-- 最新会議録 -->
+    <div class="cm-card" id="cm-min-card" style="display:none">
+      <div class="cm-card-title">🎙️ 最新会議録</div>
+      <div id="cm-min-title" style="font-weight:600;margin-bottom:6px"></div>
+      <div id="cm-min-summary" style="font-size:13px;color:#374151;line-height:1.7;max-height:120px;overflow-y:auto"></div>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- 報連相 -->
+<div class="page" id="page-hosoren">
+  <div class="page-header">
+  <h2 style="margin:0 0 16px;font-size:20px">📨 報連相（報告・連絡・相談）</h2>
+  <div class="tab-bar" style="display:flex;gap:8px;margin-bottom:20px">
+    <button class="tab-btn active" id="hs-tab-generate" onclick="hsSwitchTab('generate',this)">📝 報告書作成</button>
+    <button class="tab-btn" id="hs-tab-settings" onclick="hsSwitchTab('settings',this)">⚙️ 設定</button>
+    <button class="tab-btn" id="hs-tab-log" onclick="hsSwitchTab('log',this)">📋 送信履歴</button>
+  </div>
+  </div>
+  <div class="page-body">
+
+  <!-- 報告書作成 -->
+  <div id="hs-pane-generate">
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="hr-type-btn active" id="hs-btn-morning" onclick="hsSelectType('morning',this)">☀️ 朝報</button>
+      <button class="hr-type-btn" id="hs-btn-evening" onclick="hsSelectType('evening',this)">🌙 夕報</button>
+      <button class="hr-type-btn" id="hs-btn-weekly" onclick="hsSelectType('weekly',this)">📊 週報</button>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 12px" id="hs-type-desc">朝のタスク・カレンダー予定をもとにAIが報告文を生成します</p>
+    <button class="btn" onclick="hsGenerate()" style="width:100%;margin-bottom:16px">✨ AI報告書を生成</button>
+    <div id="hs-loading" style="display:none;text-align:center;padding:20px;color:var(--muted)">⏳ AIが報告書を作成中…</div>
+    <div id="hs-result" style="display:none">
+      <label style="font-size:13px;font-weight:600;margin-bottom:6px;display:block">📄 生成された報告書（編集可能）</label>
+      <textarea id="hs-content" class="inp" rows="12" style="width:100%;font-size:13px;line-height:1.8"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn" onclick="hsSend()" style="flex:1">📤 上司へ送信</button>
+        <button class="btn btn-outline" onclick="hsGenerate()" style="flex:1">🔄 再生成</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-top:8px">※ 送信先メールは「設定」タブで登録してください</p>
+    </div>
+  </div>
+
+  <!-- 設定 -->
+  <div id="hs-pane-settings" style="display:none">
+    <div class="card" style="margin-bottom:12px">
+      <h3 style="margin:0 0 14px;font-size:15px">👤 基本設定</h3>
+      <label class="lbl">自分の名前（署名用）</label>
+      <input id="hs-my-name" class="inp" placeholder="例: 永浜 恵吾" style="margin-bottom:10px">
+      <label class="lbl">上司のメールアドレス</label>
+      <input id="hs-boss-email" class="inp" type="email" placeholder="boss@company.co.jp" style="margin-bottom:10px">
+      <label class="lbl">上司のお名前（宛名）</label>
+      <input id="hs-boss-name" class="inp" placeholder="例: 田中" style="margin-bottom:16px">
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <h3 style="margin:0 0 14px;font-size:15px">⏰ 自動送信設定</h3>
+      <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer">
+        <input type="checkbox" id="hs-auto-morning" style="width:18px;height:18px">
+        <span>☀️ 朝報を自動送信（毎日 8:30）</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer">
+        <input type="checkbox" id="hs-auto-evening" style="width:18px;height:18px">
+        <span>🌙 夕報を自動送信（毎日 17:30）</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;margin-bottom:16px;cursor:pointer">
+        <input type="checkbox" id="hs-weekly" style="width:18px;height:18px">
+        <span>📊 週報を金曜夕方に自動送信</span>
+      </label>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 12px">※ 自動送信にはGASトリガーの設定が必要です</p>
+    </div>
+    <button class="btn" onclick="hsSaveSettings()" style="width:100%;margin-bottom:8px">💾 設定を保存</button>
+    <button class="btn btn-outline" onclick="hsSetupTriggers()" style="width:100%">⏰ 自動送信トリガーを設定</button>
+  </div>
+
+  <!-- 送信履歴 -->
+  <div id="hs-pane-log" style="display:none">
+    <button class="btn btn-outline" onclick="loadHosorenLog()" style="margin-bottom:12px">🔄 履歴を更新</button>
+    <div id="hs-log-list"></div>
+  </div>
+
+  </div>
+</div>
+
 <script>
 // ─────────────────────────────────────
 // STATE
@@ -1386,6 +1603,12 @@ function showPage(name) {
   if (name === 'emailmon') loadEmailRules();
   if (name === 'calendar') loadCalendar();
   if (name === 'selfana')  initSelfAna();
+  if (name === 'commute') loadCommuteData();
+  if (name === 'hosoren') { hsLoadSettings(); loadHosorenLog(); }
+  // bottom nav sync
+  document.querySelectorAll('.bn-item').forEach(n => n.classList.remove('active'));
+  const bnMap = {commute:'bn-commute',task:'bn-task',hosoren:'bn-hosoren',calendar:'bn-calendar',chat:'bn-chat'};
+  if (bnMap[name]) { const b = document.getElementById(bnMap[name]); if(b) b.classList.add('active'); }
 }
 
 function switchTab(page, tab, btn) {
@@ -2772,6 +2995,238 @@ function runParseForCal() {
 }
 
 // ─────────────────────────────────────
+// 通勤モード
+// ─────────────────────────────────────
+let _commuteData = null;
+function loadCommuteData() {
+  document.getElementById('cm-loading').style.display='block';
+  document.getElementById('cm-content').style.display='none';
+  google.script.run.withSuccessHandler(d => {
+    _commuteData = d;
+    document.getElementById('cm-datetime').textContent = d.dateStr + ' ' + d.currentTime + ' 現在';
+    // Calendar
+    const cal = document.getElementById('cm-cal');
+    if (!d.calEvents.length) { cal.innerHTML = '<div style="color:var(--muted);font-size:13px">残りの予定はありません</div>'; }
+    else { cal.innerHTML = d.calEvents.map(e => `<div class="cm-cal-item"><div class="cm-cal-time">${e.start}</div><div><div style="font-weight:600;font-size:14px">${e.title}</div>${e.loc?'<div style="font-size:12px;color:var(--muted)">📍'+e.loc+'</div>':''}</div></div>`).join(''); }
+    // Tasks
+    const tk = document.getElementById('cm-tasks');
+    if (!d.tasks.length) { tk.innerHTML = '<div style="color:var(--muted);font-size:13px">未完了タスクはありません 🎉</div>'; }
+    else { tk.innerHTML = d.tasks.map(t => `<div class="cm-task-item"><span class="cm-priority ${t.priority||'中'}">${t.priority||'中'}</span><span style="font-size:14px;flex:1">${t.title}</span>${t.deadline?'<span style="font-size:11px;color:var(--muted)">'+t.deadline+'</span>':''}</div>`).join(''); }
+    // Report draft
+    if (d.reportDraft) {
+      document.getElementById('cm-report').textContent = d.reportDraft.content;
+      const st = document.getElementById('cm-report-status');
+      st.textContent = d.reportDraft.status;
+      st.style.background = d.reportDraft.status === '送信済み' ? '#d1fae5' : '#fef9c3';
+      st.style.color = d.reportDraft.status === '送信済み' ? '#065f46' : '#854d0e';
+      if (d.reportDraft.status === '下書き') document.getElementById('cm-send-btn').style.display='block';
+    }
+    // News
+    if (d.newsBriefing) document.getElementById('cm-news-briefing').innerHTML = d.newsBriefing.replace(/①/g,'<b>①</b>').replace(/②/g,'<b>②</b>').replace(/③/g,'<b>③</b>');
+    else document.getElementById('cm-news-briefing').innerHTML = '<span style="color:var(--muted)">ニュースページで取得してください</span>';
+    if (d.newsKeywords && d.newsKeywords.length) {
+      document.getElementById('cm-news-keywords').innerHTML = d.newsKeywords.map(k=>`<span style="background:#eff6ff;color:#1d4ed8;padding:3px 10px;border-radius:20px;font-size:12px">${k}</span>`).join('');
+    }
+    // Minutes
+    if (d.latestMinutes) {
+      document.getElementById('cm-min-card').style.display='block';
+      document.getElementById('cm-min-title').textContent = d.latestMinutes.title + ' (' + d.latestMinutes.date + ')';
+      document.getElementById('cm-min-summary').textContent = d.latestMinutes.summary;
+    }
+    document.getElementById('cm-loading').style.display='none';
+    document.getElementById('cm-content').style.display='block';
+  }).getCommuteData();
+}
+function cmSendReport() {
+  if (!_commuteData || !_commuteData.reportDraft) return;
+  const d = _commuteData.reportDraft;
+  google.script.run.withSuccessHandler(r => {
+    if (r.ok) { toast('📤 上司へ送信しました'); document.getElementById('cm-send-btn').style.display='none'; }
+    else toast('❌ ' + r.error, true);
+  }).sendBossReport(d.content, d.type);
+}
+
+// ─────────────────────────────────────
+// 報連相
+// ─────────────────────────────────────
+let _hsType = 'morning';
+function hsSwitchTab(tab, btn) {
+  ['generate','settings','log'].forEach(t => {
+    document.getElementById('hs-pane-'+t).style.display = t===tab ? 'block' : 'none';
+    document.getElementById('hs-tab-'+t).classList.toggle('active', t===tab);
+  });
+}
+function hsSelectType(type, btn) {
+  _hsType = type;
+  document.querySelectorAll('.hr-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const descs = {
+    morning: '朝のタスク・カレンダー予定をもとにAIが報告文を生成します',
+    evening: '本日の完了タスク・業務日誌から夕方の報告文を生成します',
+    weekly:  '今週の活動・会議録から週次レポートを生成します'
+  };
+  document.getElementById('hs-type-desc').textContent = descs[type];
+}
+function hsGenerate() {
+  document.getElementById('hs-loading').style.display='block';
+  document.getElementById('hs-result').style.display='none';
+  google.script.run.withSuccessHandler(r => {
+    document.getElementById('hs-loading').style.display='none';
+    if (r.ok) {
+      document.getElementById('hs-content').value = r.content;
+      document.getElementById('hs-result').style.display='block';
+    } else toast('❌ 生成失敗', true);
+  }).generateBossReport(_hsType);
+}
+function hsSend() {
+  const content = document.getElementById('hs-content').value.trim();
+  if (!content) return toast('報告書の内容が空です', true);
+  google.script.run.withSuccessHandler(r => {
+    if (r.ok) { toast('📤 上司へ送信しました！'); loadHosorenLog(); }
+    else toast('❌ ' + r.error, true);
+  }).sendBossReport(content, _hsType);
+}
+function hsLoadSettings() {
+  google.script.run.withSuccessHandler(s => {
+    document.getElementById('hs-my-name').value    = s.myName    || '';
+    document.getElementById('hs-boss-email').value = s.bossEmail || '';
+    document.getElementById('hs-boss-name').value  = s.bossName  || '';
+    document.getElementById('hs-auto-morning').checked = s.autoMorning;
+    document.getElementById('hs-auto-evening').checked = s.autoEvening;
+    document.getElementById('hs-weekly').checked       = s.weeklyReport;
+  }).getHosorenSettings();
+}
+function hsLoadSettingsOnOpen() { hsLoadSettings(); }
+function hsLoadLogOnOpen() { loadHosorenLog(); }
+function hsLoadGenerateOnOpen() {}
+function hsTabOnOpen(tab) { if(tab==='log') loadHosorenLog(); if(tab==='settings') hsLoadSettings(); }
+function hsLoadSettingsOnShowPage() { hsLoadSettings(); }
+function hsLoadLogOnShowPage() { loadHosorenLog(); }
+function hsLoadOnShowPage() {}
+function hsShowPage() { hsLoadSettings(); loadHosorenLog(); }
+function hsSetupTriggers() {
+  google.script.run.withSuccessHandler(r => {
+    if (r.ok) toast('⏰ 自動送信トリガーを設定しました');
+    else toast('❌ 失敗', true);
+  }).setupHosorenTriggers();
+}
+function hsGenOnOpen() {}
+function hsSendTab() {}
+function hsGenTab() {}
+function hsSaveSettings() {
+  const s = {
+    myName:       document.getElementById('hs-my-name').value.trim(),
+    bossEmail:    document.getElementById('hs-boss-email').value.trim(),
+    bossName:     document.getElementById('hs-boss-name').value.trim(),
+    autoMorning:  document.getElementById('hs-auto-morning').checked,
+    autoEvening:  document.getElementById('hs-auto-evening').checked,
+    weeklyReport: document.getElementById('hs-weekly').checked,
+  };
+  google.script.run.withSuccessHandler(r => {
+    if (r.ok) toast('💾 設定を保存しました');
+    else toast('❌ 保存失敗', true);
+  }).saveHosorenSettings(s);
+}
+function loadHosorenLog() {
+  google.script.run.withSuccessHandler(logs => {
+    const el = document.getElementById('hs-log-list');
+    if (!logs.length) { el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px">送信履歴がありません</div>'; return; }
+    el.innerHTML = logs.map(l => {
+      const labels = { morning:'☀️ 朝報', evening:'🌙 夕報', weekly:'📊 週報' };
+      const preview = l.content ? l.content.substring(0,80)+'…' : '';
+      return `<div class="hr-log-item">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span class="hr-log-type ${l.type}">${labels[l.type]||l.type}</span>
+          <span class="${l.status==='送信済み'?'hr-status-sent':'hr-status-draft'}">${l.status}</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:auto">${l.generatedAt}</span>
+        </div>
+        <div style="font-size:13px;color:#374151;line-height:1.6">${preview}</div>
+      </div>`;
+    }).join('');
+  }).getHosorenLog(15);
+}
+
+// ─────────────────────────────────────
+// 音声メモ（Web Speech API）
+// ─────────────────────────────────────
+let _recognition = null;
+let _isRecording = false;
+function openVoiceModal() {
+  document.getElementById('voice-modal').classList.add('open');
+  document.getElementById('voice-text').value = '';
+  document.getElementById('voice-interim').textContent = 'ここに認識結果が表示されます…';
+}
+function closeVoiceModal() {
+  stopVoice();
+  document.getElementById('voice-modal').classList.remove('open');
+}
+function startVoice() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    toast('このブラウザは音声入力に対応していません。Chrome/Safariをお使いください', true); return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  _recognition = new SR();
+  _recognition.lang = 'ja-JP';
+  _recognition.interimResults = true;
+  _recognition.continuous = true;
+  _recognition.onresult = e => {
+    let interim = '', final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    document.getElementById('voice-interim').textContent = interim || '話してください…';
+    if (final) {
+      document.getElementById('voice-text').value += (document.getElementById('voice-text').value ? '\n' : '') + final;
+    }
+  };
+  _recognition.onerror = e => { toast('音声認識エラー: ' + e.error, true); stopVoice(); };
+  _recognition.onend = () => { if (_isRecording) _recognition.start(); };
+  _recognition.start();
+  _isRecording = true;
+  document.getElementById('voice-fab').classList.add('recording');
+  document.getElementById('voice-wave').textContent = '🔴';
+  document.getElementById('voice-start-btn').textContent = '🔴 録音中…';
+}
+function stopVoice() {
+  _isRecording = false;
+  if (_recognition) { _recognition.stop(); _recognition = null; }
+  document.getElementById('voice-fab').classList.remove('recording');
+  document.getElementById('voice-wave').textContent = '🎤';
+  document.getElementById('voice-start-btn').textContent = '🎙️ 録音開始';
+}
+function submitVoice(saveAs) {
+  const text = document.getElementById('voice-text').value.trim();
+  if (!text) { toast('テキストを入力または録音してください', true); return; }
+  stopVoice();
+  google.script.run.withSuccessHandler(r => {
+    if (r.ok) { toast('✅ ' + r.message); closeVoiceModal(); }
+    else toast('❌ ' + r.error, true);
+  }).saveVoiceMemo(text, saveAs);
+}
+
+// ─────────────────────────────────────
+// モバイルサイドバー制御
+// ─────────────────────────────────────
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  sb.classList.toggle('open');
+  ov.classList.toggle('show');
+}
+function initMobile() {
+  const isMobile = window.innerWidth <= 640;
+  const hb = document.getElementById('hamburger-btn');
+  if (hb) hb.style.display = isMobile ? 'block' : 'none';
+  if (isMobile) showPage('commute');
+}
+window.addEventListener('resize', () => {
+  const isMobile = window.innerWidth <= 640;
+  const hb = document.getElementById('hamburger-btn');
+  if (hb) hb.style.display = isMobile ? 'block' : 'none';
+});
+
+// ─────────────────────────────────────
 // QUOTE CHECKER
 // ─────────────────────────────────────
 function runQuoteCheck() {
@@ -3104,6 +3559,7 @@ function renderNews(d) {
 // INIT
 // ─────────────────────────────────────
 loadMemos();
+initMobile();
 google.script.run.withSuccessHandler(url => {
   if (url) document.getElementById('db-link').href = url;
 }).getDbUrl();
