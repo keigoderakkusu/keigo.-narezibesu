@@ -888,6 +888,8 @@ textarea{resize:vertical;min-height:90px;line-height:1.7}
     <div class="nav-sep">──── モバイル秘書 ────</div>
     <div class="nav-item"        id="nav-commute"   onclick="showPage('commute')">  <span class="ni-icon">🚃</span><span>通勤モード</span></div>
     <div class="nav-item"        id="nav-hosoren"   onclick="showPage('hosoren')">  <span class="ni-icon">📨</span><span>報連相</span></div>
+    <div class="nav-sep">──── 管理 ────</div>
+    <div class="nav-item"        id="nav-admin"     onclick="showPage('admin')">    <span class="ni-icon">🔧</span><span>管理コンソール</span></div>
   </div>
   <div class="sidebar-footer"><a id="db-link" href="#" target="_blank">📊 データベース</a></div>
 </nav>
@@ -4305,5 +4307,328 @@ google.script.run.withSuccessHandler(url => {
   if (url) document.getElementById('db-link').href = url;
 }).getDbUrl();
 </script>
+
+<!-- ═══════════ ADMIN CONSOLE PAGE ═══════════ -->
+<div class="page" id="page-admin">
+<div class="page-header">
+  <div class="page-title">🔧 管理コンソール</div>
+  <div class="page-subtitle">データベース管理・設定・システム情報</div>
+</div>
+<div class="page-body">
+
+<!-- Admin Tabs -->
+<div class="tabs" style="margin-bottom:20px">
+  <button class="tab-btn active" onclick="adminShowTab('overview')" id="atab-overview">📊 概要</button>
+  <button class="tab-btn" onclick="adminShowTab('data')" id="atab-data">🗄️ データ管理</button>
+  <button class="tab-btn" onclick="adminShowTab('settings')" id="atab-settings">⚙️ 設定</button>
+  <button class="tab-btn" onclick="adminShowTab('deploy')" id="atab-deploy">🚀 デプロイ情報</button>
+</div>
+
+<!-- Overview Tab -->
+<div id="admin-tab-overview" class="admin-tab-panel">
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+    <button class="btn btn-primary" onclick="adminLoadOverview()">🔄 データ更新</button>
+    <button class="btn btn-ghost" onclick="adminExportAll()">📦 全データエクスポート</button>
+  </div>
+  <div id="admin-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:24px">
+    <div class="empty"><div class="spin"></div> 読み込み中...</div>
+  </div>
+  <div id="admin-prop-section"></div>
+</div>
+
+<!-- Data Management Tab -->
+<div id="admin-tab-data" class="admin-tab-panel" style="display:none">
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+    <select id="admin-sheet-select" class="form-select" style="min-width:180px" onchange="adminLoadSheet()">
+      <option value="">シートを選択...</option>
+    </select>
+    <button class="btn btn-primary" onclick="adminLoadSheet()">📂 読み込む</button>
+    <button class="btn btn-ghost" style="color:#b91c1c;border-color:#b91c1c" onclick="adminClearConfirm()">🗑️ シートを全消去</button>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+    <span style="font-size:12px;color:var(--muted)">ページ:</span>
+    <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="adminPagePrev()">◀ 前</button>
+    <span id="admin-page-info" style="font-size:12px;color:var(--muted)">-</span>
+    <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="adminPageNext()">次 ▶</button>
+  </div>
+  <div id="admin-data-table" style="overflow-x:auto"></div>
+</div>
+
+<!-- Settings Tab -->
+<div id="admin-tab-settings" class="admin-tab-panel" style="display:none">
+  <div style="display:flex;gap:12px;margin-bottom:20px">
+    <button class="btn btn-primary" onclick="adminLoadSettings()">🔄 設定を読み込む</button>
+    <button class="btn btn-secondary" onclick="adminAddPropRow()">➕ プロパティを追加</button>
+  </div>
+  <div id="admin-settings-table"></div>
+</div>
+
+<!-- Deploy Info Tab -->
+<div id="admin-tab-deploy" class="admin-tab-panel" style="display:none">
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title" style="font-size:13px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.8px">ウェブアプリ URL</div>
+    <div style="font-family:monospace;font-size:13px;word-break:break-all;background:var(--bg);padding:12px;border-radius:var(--r);border:1px solid var(--border)" id="admin-webapp-url">読み込み中...</div>
+    <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" onclick="navigator.clipboard.writeText(document.getElementById('admin-webapp-url').textContent).then(()=>showToast('URLをコピーしました'))">📋 コピー</button>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title" style="font-size:13px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.8px">スプレッドシート</div>
+    <div id="admin-sheet-url" style="font-size:13px"></div>
+  </div>
+  <div class="card">
+    <div class="card-title" style="font-size:13px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.8px">システム情報</div>
+    <table class="tbl" style="font-size:13px">
+      <tbody>
+        <tr><td style="color:var(--muted);width:160px">バージョン</td><td>Sales Intelligence Pro v1.0</td></tr>
+        <tr><td style="color:var(--muted)">ランタイム</td><td>Google Apps Script V8</td></tr>
+        <tr><td style="color:var(--muted)">AI モデル</td><td>Gemini 2.5 Flash</td></tr>
+        <tr><td style="color:var(--muted)">タイムゾーン</td><td>Asia/Tokyo</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- /page-body -->
+</div><!-- /page-admin -->
+
+<style>
+.admin-tab-panel { animation: fadeIn .2s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+.admin-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-xs);
+}
+.admin-stat-num { font-size: 28px; font-weight: 700; color: var(--navy); font-family: 'Playfair Display', serif; }
+.admin-stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-top: 2px; }
+.admin-stat-sheet { font-size: 12px; color: var(--gold-dark); margin-top: 4px; font-weight: 500; }
+.admin-prop-row { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-soft); }
+.admin-prop-key { font-family: monospace; font-size: 12px; font-weight: 600; color: var(--navy); min-width: 200px; }
+.admin-prop-val { flex: 1; font-family: monospace; font-size: 12px; color: var(--text-mid); background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); padding: 5px 8px; }
+.admin-del-btn { padding: 4px 8px; font-size: 11px; color: #b91c1c; background: none; border: 1px solid #fca5a5; border-radius: var(--r); cursor: pointer; }
+.admin-del-btn:hover { background: #fef2f2; }
+.admin-save-btn { padding: 4px 10px; font-size: 11px; background: var(--navy); color: #f0ece6; border: none; border-radius: var(--r); cursor: pointer; }
+.tbl td, .tbl th { padding: 8px 12px; text-align: left; }
+.tbl th { background: var(--navy); color: var(--gold-light); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; }
+.tbl tr:nth-child(even) td { background: var(--bg); }
+.tbl tr:hover td { background: var(--gold-pale); }
+.tbl td { border-bottom: 1px solid var(--border-soft); font-size: 12px; color: var(--text-mid); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+
+<script>
+// ── Admin Console Logic ──
+let _adminCurrentSheet = '';
+let _adminCurrentPage = 1;
+let _adminPageSize = 50;
+let _adminTotalRows = 0;
+let _adminOverviewData = null;
+
+function adminShowTab(tab) {
+  ['overview','data','settings','deploy'].forEach(t => {
+    document.getElementById('admin-tab-' + t).style.display = t === tab ? '' : 'none';
+    document.getElementById('atab-' + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'overview' && !_adminOverviewData) adminLoadOverview();
+  if (tab === 'settings') adminLoadSettings();
+  if (tab === 'deploy') adminLoadDeployInfo();
+}
+
+function adminLoadOverview() {
+  document.getElementById('admin-stats-grid').innerHTML = '<div class="loading"><span class="spin"></span> 読み込み中...</div>';
+  google.script.run
+    .withSuccessHandler(d => {
+      _adminOverviewData = d;
+      // Render stat cards
+      const grid = document.getElementById('admin-stats-grid');
+      grid.innerHTML = d.sheets.map(s =>
+        `<div class="admin-stat-card">
+          <div class="admin-stat-num">${s.rowCount.toLocaleString()}</div>
+          <div class="admin-stat-label">レコード数</div>
+          <div class="admin-stat-sheet">${s.name}</div>
+        </div>`
+      ).join('');
+      // Total
+      const total = d.sheets.reduce((a, s) => a + s.rowCount, 0);
+      grid.innerHTML = `<div class="admin-stat-card" style="border-color:var(--gold);background:var(--gold-pale)">
+        <div class="admin-stat-num">${total.toLocaleString()}</div>
+        <div class="admin-stat-label">合計レコード数</div>
+        <div class="admin-stat-sheet">${d.sheets.length} シート</div>
+      </div>` + grid.innerHTML;
+      // Properties section
+      const propSec = document.getElementById('admin-prop-section');
+      propSec.innerHTML = `<div class="card"><div class="card-title" style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--navy)">⚙️ スクリプトプロパティ（マスク表示）</div>
+        ${d.properties.map(p => `<div class="admin-prop-row">
+          <div class="admin-prop-key">${p.key}</div>
+          <div style="font-size:12px;color:var(--muted);flex:1">${p.masked} <span style="color:var(--muted-light)">(${p.length}文字)</span></div>
+        </div>`).join('')}
+        <div style="margin-top:10px;font-size:12px;color:var(--muted)">⚠️ 実際の値は「設定」タブで確認・変更できます</div>
+      </div>`;
+      // Populate sheet select
+      const sel = document.getElementById('admin-sheet-select');
+      sel.innerHTML = '<option value="">シートを選択...</option>' +
+        d.sheets.map(s => `<option value="${s.name}">${s.name} (${s.rowCount}件)</option>`).join('');
+    })
+    .withFailureHandler(e => {
+      document.getElementById('admin-stats-grid').innerHTML = `<div class="empty">エラー: ${e.message}</div>`;
+    })
+    .adminGetOverview();
+}
+
+function adminLoadSheet() {
+  const sh = document.getElementById('admin-sheet-select').value;
+  if (!sh) return;
+  _adminCurrentSheet = sh;
+  _adminCurrentPage = 1;
+  adminFetchPage();
+}
+
+function adminFetchPage() {
+  document.getElementById('admin-data-table').innerHTML = '<div class="loading"><span class="spin"></span> 読み込み中...</div>';
+  google.script.run
+    .withSuccessHandler(d => {
+      _adminTotalRows = d.total || 0;
+      document.getElementById('admin-page-info').textContent =
+        `${_adminCurrentPage}ページ / 全${_adminTotalRows}件`;
+      if (!d.rows || d.rows.length === 0) {
+        document.getElementById('admin-data-table').innerHTML = '<div class="empty">データがありません</div>';
+        return;
+      }
+      let html = '<table class="tbl" style="width:100%;min-width:600px"><thead><tr>';
+      html += '<th style="width:40px">#</th>';
+      (d.headers || []).forEach(h => { html += `<th>${h}</th>`; });
+      html += '<th style="width:60px">操作</th></tr></thead><tbody>';
+      const offset = (_adminCurrentPage - 1) * _adminPageSize;
+      d.rows.forEach((row, i) => {
+        html += `<tr>`;
+        html += `<td style="color:var(--muted)">${offset + i + 1}</td>`;
+        row.forEach(cell => {
+          const v = cell instanceof Date ? cell.toLocaleString('ja') : String(cell ?? '');
+          html += `<td title="${v.replace(/"/g,'&quot;')}">${v.slice(0, 80)}${v.length > 80 ? '…' : ''}</td>`;
+        });
+        html += `<td><button class="admin-del-btn" onclick="adminDeleteRow(${offset + i})">🗑️</button></td>`;
+        html += `</tr>`;
+      });
+      html += '</tbody></table>';
+      document.getElementById('admin-data-table').innerHTML = html;
+    })
+    .withFailureHandler(e => {
+      document.getElementById('admin-data-table').innerHTML = `<div class="empty">エラー: ${e.message}</div>`;
+    })
+    .adminGetSheetData(_adminCurrentSheet, _adminCurrentPage, _adminPageSize);
+}
+
+function adminPagePrev() {
+  if (_adminCurrentPage <= 1) return;
+  _adminCurrentPage--;
+  adminFetchPage();
+}
+function adminPageNext() {
+  if (_adminCurrentPage * _adminPageSize >= _adminTotalRows) return;
+  _adminCurrentPage++;
+  adminFetchPage();
+}
+
+function adminDeleteRow(rowIndex) {
+  if (!confirm(`行 ${rowIndex + 1} を削除しますか？`)) return;
+  google.script.run
+    .withSuccessHandler(() => { showToast('削除しました'); adminFetchPage(); })
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .adminDeleteRow(_adminCurrentSheet, rowIndex);
+}
+
+function adminClearConfirm() {
+  if (!_adminCurrentSheet) { showToast('シートを選択してください'); return; }
+  if (!confirm(`「${_adminCurrentSheet}」の全データを削除しますか？\nこの操作は取り消せません。`)) return;
+  google.script.run
+    .withSuccessHandler(r => { showToast(`${r.cleared}件削除しました`); adminFetchPage(); adminLoadOverview(); })
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .adminClearSheet(_adminCurrentSheet);
+}
+
+function adminLoadSettings() {
+  const tbl = document.getElementById('admin-settings-table');
+  tbl.innerHTML = '<div class="loading"><span class="spin"></span> 読み込み中...</div>';
+  google.script.run
+    .withSuccessHandler(props => {
+      let html = '<div class="card"><div class="card-title" style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--navy)">スクリプトプロパティ</div>';
+      Object.entries(props).forEach(([k, v]) => {
+        html += `<div class="admin-prop-row">
+          <div class="admin-prop-key">${k}</div>
+          <input class="admin-prop-val" id="prop-val-${k}" value="${v.replace(/"/g,'&quot;')}" />
+          <button class="admin-save-btn" onclick="adminSaveProp('${k}')">保存</button>
+          <button class="admin-del-btn" onclick="adminDelProp('${k}')">✕</button>
+        </div>`;
+      });
+      html += '</div>';
+      tbl.innerHTML = html;
+    })
+    .withFailureHandler(e => { tbl.innerHTML = `<div class="empty">エラー: ${e.message}</div>`; })
+    .adminGetProperties();
+}
+
+function adminAddPropRow() {
+  const key = prompt('プロパティ名を入力:');
+  if (!key) return;
+  const val = prompt(`${key} の値を入力:`);
+  if (val === null) return;
+  google.script.run
+    .withSuccessHandler(() => { showToast('追加しました'); adminLoadSettings(); })
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .adminSetProperty(key, val);
+}
+
+function adminSaveProp(key) {
+  const val = document.getElementById('prop-val-' + key).value;
+  google.script.run
+    .withSuccessHandler(() => showToast(`${key} を保存しました`))
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .adminSetProperty(key, val);
+}
+
+function adminDelProp(key) {
+  if (!confirm(`「${key}」を削除しますか？`)) return;
+  google.script.run
+    .withSuccessHandler(() => { showToast('削除しました'); adminLoadSettings(); })
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .adminDeleteProperty(key);
+}
+
+function adminLoadDeployInfo() {
+  const url = window.location.href.split('?')[0];
+  document.getElementById('admin-webapp-url').textContent = url;
+  if (_adminOverviewData) {
+    document.getElementById('admin-sheet-url').innerHTML =
+      `<a href="${_adminOverviewData.spreadsheetUrl}" target="_blank" style="color:var(--gold-dark)">📊 ${_adminOverviewData.spreadsheetId}</a>`;
+  } else {
+    google.script.run
+      .withSuccessHandler(d => {
+        document.getElementById('admin-sheet-url').innerHTML =
+          `<a href="${d.spreadsheetUrl}" target="_blank" style="color:var(--gold-dark)">📊 スプレッドシートを開く</a>`;
+      })
+      .adminGetOverview();
+  }
+}
+
+function adminExportAll() {
+  showToast('エクスポート中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      const now = new Date().toISOString().slice(0,10);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `sales-intelligence-backup-${now}.json`;
+      a.click();
+      showToast('エクスポート完了');
+    })
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .adminExportAll();
+}
+
+// Load overview when admin page is first shown
+document.addEventListener('DOMContentLoaded', () => {});
+</script>
+
 </body>
 </html>

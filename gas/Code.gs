@@ -2050,3 +2050,102 @@ function exportCsvString(dataType) {
     }).join(',');
   }).join('\r\n');
 }
+
+// ─────────────────────────────────────────────
+// 管理コンソール API
+// ─────────────────────────────────────────────
+
+function adminGetOverview() {
+  var ss = _ss();
+  var sheets = ss.getSheets();
+  var result = { spreadsheetId: ss.getId(), spreadsheetUrl: ss.getUrl(), sheets: [] };
+  sheets.forEach(function(sh) {
+    var lr = sh.getLastRow();
+    var lc = sh.getLastColumn();
+    result.sheets.push({
+      name: sh.getName(),
+      rowCount: Math.max(0, lr - 1),
+      colCount: lc,
+      lastUpdated: lr > 1 ? String(sh.getRange(lr, 1).getValue()).slice(0, 30) : '-'
+    });
+  });
+  // Script properties (masked values)
+  var props = PropertiesService.getScriptProperties().getProperties();
+  result.properties = Object.keys(props).map(function(k) {
+    var v = props[k];
+    var masked = v.length > 8 ? v.slice(0, 4) + '****' + v.slice(-4) : '****';
+    return { key: k, masked: masked, length: v.length };
+  });
+  // Deployment info
+  result.deployedAt = new Date().toISOString();
+  return result;
+}
+
+function adminGetSheetData(sheetName, page, pageSize) {
+  page = page || 1;
+  pageSize = pageSize || 50;
+  var ss = _ss();
+  var sh = ss.getSheetByName(sheetName);
+  if (!sh) return { error: 'シートが見つかりません: ' + sheetName };
+  var lr = sh.getLastRow();
+  var lc = sh.getLastColumn();
+  if (lr < 1) return { headers: [], rows: [], total: 0 };
+  var headers = lc > 0 ? sh.getRange(1, 1, 1, lc).getValues()[0] : [];
+  var total = Math.max(0, lr - 1);
+  if (total === 0) return { headers: headers, rows: [], total: 0 };
+  var startRow = 2 + (page - 1) * pageSize;
+  var numRows = Math.min(pageSize, lr - startRow + 1);
+  if (numRows <= 0) return { headers: headers, rows: [], total: total };
+  var data = sh.getRange(startRow, 1, numRows, lc).getValues();
+  return { headers: headers, rows: data, total: total, page: page, pageSize: pageSize };
+}
+
+function adminDeleteRow(sheetName, rowIndex) {
+  // rowIndex = 0-based data row (excluding header)
+  var ss = _ss();
+  var sh = ss.getSheetByName(sheetName);
+  if (!sh) return { error: 'シートが見つかりません' };
+  var sheetRow = rowIndex + 2; // +1 header, +1 for 1-based
+  if (sheetRow < 2 || sheetRow > sh.getLastRow()) return { error: '行番号が不正です' };
+  sh.deleteRow(sheetRow);
+  return { success: true };
+}
+
+function adminClearSheet(sheetName) {
+  var ss = _ss();
+  var sh = ss.getSheetByName(sheetName);
+  if (!sh) return { error: 'シートが見つかりません' };
+  var lr = sh.getLastRow();
+  if (lr > 1) sh.deleteRows(2, lr - 1);
+  return { success: true, cleared: lr - 1 };
+}
+
+function adminGetProperties() {
+  var props = PropertiesService.getScriptProperties().getProperties();
+  // Return full values (only accessible by script owner)
+  return props;
+}
+
+function adminSetProperty(key, value) {
+  if (!key || typeof key !== 'string') return { error: 'キー名が無効です' };
+  PropertiesService.getScriptProperties().setProperty(key, value);
+  return { success: true, key: key };
+}
+
+function adminDeleteProperty(key) {
+  PropertiesService.getScriptProperties().deleteProperty(key);
+  return { success: true };
+}
+
+function adminExportAllData() {
+  var ss = _ss();
+  var sheets = ss.getSheets();
+  var result = {};
+  sheets.forEach(function(sh) {
+    var lr = sh.getLastRow(), lc = sh.getLastColumn();
+    if (lr < 1 || lc < 1) { result[sh.getName()] = []; return; }
+    result[sh.getName()] = sh.getRange(1, 1, lr, lc).getValues();
+  });
+  return result;
+}
+}
