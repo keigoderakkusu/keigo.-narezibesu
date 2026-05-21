@@ -4320,6 +4320,9 @@ google.script.run.withSuccessHandler(url => {
 <div class="tabs" style="margin-bottom:20px">
   <button class="tab-btn active" onclick="adminShowTab('overview')" id="atab-overview">📊 概要</button>
   <button class="tab-btn" onclick="adminShowTab('data')" id="atab-data">🗄️ データ管理</button>
+  <button class="tab-btn" onclick="adminShowTab('appsettings')" id="atab-appsettings">🛠️ 詳細設定</button>
+  <button class="tab-btn" onclick="adminShowTab('spreadsheet')" id="atab-spreadsheet">📊 スプレッド連携</button>
+  <button class="tab-btn" onclick="adminShowTab('menuconfig')" id="atab-menuconfig">📋 メニュー設定</button>
   <button class="tab-btn" onclick="adminShowTab('settings')" id="atab-settings">⚙️ 設定</button>
   <button class="tab-btn" onclick="adminShowTab('deploy')" id="atab-deploy">🚀 デプロイ情報</button>
 </div>
@@ -4387,6 +4390,51 @@ google.script.run.withSuccessHandler(url => {
   </div>
 </div>
 
+<!-- ── 詳細設定タブ ── -->
+<div id="admin-tab-appsettings" class="admin-tab-panel" style="display:none">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="adminLoadAppSettings()">🔄 読み込む</button>
+    <button class="btn btn-secondary" onclick="adminSaveAppSettings()">💾 保存する</button>
+  </div>
+  <div id="admin-appsettings-body">
+    <div class="loading"><span class="spin"></span> 読み込み中...</div>
+  </div>
+</div>
+
+<!-- ── スプレッド連携タブ ── -->
+<div id="admin-tab-spreadsheet" class="admin-tab-panel" style="display:none">
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title" style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--navy)">📊 現在のスプレッドシート</div>
+    <div id="admin-ss-current" style="font-size:13px;color:var(--text-mid)">読み込み中...</div>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title" style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--navy)">🔗 既存のスプレッドシートを連携</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input class="form-input" id="admin-ss-link-input" placeholder="スプレッドシートID or URL" style="flex:1;min-width:200px">
+      <button class="btn btn-primary" onclick="adminLinkSpreadsheet()">連携する</button>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">Google スプレッドシートのURLまたはIDを入力してください</div>
+  </div>
+  <div class="card">
+    <div class="card-title" style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--navy)">✨ 新しいスプレッドシートを作成</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input class="form-input" id="admin-ss-new-name" placeholder="スプレッドシート名（省略可）" style="flex:1;min-width:200px">
+      <button class="btn btn-secondary" onclick="adminCreateSpreadsheet()">作成する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── メニュー設定タブ ── -->
+<div id="admin-tab-menuconfig" class="admin-tab-panel" style="display:none">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+    <span style="font-size:13px;color:var(--muted)">表示するメニュー項目を選択してください</span>
+    <button class="btn btn-ghost" style="margin-left:auto;font-size:12px" onclick="adminMenuSelectAll(true)">すべて表示</button>
+    <button class="btn btn-ghost" style="font-size:12px" onclick="adminMenuSelectAll(false)">すべて非表示</button>
+    <button class="btn btn-primary" onclick="adminSaveMenuConfig()">💾 保存して適用</button>
+  </div>
+  <div id="admin-menu-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px"></div>
+</div>
+
 </div><!-- /page-body -->
 </div><!-- /page-admin -->
 
@@ -4425,11 +4473,14 @@ let _adminTotalRows = 0;
 let _adminOverviewData = null;
 
 function adminShowTab(tab) {
-  ['overview','data','settings','deploy'].forEach(t => {
+  ['overview','data','appsettings','spreadsheet','menuconfig','settings','deploy'].forEach(t => {
     document.getElementById('admin-tab-' + t).style.display = t === tab ? '' : 'none';
     document.getElementById('atab-' + t).classList.toggle('active', t === tab);
   });
   if (tab === 'overview' && !_adminOverviewData) adminLoadOverview();
+  if (tab === 'appsettings') adminLoadAppSettings();
+  if (tab === 'spreadsheet') adminLoadSpreadsheetInfo();
+  if (tab === 'menuconfig') adminLoadMenuConfig();
   if (tab === 'settings') adminLoadSettings();
   if (tab === 'deploy') adminLoadDeployInfo();
 }
@@ -4626,8 +4677,205 @@ function adminExportAll() {
     .adminExportAll();
 }
 
-// Load overview when admin page is first shown
-document.addEventListener('DOMContentLoaded', () => {});
+// ── 詳細設定 ──────────────────────────────────────
+const APP_SETTINGS_DEF = [
+  { key:'MY_NAME',       label:'自分の名前',            placeholder:'山田 太郎',         type:'text' },
+  { key:'MY_DEPARTMENT', label:'部署名',                placeholder:'営業部 第一課',      type:'text' },
+  { key:'BOSS_NAME',     label:'上司の名前',            placeholder:'鈴木 部長',         type:'text' },
+  { key:'BOSS_EMAIL',    label:'上司のメールアドレス',   placeholder:'boss@example.com',  type:'email' },
+  { key:'NOTIFY_EMAIL',  label:'通知メールアドレス',     placeholder:'me@example.com',    type:'email' },
+  { key:'APP_NAME',      label:'アプリ名',              placeholder:'Sales Intelligence Pro', type:'text' },
+  { key:'CALENDAR_ID',   label:'カレンダーID',          placeholder:'primary',           type:'text' },
+  { key:'GEMINI_MODEL',  label:'Gemini モデル',         placeholder:'gemini-2.5-flash-preview-04-17', type:'text' },
+  { key:'HOSOREN_AUTO',  label:'報連相の自動実行',       type:'select', options:['off','daily','weekly'] },
+  { key:'HOSOREN_TIME',  label:'自動送信時刻',           placeholder:'18:00',             type:'time' },
+];
+
+let _appSettings = {};
+
+function adminLoadAppSettings() {
+  const body = document.getElementById('admin-appsettings-body');
+  body.innerHTML = '<div class="loading"><span class="spin"></span> 読み込み中...</div>';
+  google.script.run
+    .withSuccessHandler(s => {
+      _appSettings = s;
+      let html = '<div class="card">';
+      APP_SETTINGS_DEF.forEach(def => {
+        const v = (s[def.key] || '').replace(/"/g,'&quot;');
+        html += `<div style="margin-bottom:14px">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--navy);margin-bottom:4px">${def.label}</label>`;
+        if (def.type === 'select') {
+          html += `<select class="form-select" id="aps-${def.key}" style="max-width:220px">
+            ${def.options.map(o => `<option value="${o}"${v===o?' selected':''}>${o}</option>`).join('')}
+          </select>`;
+        } else {
+          html += `<input class="form-input" type="${def.type}" id="aps-${def.key}" value="${v}" placeholder="${def.placeholder||''}" style="max-width:400px">`;
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+      body.innerHTML = html;
+    })
+    .withFailureHandler(e => { body.innerHTML = `<div class="empty">エラー: ${e.message}</div>`; })
+    .getAppSettings();
+}
+
+function adminSaveAppSettings() {
+  const settings = {};
+  APP_SETTINGS_DEF.forEach(def => {
+    const el = document.getElementById('aps-' + def.key);
+    if (el) settings[def.key] = el.value;
+  });
+  google.script.run
+    .withSuccessHandler(() => showToast('設定を保存しました'))
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .saveAppSettings(settings);
+}
+
+// ── スプレッド連携 ─────────────────────────────────
+function adminLoadSpreadsheetInfo() {
+  document.getElementById('admin-ss-current').innerHTML = '<span class="spin"></span> 読み込み中...';
+  google.script.run
+    .withSuccessHandler(info => {
+      const el = document.getElementById('admin-ss-current');
+      if (info.url) {
+        el.innerHTML = `<div style="margin-bottom:6px"><strong>${info.name}</strong></div>
+          <div style="font-family:monospace;font-size:12px;color:var(--muted);margin-bottom:8px">${info.id}</div>
+          <a href="${info.url}" target="_blank" class="btn btn-ghost" style="font-size:12px">📊 スプレッドシートを開く</a>`;
+      } else {
+        el.innerHTML = '<span style="color:var(--muted)">（未連携）</span>';
+      }
+    })
+    .withFailureHandler(e => { document.getElementById('admin-ss-current').textContent = 'エラー: ' + e.message; })
+    .getCurrentSpreadsheetInfo();
+}
+
+function adminLinkSpreadsheet() {
+  const val = document.getElementById('admin-ss-link-input').value.trim();
+  if (!val) { showToast('IDまたはURLを入力してください'); return; }
+  showToast('連携中...');
+  google.script.run
+    .withSuccessHandler(r => {
+      if (r.error) { showToast('エラー: ' + r.error); return; }
+      showToast(`✅ 連携完了: ${r.name}`);
+      document.getElementById('admin-ss-link-input').value = '';
+      adminLoadSpreadsheetInfo();
+    })
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .linkSpreadsheet(val);
+}
+
+function adminCreateSpreadsheet() {
+  const name = document.getElementById('admin-ss-new-name').value.trim();
+  showToast('作成中...');
+  google.script.run
+    .withSuccessHandler(r => {
+      if (r.error) { showToast('エラー: ' + r.error); return; }
+      showToast(`✅ 作成完了: ${r.name}`);
+      document.getElementById('admin-ss-new-name').value = '';
+      adminLoadSpreadsheetInfo();
+    })
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .createNewSpreadsheet(name);
+}
+
+// ── メニュー設定 ───────────────────────────────────
+const MENU_ITEMS_DEF = [
+  { id:'memo',      label:'📝 メモ',          group:'基本' },
+  { id:'task',      label:'📋 タスク',         group:'基本' },
+  { id:'ocr',       label:'📷 OCR',           group:'基本' },
+  { id:'email',     label:'✉️ メール',          group:'基本' },
+  { id:'checklist', label:'☑️ チェック',        group:'基本' },
+  { id:'log',       label:'📓 業務日誌',        group:'基本' },
+  { id:'hr',        label:'🏆 評価サポート',    group:'基本' },
+  { id:'chat',      label:'🤖 AI相談',         group:'基本' },
+  { id:'customer',  label:'👥 顧客カルテ',      group:'営業' },
+  { id:'meeting',   label:'📅 商談メモ',        group:'営業' },
+  { id:'numbers',   label:'📈 数値目標',        group:'営業' },
+  { id:'news',      label:'📰 ニュース',        group:'営業' },
+  { id:'quote',     label:'📋 見積書チェック',  group:'営業' },
+  { id:'selfana',   label:'🔍 自己分析',        group:'営業' },
+  { id:'minutia',   label:'📝 会議録AI整理',    group:'営業' },
+  { id:'quoteled',  label:'📊 見積台帳',        group:'営業' },
+  { id:'emailmon',  label:'📬 メール管理',      group:'営業' },
+  { id:'calendar',  label:'📅 カレンダー',      group:'営業' },
+  { id:'pipeline',  label:'📊 商談パイプライン', group:'営業' },
+  { id:'reports',   label:'📑 レポート',        group:'営業' },
+  { id:'commute',   label:'🚃 通勤モード',      group:'モバイル' },
+  { id:'hosoren',   label:'📨 報連相',          group:'モバイル' },
+];
+
+let _menuConfig = {};
+
+function adminLoadMenuConfig() {
+  const grid = document.getElementById('admin-menu-grid');
+  google.script.run
+    .withSuccessHandler(cfg => {
+      _menuConfig = cfg || {};
+      renderMenuConfigGrid();
+    })
+    .withFailureHandler(() => {
+      _menuConfig = {};
+      renderMenuConfigGrid();
+    })
+    .getMenuConfig();
+}
+
+function renderMenuConfigGrid() {
+  const grid = document.getElementById('admin-menu-grid');
+  const groups = [...new Set(MENU_ITEMS_DEF.map(m => m.group))];
+  let html = '';
+  groups.forEach(g => {
+    html += `<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:8px 0 4px;border-bottom:1px solid var(--border-soft);margin-top:8px">${g}</div>`;
+    MENU_ITEMS_DEF.filter(m => m.group === g).forEach(m => {
+      const checked = _menuConfig[m.id] !== false; // default ON
+      html += `<label style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;cursor:pointer;user-select:none">
+        <input type="checkbox" id="mcfg-${m.id}" ${checked?'checked':''} style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer">
+        <span style="font-size:13px;color:var(--text)">${m.label}</span>
+      </label>`;
+    });
+  });
+  grid.innerHTML = html;
+}
+
+function adminMenuSelectAll(state) {
+  MENU_ITEMS_DEF.forEach(m => {
+    const el = document.getElementById('mcfg-' + m.id);
+    if (el) el.checked = state;
+  });
+}
+
+function adminSaveMenuConfig() {
+  const config = {};
+  MENU_ITEMS_DEF.forEach(m => {
+    const el = document.getElementById('mcfg-' + m.id);
+    if (el) config[m.id] = el.checked;
+  });
+  google.script.run
+    .withSuccessHandler(() => {
+      showToast('メニュー設定を保存しました');
+      applyMenuConfig(config);
+    })
+    .withFailureHandler(e => showToast('エラー: ' + e.message))
+    .saveMenuConfig(config);
+}
+
+// ── メニュー設定をアプリに適用 ─────────────────────
+function applyMenuConfig(config) {
+  if (!config) return;
+  MENU_ITEMS_DEF.forEach(m => {
+    const navEl = document.getElementById('nav-' + m.id);
+    if (navEl) navEl.style.display = config[m.id] === false ? 'none' : '';
+  });
+}
+
+// ── 起動時にメニュー設定を読み込んで適用 ──────────────
+document.addEventListener('DOMContentLoaded', () => {
+  google.script.run
+    .withSuccessHandler(cfg => { if (cfg) applyMenuConfig(cfg); })
+    .withFailureHandler(() => {})
+    .getMenuConfig();
+});
 </script>
 
 </body>

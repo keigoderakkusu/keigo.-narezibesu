@@ -2148,3 +2148,74 @@ function adminExportAllData() {
   });
   return result;
 }
+
+// ── App Settings ──────────────────────────────────
+function getAppSettings() {
+  var props = PropertiesService.getScriptProperties();
+  return {
+    MY_NAME:        props.getProperty('MY_NAME')        || '',
+    MY_DEPARTMENT:  props.getProperty('MY_DEPARTMENT')  || '',
+    BOSS_NAME:      props.getProperty('BOSS_NAME')      || '',
+    BOSS_EMAIL:     props.getProperty('BOSS_EMAIL')     || '',
+    APP_NAME:       props.getProperty('APP_NAME')       || 'Sales Intelligence Pro',
+    HOSOREN_AUTO:   props.getProperty('HOSOREN_AUTO')   || 'off',
+    HOSOREN_TIME:   props.getProperty('HOSOREN_TIME')   || '18:00',
+    NOTIFY_EMAIL:   props.getProperty('NOTIFY_EMAIL')   || '',
+    GEMINI_MODEL:   props.getProperty('GEMINI_MODEL')   || 'gemini-2.5-flash-preview-04-17',
+    CALENDAR_ID:    props.getProperty('CALENDAR_ID')    || ''
+  };
+}
+
+function saveAppSettings(settings) {
+  var props = PropertiesService.getScriptProperties();
+  var allowed = ['MY_NAME','MY_DEPARTMENT','BOSS_NAME','BOSS_EMAIL','APP_NAME',
+                 'HOSOREN_AUTO','HOSOREN_TIME','NOTIFY_EMAIL','GEMINI_MODEL','CALENDAR_ID'];
+  allowed.forEach(function(k) {
+    if (settings[k] !== undefined) props.setProperty(k, String(settings[k]));
+  });
+  return { success: true };
+}
+
+// ── Menu Config ───────────────────────────────────
+function getMenuConfig() {
+  var raw = PropertiesService.getScriptProperties().getProperty('MENU_CONFIG');
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch(e) { return null; }
+}
+
+function saveMenuConfig(config) {
+  PropertiesService.getScriptProperties().setProperty('MENU_CONFIG', JSON.stringify(config));
+  return { success: true };
+}
+
+// ── Spreadsheet Linkage ───────────────────────────
+function linkSpreadsheet(idOrUrl) {
+  var id = (idOrUrl || '').trim();
+  var m = id.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) id = m[1];
+  if (!id) return { error: 'IDまたはURLが無効です' };
+  try {
+    var ss = SpreadsheetApp.openById(id);
+    PropertiesService.getScriptProperties().setProperty('SHEET_ID', id);
+    return { success: true, id: id, name: ss.getName(), url: ss.getUrl() };
+  } catch(e) {
+    return { error: 'スプレッドシートが見つかりません: ' + e.message };
+  }
+}
+
+function createNewSpreadsheet(name) {
+  var ssName = (name || '').trim() || '営業ナレッジDB';
+  var ss = SpreadsheetApp.create(ssName);
+  var id = ss.getId();
+  PropertiesService.getScriptProperties().setProperty('SHEET_ID', id);
+  return { success: true, id: id, name: ss.getName(), url: ss.getUrl() };
+}
+
+function getCurrentSpreadsheetInfo() {
+  try {
+    var ss = _ss();
+    return { id: ss.getId(), name: ss.getName(), url: ss.getUrl() };
+  } catch(e) {
+    return { id: '', name: '（未設定）', url: '' };
+  }
+}
