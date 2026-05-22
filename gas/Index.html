@@ -4314,17 +4314,17 @@ google.script.run.withSuccessHandler(url => {
   <div class="page-title">🔧 管理コンソール</div>
   <div class="page-subtitle">データベース管理・設定・システム情報</div>
 </div>
-<div class="page-body">
+<div class="page-body" style="padding:20px 20px 48px">
 
 <!-- Admin Tabs -->
-<div class="tabs" style="margin-bottom:20px">
-  <button class="tab-btn active" onclick="adminShowTab('overview')" id="atab-overview">📊 概要</button>
-  <button class="tab-btn" onclick="adminShowTab('data')" id="atab-data">🗄️ データ管理</button>
-  <button class="tab-btn" onclick="adminShowTab('appsettings')" id="atab-appsettings">🛠️ 詳細設定</button>
-  <button class="tab-btn" onclick="adminShowTab('spreadsheet')" id="atab-spreadsheet">📊 スプレッド連携</button>
-  <button class="tab-btn" onclick="adminShowTab('menuconfig')" id="atab-menuconfig">📋 メニュー設定</button>
-  <button class="tab-btn" onclick="adminShowTab('settings')" id="atab-settings">⚙️ 設定</button>
-  <button class="tab-btn" onclick="adminShowTab('deploy')" id="atab-deploy">🚀 デプロイ情報</button>
+<div style="display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto;-webkit-overflow-scrolling:touch">
+  <button class="tab-btn active" onclick="adminShowTab('overview')" id="atab-overview" style="white-space:nowrap">📊 概要</button>
+  <button class="tab-btn" onclick="adminShowTab('data')" id="atab-data" style="white-space:nowrap">🗄️ データ管理</button>
+  <button class="tab-btn" onclick="adminShowTab('appsettings')" id="atab-appsettings" style="white-space:nowrap">🛠️ 詳細設定</button>
+  <button class="tab-btn" onclick="adminShowTab('spreadsheet')" id="atab-spreadsheet" style="white-space:nowrap">📊 スプレッド連携</button>
+  <button class="tab-btn" onclick="adminShowTab('menuconfig')" id="atab-menuconfig" style="white-space:nowrap">📋 メニュー設定</button>
+  <button class="tab-btn" onclick="adminShowTab('settings')" id="atab-settings" style="white-space:nowrap">⚙️ 設定</button>
+  <button class="tab-btn" onclick="adminShowTab('deploy')" id="atab-deploy" style="white-space:nowrap">🚀 デプロイ情報</button>
 </div>
 
 <!-- Overview Tab -->
